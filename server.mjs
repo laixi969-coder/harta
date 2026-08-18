@@ -343,11 +343,19 @@ async function handleApi(req, res, url) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
-    if (!rateLimit(req, "all", 120, 60 * 1000)) {
-      return json(res, 429, { error: "请求太频繁" });
-    }
     if (url.pathname.startsWith("/api/")) {
+      if (!rateLimit(req, "api", 240, 60 * 1000)) {
+        return json(res, 429, { error: "请求太频繁，请等一会儿再试" });
+      }
       await handleApi(req, res, url);
+      return;
+    }
+    if (!rateLimit(req, "static", 600, 60 * 1000)) {
+      res.writeHead(429, {
+        "content-type": "text/plain; charset=utf-8",
+        ...securityHeaders(),
+      });
+      res.end("请求太频繁，请等一会儿再试");
       return;
     }
     if (url.pathname === "/index.html" || url.pathname === "/") {

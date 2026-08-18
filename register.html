@@ -4,10 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>注册 · 猎鹰增长</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/app.css?v=20260818">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -17,6 +14,7 @@
   </script>
 </head>
 <body>
+  <a class="skip" href="#form">跳到注册</a>
   <div class="gate">
     <aside class="gate-panel">
       <div>
@@ -47,7 +45,7 @@
           <input id="password2" name="password2" type="password" autocomplete="new-password">
           <button type="button" class="eye" data-eye="password2" aria-label="显示密码">显示</button>
         </div>
-        <p id="err" class="meta" style="color:var(--down);min-height:1.4em;margin-top:16px"></p>
+        <p id="err" class="meta" role="alert" style="color:var(--down);min-height:1.4em;margin-top:16px"></p>
         <div class="acts"><button class="btn" type="submit">完成注册</button></div>
       </form>
     </main>

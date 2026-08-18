@@ -4,10 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>猎鹰增长 · 获客工作台</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/app.css?v=20260818">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -17,27 +14,30 @@
   </script>
 </head>
 <body>
+  <a class="skip" href="#work">跳到正文</a>
   <div class="shell">
     <aside class="rail">
       <div class="brand">
         <img class="logo" src="images/logo-on-dark.png" width="1163" height="321" alt="猎鹰增长 Falcon">
         <p class="brand-line">助力线索｜引流｜获客</p>
       </div>
-      <a href="#" data-nav="today" class="on">今天</a>
+      <nav aria-label="工作台">
+      <a href="#" data-nav="today" class="on" aria-current="page">今天</a>
       <a href="#" data-nav="customers">客户</a>
       <a href="#" data-nav="pack">包裹</a>
       <a href="#" data-nav="ledger">台账</a>
       <a href="#" data-nav="account">账号</a>
       <a href="#" data-nav="settings" id="nav-settings" class="hidden">模型设置</a>
       <a href="#" id="nav-logout">退出</a>
+      </nav>
       <div class="foot" id="rail-foot">各账各册 · 互不可见</div>
     </aside>
-    <main class="main">
+    <main class="main" id="work">
       <div class="mast" aria-hidden="true"></div>
       <div class="topbar">
         <div class="who" id="who">正在确认登录…</div>
         <div class="tools">
-          <button class="btn ghost" data-theme-toggle>切换色调</button>
+          <button class="btn ghost" data-theme-toggle type="button" aria-pressed="false">切换色调</button>
           <button class="btn gold" data-nav="customers">新建客户</button>
         </div>
       </div>
@@ -55,7 +55,7 @@
           <p class="meta">建档以后出的快档会留在这里。现在只能看已经给过的。</p>
         </article>
         <div id="pack-body">
-        <article class="card">
+        <article class="card card-id">
           <h2>先用 · <span id="using-name"></span> <span class="tag" id="using-hunt"></span> <span class="tag" id="using-tier"></span></h2>
           <p class="meta" id="using-meta"></p>
           <p class="meta" id="pack-title"></p>
@@ -63,9 +63,11 @@
             <a class="btn hidden" id="pack-open" href="pack.html" target="_blank" rel="noreferrer">打开甲方包裹</a>
           </div>
         </article>
+        <div class="chapter">
+          <p class="chapter-name">判断</p>
         <article class="card" id="demand-card">
           <h2>该截的需求</h2>
-          <p class="meta">打准人，不是多捞人。下面是当时写给甲方看的：截谁、他怎么说、在搜什么、别打谁。</p>
+          <p class="meta">打准人，不是多捞人。截谁和别打谁先定，他说什么、在搜什么是证据。</p>
           <div id="demand"></div>
         </article>
         <article class="card">
@@ -73,9 +75,12 @@
           <p class="meta">写给甲方看。每条都能 30 秒自验。证据不够的标成判断。</p>
           <div id="gaps"></div>
         </article>
+        </div>
+        <div class="chapter">
+          <p class="chapter-name">出活</p>
         <article class="card">
           <h2>当时给的文案</h2>
-          <p class="meta">按行业包钩子公式。建立在不信任上，不是美好想象。</p>
+          <p class="meta">每条先复制发出去。用过之后再记下有没有回音。有回音的组会往前排。</p>
           <div id="copies"></div>
         </article>
         <article class="card">
@@ -84,13 +89,14 @@
         </article>
         <article class="card">
           <h2>当时的主战场外壳</h2>
-          <p class="meta">冷启动只打 1–2 个主战场。其余是同一内核换外壳，不要四平台一起铺。</p>
-          <div id="plats" class="plats"></div>
+          <p class="meta">只打 1–2 个主战场。复制到对应平台发出去。其余是换外壳，不要四平台一起铺。</p>
+          <div id="plats" class="field-grid"></div>
         </article>
         <article class="card">
           <h2>当时怎么投</h2>
           <div id="delivery"></div>
         </article>
+        </div>
         </div>
         </div>
         <article class="card hidden" id="empty-today">
@@ -100,6 +106,7 @@
         </article>
         <article class="card">
           <h2>还可以追</h2>
+          <p class="meta">要点「先用这位」，台面才会换成他的档。</p>
           <div id="chase" class="chase"></div>
         </article>
       </section>
@@ -107,6 +114,7 @@
       <section class="hidden" data-view="customers">
         <div class="hook">
           <h1>只看你自己的书。先用的置顶。</h1>
+          <p class="meta">要点「先用这位」或「看当时给的」，才会换到那一档。</p>
         </div>
         <div id="customer-list" class="chase"></div>
         <article class="card form">
@@ -129,6 +137,7 @@
       <section class="hidden" data-view="pack">
         <div class="hook">
           <h1>发给甲方的那一页。他们不进后台。</h1>
+          <p class="meta">点「打开这份」，台面回到当时给的那一档。</p>
         </div>
         <div id="pack-list" class="chase"></div>
       </section>

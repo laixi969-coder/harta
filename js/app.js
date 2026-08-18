@@ -19,12 +19,20 @@ function toast(t) {
 function applyTheme() {
   document.documentElement.setAttribute("data-theme", state.theme);
   localStorage.setItem("falcon-theme", state.theme);
+  document.querySelectorAll("[data-theme-toggle]").forEach((b) => {
+    b.setAttribute("aria-pressed", state.theme === "dark" ? "true" : "false");
+  });
 }
 
 function nav(view) {
   state.view = view;
   document.querySelectorAll("[data-nav]").forEach((a) => {
-    a.classList.toggle("on", a.dataset.nav === view);
+    const on = a.dataset.nav === view;
+    a.classList.toggle("on", on);
+    if (a.tagName === "A") {
+      if (on) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    }
   });
   document.querySelectorAll("[data-view]").forEach((p) => {
     p.classList.toggle("hidden", p.dataset.view !== view);
@@ -131,21 +139,23 @@ function renderToday() {
       const lines = (items) =>
         (items || []).map((t) => `<p>${t}</p>`).join("");
       demandBox.innerHTML = `
-        <div class="gap">
-          <p class="meta">截谁</p>
-          <p>${demand.who}</p>
-        </div>
-        <div class="gap">
-          <p class="meta">他会这么说</p>
-          ${lines(demand.say)}
-        </div>
-        <div class="gap">
-          <p class="meta">他在搜</p>
-          ${lines(demand.search)}
-        </div>
-        <div class="gap">
-          <p class="meta">别打谁</p>
-          ${lines(demand.skip)}
+        <div class="folio">
+          <div class="folio-cell is-who">
+            <p class="k">截谁</p>
+            <p>${demand.who}</p>
+          </div>
+          <div class="folio-cell is-skip">
+            <p class="k">别打谁</p>
+            ${lines(demand.skip)}
+          </div>
+          <div class="folio-cell">
+            <p class="k">他会这么说</p>
+            ${lines(demand.say)}
+          </div>
+          <div class="folio-cell">
+            <p class="k">他在搜</p>
+            ${lines(demand.search)}
+          </div>
         </div>`;
     } else {
       demandCard.classList.add("hidden");
@@ -161,64 +171,98 @@ function renderToday() {
     open.classList.add("hidden");
   }
 
-  document.getElementById("gaps").innerHTML = (pack.gaps || [])
+  document.getElementById("gaps").innerHTML = `<div class="sleeves">${(pack.gaps || [])
     .map(
-      (g, i) => `<div class="gap" style="margin-top:12px">
-        <p class="meta">缺口${["一", "二", "三"][i] || i + 1} · 证据 ${pack.evidence}</p>
-        <h3>${g.name}</h3>
-        <p><b>现状</b> ${g.fact}</p>
-        <p><b>代价</b> ${g.cost}</p>
-        <p><b>为什么改不动</b> ${g.cause}</p>
-        <p class="meta">你自己可以：${g.verify}</p>
-      </div>`,
+      (g, i) => `<article class="sleeve">
+        <div class="sleeve-tab">缺口${["一", "二", "三"][i] || i + 1}</div>
+        <div class="sleeve-body">
+          <h3>${g.name}</h3>
+          <p class="meta">证据 ${pack.evidence}</p>
+          <div class="sleeve-fields">
+            <div><p class="field-k">现状</p><p>${g.fact}</p></div>
+            <div><p class="field-k">代价</p><p>${g.cost}</p></div>
+            <div class="full"><p class="field-k">为什么改不动</p><p>${g.cause}</p></div>
+          </div>
+          <p class="meta">你自己可以：${g.verify}</p>
+        </div>
+      </article>`,
     )
-    .join("");
+    .join("")}</div>`;
 
-  document.getElementById("copies").innerHTML = rankedCopies
+  document.getElementById("copies").innerHTML = `<div class="sleeves">${rankedCopies
     .map((g) => {
       const items = g.rows
         .map((row) => {
-          return `<div class="line">
+          return `<div class="line slip">
             <p>${row.text}</p>
-            <div class="acts">
-              <button class="btn tiny ghost" data-copy="${encodeURIComponent(row.text)}">复制</button>
-              <button class="btn tiny ${row.fb === "replied" ? "on-yes" : "ghost"}" data-fb="${row.key}" data-val="replied">有回音</button>
-              <button class="btn tiny ${row.fb === "dead" ? "on-no" : "ghost"}" data-fb="${row.key}" data-val="dead">没反应</button>
+            <div class="slip-bar">
+              <div class="slip-step">
+                <span class="slip-k">先发出去</span>
+                <button type="button" class="do" data-copy="${encodeURIComponent(row.text)}">复制这条</button>
+              </div>
+              <div class="slip-step">
+                <span class="slip-k">用过之后</span>
+                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${row.key}" data-val="replied">有回音</button>
+                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${row.key}" data-val="dead">没反应</button>
+              </div>
             </div>
           </div>`;
         })
         .join("");
-      return `<section class="plat" style="margin-top:10px"><h3>${g.group}<span>${g.replied ? `${g.replied} 条有回音` : `${g.rows.length} 条`}</span></h3>${items}</section>`;
+      return `<article class="sleeve sleeve-across${g.replied ? " is-hot" : ""}">
+        <div class="sleeve-tab"><span>${g.group}</span><span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span></div>
+        <div class="sleeve-body">${items}</div>
+      </article>`;
     })
-    .join("");
+    .join("")}</div>`;
 
-  document.getElementById("breaks").innerHTML = (pack.breakdowns || [])
-    .map(
-      (b) => `<div class="gap" style="margin-top:12px">
-        <h3>${b.copy}</h3>
-        <p>${b.why}</p>
-      </div>`,
-    )
-    .join("");
+  document.getElementById("breaks").innerHTML = `<div class="notes">${(pack.breakdowns || [])
+    .map((b) => `<article class="note"><h3>${b.copy}</h3><p>${b.why}</p></article>`)
+    .join("")}</div>`;
 
-  document.getElementById("plats").innerHTML = rankShells(pack.shells, pack.battlefields)
-    .map((s) => {
-      const items = s.lines
-        .map(
-          (text) => `<div class="line"><p>${text}</p>
-          <div class="acts"><button class="btn tiny ghost" data-copy="${encodeURIComponent(text)}">复制</button></div></div>`,
-        )
-        .join("");
-      return `<section class="plat"><h3>${s.name}<span>${s.main ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
-    })
-    .join("");
+  const shells = rankShells(pack.shells, pack.battlefields);
+  const mains = shells.filter((s) => s.main);
+  const extras = shells.filter((s) => !s.main);
+  const platBlock = (s, kind) => {
+    const items = s.lines
+      .map(
+        (text) => `<div class="line slip line-row"><p>${text}</p>
+          <button type="button" class="do" data-copy="${encodeURIComponent(text)}">复制这条</button></div>`,
+      )
+      .join("");
+    return `<section class="plat ${kind}"><h3>${s.name}<span>${kind === "is-main" ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
+  };
+  const platBox = document.getElementById("plats");
+  if (mains.length && extras.length) {
+    platBox.className = "field-grid";
+    platBox.innerHTML = `
+      <div class="field-col">${mains.map((s) => platBlock(s, "is-main")).join("")}</div>
+      <div class="field-col field-col-quiet">${extras.map((s) => platBlock(s, "is-shell")).join("")}</div>`;
+  } else {
+    platBox.className = "field-grid field-grid-one";
+    const only = mains.length ? mains : extras;
+    const kind = mains.length ? "is-main" : "is-shell";
+    platBox.innerHTML = `<div class="field-col">${only.map((s) => platBlock(s, kind)).join("")}</div>`;
+  }
 
   document.getElementById("delivery").innerHTML = `
-    <p><b>主战场</b> ${(pack.battlefields || []).join("、")}。出价和定向让代运营定，我们负责让他们有好素材可投。</p>
-    <p><b>测试路径</b> ${pack.testPath || ""}</p>
-    <p><b>补给节奏</b> ${pack.supply || ""}</p>
-    <p>${pack.honest || ""}</p>
-    <p class="meta">下一步：${(pack.next || []).join("；")}</p>`;
+    <div class="folio folio-3">
+      <div class="folio-cell is-who">
+        <p class="k">主战场</p>
+        <p>${(pack.battlefields || []).join("、")}</p>
+      </div>
+      <div class="folio-cell">
+        <p class="k">测试路径</p>
+        <p>${pack.testPath || ""}</p>
+      </div>
+      <div class="folio-cell">
+        <p class="k">补给节奏</p>
+        <p>${pack.supply || ""}</p>
+      </div>
+    </div>
+    <p style="margin-top:14px">${pack.honest || ""}</p>
+    <p class="meta">下一步：${(pack.next || []).join("；")}</p>
+    <p class="meta">出价和定向让代运营定，我们负责让他们有好素材可投。</p>`;
 
   renderChase(chase);
   renderCustomers();
@@ -232,7 +276,7 @@ function renderChase(chase) {
           (c) => `<div class="row">
       <div><strong>${c.name}</strong><div class="meta">${c.hunt} · 已出 ${packsOf(c).length} 份</div></div>
       <div><span class="tag">${c.pitch || "未写卖点"}</span></div>
-      <button class="btn tiny ghost" data-using="${c.id}">先用这个</button>
+      <button type="button" class="do" data-using="${c.id}">先用这位</button>
     </div>`,
         )
         .join("")
@@ -262,7 +306,7 @@ function renderCustomers() {
           <span class="tag">${packs.length ? `已出 ${packs.length} 份` : "还没出档"}</span>
           ${latest ? `<div class="meta">${latest.deliveredAt || latest.createdAt} · ${latest.tier}</div>` : ""}
         </div>
-        <button class="btn tiny ghost" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这个"}</button>
+        <button type="button" class="do" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这位"}</button>
       </div>`;
         })
         .join("")
@@ -284,7 +328,7 @@ function renderPackIndex() {
         <div class="meta">${pack.deliveredAt || pack.createdAt} · ${pack.tier}</div>
       </div>
       <div class="meta">${pack.title || ""}</div>
-      <button class="btn tiny ghost" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>
+      <button type="button" class="do" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>
     </div>`,
         )
         .join("")
@@ -319,7 +363,7 @@ function bind() {
     const copy = e.target.closest("[data-copy]");
     if (copy) {
       navigator.clipboard.writeText(decodeURIComponent(copy.dataset.copy));
-      toast("已复制");
+      toast("已复制，去平台发出去");
       return;
     }
     const fb = e.target.closest("[data-fb]");
@@ -373,17 +417,19 @@ function providerCard(id, p, active) {
   return `<article class="card form" data-provider="${id}">
     <h2>${p.name} ${active === id ? '<span class="tag">当前使用</span>' : ""}</h2>
     <p class="meta">密钥 ${p.hasKey ? p.apiKeyMasked : "还没填"} · ${p.lastTestDetail || "还没测过"}</p>
-    <label>API Key</label>
-    <input data-llm-key="${id}" type="password" autocomplete="off" placeholder="${p.hasKey ? "已保存，留空则不改" : "只有超级管理员能看"}">
-    <label>接口地址</label>
-    <input data-llm-base="${id}" value="${p.baseUrl || ""}">
-    <label>模型</label>
-    ${modelField}
+    <label for="llm-key-${id}">API Key</label>
+    <input id="llm-key-${id}" data-llm-key="${id}" type="password" autocomplete="off" placeholder="${p.hasKey ? "已保存，留空则不改" : "只有超级管理员能看"}">
+    <label for="llm-base-${id}">接口地址</label>
+    <input id="llm-base-${id}" data-llm-base="${id}" value="${p.baseUrl || ""}">
+    <label for="llm-model-${id}">模型</label>
+    ${modelField.replace("<select ", `<select id="llm-model-${id}" `).replace("<input ", `<input id="llm-model-${id}" `)}
     <div class="acts">
       <button class="btn" data-llm-save="${id}" type="button">保存</button>
-      <button class="btn ghost" data-llm-sync="${id}" type="button">同步最新模型</button>
-      <button class="btn ghost" data-llm-test="${id}" type="button">连接测试</button>
       <button class="btn gold" data-llm-use="${id}" type="button">用作当前</button>
+    </div>
+    <div class="acts-inline">
+      <button class="textish" data-llm-sync="${id}" type="button">同步最新模型</button>
+      <button class="textish" data-llm-test="${id}" type="button">连接测试</button>
     </div>
   </article>`;
 }
@@ -418,7 +464,7 @@ async function loadUsers() {
         (email) => `<div class="row">
         <div><strong>${email}</strong></div>
         <div class="meta">${email === "66445039@qq.com" ? "不可移除" : ""}</div>
-        <button class="btn tiny ghost" data-white-del="${email}" ${email === "66445039@qq.com" ? "disabled" : ""}>移出</button>
+        <button type="button" class="textish" data-white-del="${email}" ${email === "66445039@qq.com" ? "disabled" : ""}>移出</button>
       </div>`,
       )
       .join("");
