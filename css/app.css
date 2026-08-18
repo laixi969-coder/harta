@@ -607,6 +607,17 @@ section[data-view] { padding: 0 56px; }
 .line p { color: var(--ink-1); font-size: 1rem; text-wrap: pretty; }
 /* 小红书正文的分行是内容的一部分，复制出去带换行，预览也得看得出来 */
 .asis { white-space: pre-line; }
+/* 就地改一条。照表单输入框那套走，别在这儿另起一套颜色 */
+.edit-box {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  border-radius: var(--r);
+  font-size: 1rem;
+  resize: vertical;
+}
+.edit-box:focus { outline: none; }
 .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .acts-inline {
   display: flex;

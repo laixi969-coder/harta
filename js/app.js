@@ -1,4 +1,5 @@
 import { bindEyes } from "./eyes.js";
+import { copyKey, editOf, edited, shellKey } from "./pack-edits.js";
 import { rankCopyGroups, rankShells, topRepliedLabel } from "./rank-feedback.js";
 
 const state = {
@@ -309,11 +310,17 @@ function renderToday() {
     .map((g) => {
       const items = g.rows
         .map((row) => {
-          return `<div class="line slip">
-            <p>${row.text}</p>
+          // 显示、复制、发出去的都是改后那版。原句只在底下小字里留个底
+          const k = copyKey(g.group, row.i);
+          const text = edited(pack, k, row.text);
+          const was = editOf(pack, k)?.was;
+          return `<div class="line slip" data-line="${encodeURIComponent(k)}">
+            <p class="line-text">${text}</p>
+            ${was ? `<p class="meta">改过 · 原句是「${was}」</p>` : ""}
             <div class="slip-bar">
               <div class="slip-step">
-                <button type="button" class="do" data-copy="${encodeURIComponent(row.text)}">复制这条</button>
+                <button type="button" class="do" data-copy="${encodeURIComponent(text)}">复制这条</button>
+                <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
               </div>
               <div class="slip-step">
                 <span class="slip-k">用过之后</span>
@@ -343,17 +350,24 @@ function renderToday() {
   const platBlock = (s, kind) => {
     const fields = state.platformFields[s.name] || [{ key: "title", label: "文案" }];
     const items = s.lines
-      .map((raw) => {
+      .map((raw, idx) => {
         const item = typeof raw === "string" ? { title: raw } : raw || {};
         const present = fields.filter((f) => item[f.key]);
         // 只有一个字段时不用标名字，那是废话
         const rows = present
-          .map(
-            (f) => `<div class="line-row"${present.length > 1 ? ' style="margin-top:8px"' : ""}>
-              <div>${present.length > 1 ? `<p class="field-k">${f.label}</p>` : ""}<p${f.key === "body" ? ' class="asis"' : ""}>${item[f.key]}</p></div>
-              <button type="button" class="do" data-copy="${encodeURIComponent(item[f.key])}">复制</button>
-            </div>`,
-          )
+          .map((f) => {
+            const k = shellKey(s.name, idx, f.key);
+            const text = edited(pack, k, item[f.key]);
+            const was = editOf(pack, k)?.was;
+            return `<div class="line-row"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}">
+              <div>${present.length > 1 ? `<p class="field-k">${f.label}</p>` : ""}<p class="line-text${f.key === "body" ? " asis" : ""}">${text}</p>
+              ${was ? `<p class="meta">改过 · 原句是「${was}」</p>` : ""}</div>
+              <div class="acts-inline">
+                <button type="button" class="do" data-copy="${encodeURIComponent(text)}">复制</button>
+                <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
+              </div>
+            </div>`;
+          })
           .join("");
         return `<div class="line slip">${rows}</div>`;
       })
@@ -492,6 +506,39 @@ function bind() {
     if (e.target.closest("[data-theme-toggle]")) {
       state.theme = state.theme === "light" ? "dark" : "light";
       applyTheme();
+      return;
+    }
+    const edit = e.target.closest("[data-edit]");
+    if (edit) {
+      const key = decodeURIComponent(edit.dataset.edit);
+      const box = edit.closest("[data-line]");
+      const p = box?.querySelector(".line-text");
+      if (!p || box.querySelector("textarea")) return;
+      // 就地改：原文换成输入框，存完整页重画。不做弹窗，改一句话不值得挡住整个屏幕
+      const ta = document.createElement("textarea");
+      ta.value = p.textContent;
+      ta.rows = Math.min(8, Math.ceil(p.textContent.length / 28) + 1);
+      ta.className = "edit-box";
+      p.replaceWith(ta);
+      ta.focus();
+      const save = async () => {
+        const text = ta.value.trim();
+        const res = await fetch("/api/edit", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ packId: currentPack()?.id, key, text }),
+        });
+        const data = await res.json();
+        if (!res.ok) return toast(data.error || "没存上");
+        state.workspace = data;
+        toast("改好了，复制和甲方页拿的都是这一版");
+        renderToday();
+      };
+      ta.addEventListener("blur", save, { once: true });
+      ta.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape") { ta.removeEventListener("blur", save); renderToday(); }
+        if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) ta.blur();
+      });
       return;
     }
     const copy = e.target.closest("[data-copy]");

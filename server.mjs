@@ -13,7 +13,7 @@ import {
   removeFromWhitelist,
 } from "./lib/auth.mjs";
 import { addCustomProvider, publicLlm, removeProvider, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
-import { addCustomer, addLedger, findShared, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, editLine, findShared, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
@@ -293,6 +293,15 @@ async function handleApi(req, res, url) {
     } catch (err) {
       return json(res, 400, { error: err.message || "出全档失败" });
     }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/edit") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const result = editLine(user.email, body.packId, body.key, body.text);
+    if (result.error) return json(res, 400, { error: result.error });
+    return json(res, 200, result.workspace);
   }
 
   if (req.method === "POST" && url.pathname === "/api/feedback") {
