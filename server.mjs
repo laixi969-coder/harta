@@ -13,7 +13,7 @@ import {
   removeFromWhitelist,
 } from "./lib/auth.mjs";
 import { publicLlm, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
-import { addCustomer, addLedger, readWorkspace, setFeedback } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, readWorkspace, setFeedback, setUsing } from "./lib/workspace.mjs";
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
@@ -182,6 +182,15 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     return json(res, 200, setFeedback(user.email, body.key, body.value));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/using") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const result = setUsing(user.email, body.id);
+    if (result.error) return json(res, 400, { error: result.error });
+    return json(res, 200, result.workspace);
   }
 
   if (req.method === "POST" && url.pathname === "/api/ledger") {

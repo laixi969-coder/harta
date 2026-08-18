@@ -4,10 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>恒基旧改｜获客素材提案</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search).get("theme");
+      var t = q || localStorage.getItem("falcon-theme") || "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
 </head>
 <body>
   <article class="pack">
+    <header class="letterhead">
+      <p class="mark">Falcon</p>
+      <span>快档 · 家装</span>
+    </header>
     <p class="meta">恒基旧改</p>
     <h1>报价单上真正吃人的，通常不是主材</h1>
     <p>老房翻新 · 广州 · 快档</p>

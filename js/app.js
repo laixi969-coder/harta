@@ -4,6 +4,7 @@ const state = {
   view: "today",
   theme: localStorage.getItem("falcon-theme") || "light",
   workspace: { customers: [], ledger: [], feedback: {}, usingId: "" },
+  packId: "",
 };
 
 function toast(t) {
@@ -34,6 +35,19 @@ function usingCustomer() {
   return list.find((c) => c.id === state.workspace.usingId) || list[0] || null;
 }
 
+function packsOf(customer) {
+  return customer?.packs || [];
+}
+
+function currentPack() {
+  const packs = packsOf(usingCustomer());
+  return packs.find((p) => p.id === state.packId) || packs[0] || null;
+}
+
+function copyCount(pack) {
+  return Object.values(pack?.copies || {}).flat().length;
+}
+
 function renderToday() {
   const mine = usingCustomer();
   const chase = (state.workspace.customers || []).filter((c) => !mine || c.id !== mine.id);
@@ -47,19 +61,74 @@ function renderToday() {
   }
   empty.classList.add("hidden");
   owned.classList.remove("hidden");
-  document.getElementById("hook-line").textContent =
-    `先给${mine.name}出一份${PITCH.tier}：3 个缺口 · 15 条文案 · 主战场${PITCH.battlefields.join("、")}。下面还有 ${chase.length} 个可追。`;
-  document.getElementById("hook-gate").textContent = PITCH.gate;
+
+  const packs = packsOf(mine);
+  const pack = currentPack();
+  if (pack && !state.packId) state.packId = pack.id;
+
+  const nCopy = pack ? copyCount(pack) : 0;
+  const nGap = pack?.gaps?.length || 0;
+  const fields = pack?.battlefields?.join("、") || "尚未定主战场";
+  document.getElementById("hook-line").textContent = pack
+    ? `${mine.name} · ${pack.deliveredAt || pack.createdAt} 已出${pack.tier}：${nGap} 个缺口 · ${nCopy} 条文案 · 主战场${fields}。下面还有 ${chase.length} 个可追。`
+    : `${mine.name} 还没有出过档。下面还有 ${chase.length} 个可追。`;
+  document.getElementById("hook-gate").textContent = pack?.gate || "出过的档会留在这位客户名下，可随时翻回当时给了什么。";
+
+  const hist = document.getElementById("history");
+  hist.innerHTML = packs.length
+    ? packs
+        .map(
+          (p) => `<button type="button" data-pack="${p.id}" class="${p.id === (pack && pack.id) ? "on" : ""}">
+        <span class="when">${p.deliveredAt || p.createdAt}</span>
+        <span class="what">${p.title || p.tier}</span>
+        <span class="tag">${p.tier} · ${copyCount(p)} 条</span>
+      </button>`,
+        )
+        .join("")
+    : `<p class="meta">还没有历史出档。</p>`;
+
+  const win = document.getElementById("win");
+  const replies = Object.entries(state.workspace.feedback || {}).filter(([, v]) => v === "replied");
+  if (replies.length) {
+    win.classList.remove("hidden");
+    win.innerHTML = `<b>上次有效</b> · 记下了 ${replies.length} 条有回音`;
+  } else {
+    win.classList.add("hidden");
+    win.textContent = "";
+  }
+
+  const noPack = document.getElementById("no-pack");
+  const body = document.getElementById("pack-body");
+  if (!pack) {
+    noPack.classList.remove("hidden");
+    body.classList.add("hidden");
+    renderChase(chase);
+    renderCustomers();
+    renderPackIndex();
+    return;
+  }
+  noPack.classList.add("hidden");
+  body.classList.remove("hidden");
+
   document.getElementById("using-name").textContent = mine.name;
   document.getElementById("using-hunt").textContent = mine.hunt;
-  document.getElementById("using-tier").textContent = `${PITCH.tier} · 证据${PITCH.evidence}`;
+  document.getElementById("using-tier").textContent = `${pack.tier} · 证据${pack.evidence}`;
   document.getElementById("using-meta").textContent =
-    `${mine.pitch} · ${mine.city || ""} · ${PITCH.evidenceNote}`;
+    `${mine.pitch} · ${mine.city || ""} · ${pack.evidenceNote || ""}`;
+  document.getElementById("pack-title").textContent = `当时标题：${pack.title}`;
 
-  document.getElementById("gaps").innerHTML = PITCH.gaps
+  const open = document.getElementById("pack-open");
+  if (pack.sharePath) {
+    open.classList.remove("hidden");
+    open.setAttribute("href", pack.sharePath);
+  } else {
+    open.classList.add("hidden");
+  }
+
+  document.getElementById("gaps").innerHTML = (pack.gaps || [])
     .map(
       (g, i) => `<div class="gap" style="margin-top:12px">
-        <p class="meta">缺口${["一", "二", "三"][i]} · 证据 ${PITCH.evidence}</p>
+        <p class="meta">缺口${["一", "二", "三"][i] || i + 1} · 证据 ${pack.evidence}</p>
         <h3>${g.name}</h3>
         <p><b>现状</b> ${g.fact}</p>
         <p><b>代价</b> ${g.cost}</p>
@@ -69,11 +138,11 @@ function renderToday() {
     )
     .join("");
 
-  document.getElementById("copies").innerHTML = Object.entries(PITCH.copies)
+  document.getElementById("copies").innerHTML = Object.entries(pack.copies || {})
     .map(([group, lines]) => {
       const items = lines
         .map((text, i) => {
-          const key = `${group}-${i}`;
+          const key = `${pack.id}-${group}-${i}`;
           const fb = (state.workspace.feedback || {})[key];
           return `<div class="line">
             <p>${text}</p>
@@ -89,7 +158,7 @@ function renderToday() {
     })
     .join("");
 
-  document.getElementById("breaks").innerHTML = PITCH.breakdowns
+  document.getElementById("breaks").innerHTML = (pack.breakdowns || [])
     .map(
       (b) => `<div class="gap" style="margin-top:12px">
         <h3>${b.copy}</h3>
@@ -98,9 +167,9 @@ function renderToday() {
     )
     .join("");
 
-  document.getElementById("plats").innerHTML = Object.entries(PITCH.shells)
+  document.getElementById("plats").innerHTML = Object.entries(pack.shells || {})
     .map(([name, lines]) => {
-      const main = PITCH.battlefields.includes(name);
+      const main = (pack.battlefields || []).includes(name);
       const items = lines
         .map(
           (text) => `<div class="line"><p>${text}</p>
@@ -112,23 +181,81 @@ function renderToday() {
     .join("");
 
   document.getElementById("delivery").innerHTML = `
-    <p><b>主战场</b> ${PITCH.battlefields.join("、")}。出价和定向让代运营定，我们负责让他们有好素材可投。</p>
-    <p><b>测试路径</b> ${PITCH.testPath}</p>
-    <p><b>补给节奏</b> ${PITCH.supply}</p>
-    <p>${PITCH.honest}</p>
-    <p class="meta">下一步：${PITCH.next.join("；")}</p>`;
+    <p><b>主战场</b> ${(pack.battlefields || []).join("、")}。出价和定向让代运营定，我们负责让他们有好素材可投。</p>
+    <p><b>测试路径</b> ${pack.testPath || ""}</p>
+    <p><b>补给节奏</b> ${pack.supply || ""}</p>
+    <p>${pack.honest || ""}</p>
+    <p class="meta">下一步：${(pack.next || []).join("；")}</p>`;
 
+  renderChase(chase);
+  renderCustomers();
+  renderPackIndex();
+}
+
+function renderChase(chase) {
   document.getElementById("chase").innerHTML = chase.length
     ? chase
         .map(
           (c) => `<div class="row">
-      <div><strong>${c.name}</strong><div class="meta">${c.hunt}</div></div>
-      <div><span class="tag">${c.pitch}</span></div>
-      <button class="btn tiny ghost" data-open="customers">去追</button>
+      <div><strong>${c.name}</strong><div class="meta">${c.hunt} · 已出 ${packsOf(c).length} 份</div></div>
+      <div><span class="tag">${c.pitch || "未写卖点"}</span></div>
+      <button class="btn tiny ghost" data-using="${c.id}">先用这个</button>
     </div>`,
         )
         .join("")
     : `<p class="meta">还没有其他可追的客户。</p>`;
+}
+
+function renderCustomers() {
+  const box = document.getElementById("customer-list");
+  if (!box) return;
+  const list = [...(state.workspace.customers || [])].sort((a, b) => {
+    if (a.id === state.workspace.usingId) return -1;
+    if (b.id === state.workspace.usingId) return 1;
+    return packsOf(b).length - packsOf(a).length;
+  });
+  box.innerHTML = list.length
+    ? list
+        .map((c) => {
+          const packs = packsOf(c);
+          const latest = packs[0];
+          const using = c.id === state.workspace.usingId;
+          return `<div class="row">
+        <div>
+          <strong>${c.name}</strong>
+          <div class="meta">${c.hunt}${using ? " · 先用" : ""}</div>
+        </div>
+        <div>
+          <span class="tag">${packs.length ? `已出 ${packs.length} 份` : "还没出档"}</span>
+          ${latest ? `<div class="meta">${latest.deliveredAt || latest.createdAt} · ${latest.tier}</div>` : ""}
+        </div>
+        <button class="btn tiny ghost" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这个"}</button>
+      </div>`;
+        })
+        .join("")
+    : `<p class="meta">本子还是空的。</p>`;
+}
+
+function renderPackIndex() {
+  const box = document.getElementById("pack-list");
+  if (!box) return;
+  const rows = (state.workspace.customers || []).flatMap((c) =>
+    packsOf(c).map((p) => ({ customer: c, pack: p })),
+  );
+  box.innerHTML = rows.length
+    ? rows
+        .map(
+          ({ customer, pack }) => `<div class="row">
+      <div>
+        <strong>${customer.name}</strong>
+        <div class="meta">${pack.deliveredAt || pack.createdAt} · ${pack.tier}</div>
+      </div>
+      <div class="meta">${pack.title || ""}</div>
+      <button class="btn tiny ghost" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>
+    </div>`,
+        )
+        .join("")
+    : `<p class="meta">还没有发给甲方的包裹。</p>`;
 }
 
 function renderLedger() {
@@ -177,7 +304,30 @@ function bind() {
     }
     const open = e.target.closest("[data-open]");
     if (open) nav(open.dataset.open);
+    const packBtn = e.target.closest("[data-pack]");
+    if (packBtn && !packBtn.dataset.using) {
+      state.packId = packBtn.dataset.pack;
+      renderToday();
+    }
   });
+}
+
+async function useCustomer(id, packId) {
+  const res = await fetch("/api/using", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || "切不过去");
+    return;
+  }
+  state.workspace = data;
+  state.packId = packId || "";
+  renderToday();
+  renderLedger();
+  nav("today");
 }
 
 function providerCard(id, p, active) {
@@ -303,6 +453,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     return;
   }
   state.workspace = data;
+  state.packId = "";
   toast("已进你自己的本子");
   renderToday();
   renderLedger();
@@ -323,6 +474,12 @@ document.getElementById("change-pass")?.addEventListener("click", async () => {
 });
 
 document.body.addEventListener("click", async (e) => {
+  const using = e.target.closest("[data-using]");
+  if (using) {
+    e.preventDefault();
+    await useCustomer(using.dataset.using, using.dataset.pack || "");
+    return;
+  }
   const del = e.target.closest("[data-white-del]");
   if (!del || del.disabled) return;
   const res = await fetch("/api/whitelist", {

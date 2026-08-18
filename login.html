@@ -4,31 +4,48 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>登录 · Falcon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
-  <style>.login-wrap{max-width:420px;margin:10vh auto;padding:0 20px}</style>
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search).get("theme");
+      var t = q || localStorage.getItem("falcon-theme") || "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
 </head>
 <body>
-  <div class="login-wrap">
-    <div class="hook">
-      <div class="k">Falcon</div>
-      <h1>登录获客工作台</h1>
-      <p class="meta">白名单里的邮箱才能注册。超级管理员首次登录输入的密码即以后的密码。</p>
-    </div>
-    <div class="tabs">
-      <a class="on" href="login.html">登录</a>
-      <a href="register.html">注册</a>
-    </div>
-    <form class="card form" id="form">
-      <label for="email">邮箱</label>
-      <input id="email" name="email" type="email" value="66445039@qq.com" autocomplete="username">
-      <label for="password">密码</label>
-      <div class="pass-wrap">
-        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="在这里输入">
-        <button type="button" class="eye" data-eye="password" aria-label="显示密码">显示</button>
+  <div class="gate">
+    <aside class="gate-panel">
+      <div>
+        <p class="mark">Falcon</p>
+        <p class="gate-sub">获客工作台</p>
       </div>
-      <p id="err" class="meta" style="color:var(--down);min-height:1.4em;margin-top:10px"></p>
-      <div class="acts"><button class="btn" type="submit">登录</button></div>
-    </form>
+      <p class="gate-line">内部使用 · 各账各册</p>
+    </aside>
+    <main class="gate-form">
+      <div class="hook">
+        <h1>登录工作台</h1>
+        <p class="meta">白名单邮箱方可注册。超管首次登录输入的密码即以后的密码。</p>
+      </div>
+      <div class="tabs">
+        <a class="on" href="login.html">登录</a>
+        <a href="register.html">注册</a>
+      </div>
+      <form class="form" id="form">
+        <label for="email">邮箱</label>
+        <input id="email" name="email" type="email" value="66445039@qq.com" autocomplete="username">
+        <label for="password">密码</label>
+        <div class="pass-wrap">
+          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="在这里输入">
+          <button type="button" class="eye" data-eye="password" aria-label="显示密码">显示</button>
+        </div>
+        <p id="err" class="meta" style="color:var(--down);min-height:1.4em;margin-top:16px"></p>
+        <div class="acts"><button class="btn" type="submit">进入</button></div>
+      </form>
+    </main>
   </div>
   <script type="module">
     import { bindEyes } from "./js/eyes.js";

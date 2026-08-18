@@ -4,12 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Falcon · 获客工作台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search).get("theme");
+      var t = q || localStorage.getItem("falcon-theme") || "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
 </head>
 <body>
   <div class="shell">
     <aside class="rail">
-      <div class="brand">Falcon<small>获客工作台</small></div>
+      <div class="brand">
+        <span class="mark">Falcon</span>
+        <small>获客工作台</small>
+      </div>
       <a href="#" data-nav="today" class="on">今天</a>
       <a href="#" data-nav="customers">客户</a>
       <a href="#" data-nav="pack">包裹</a>
@@ -17,13 +30,14 @@
       <a href="#" data-nav="account">账号</a>
       <a href="#" data-nav="settings" id="nav-settings" class="hidden">模型设置</a>
       <a href="#" id="nav-logout">退出</a>
-      <div class="foot" id="rail-foot">只看见自己的客户</div>
+      <div class="foot" id="rail-foot">各账各册 · 互不可见</div>
     </aside>
     <main class="main">
+      <div class="mast" aria-hidden="true"></div>
       <div class="topbar">
         <div class="who" id="who">正在确认登录…</div>
         <div class="tools">
-          <button class="btn ghost" data-theme-toggle>深色 / 浅色</button>
+          <button class="btn ghost" data-theme-toggle>切换色调</button>
           <button class="btn gold" data-nav="customers">新建客户</button>
         </div>
       </div>
@@ -31,43 +45,48 @@
       <section data-view="today">
         <div id="owned-today">
         <div class="hook">
-          <div class="k">先用客户 · hiccai-pitch 快档</div>
           <h1 id="hook-line"></h1>
-          <p class="meta" id="hook-gate" style="margin-top:12px"></p>
+          <p class="meta" id="hook-gate"></p>
         </div>
-        <div class="win">
-          <b>上次有效</b> · 朋友圈「合同 12 万做完 18 万」带来问价
-        </div>
+        <div id="history" class="history"></div>
+        <div class="win hidden" id="win"></div>
+        <article class="card hidden" id="no-pack">
+          <h2>还没给这位出过档</h2>
+          <p class="meta">建档以后出的快档会留在这里。现在只能看已经给过的。</p>
+        </article>
+        <div id="pack-body">
         <article class="card">
           <h2>先用 · <span id="using-name"></span> <span class="tag" id="using-hunt"></span> <span class="tag" id="using-tier"></span></h2>
           <p class="meta" id="using-meta"></p>
-          <div class="acts" style="margin:10px 0 0">
-            <a class="btn" href="pack.html" target="_blank" rel="noreferrer">打开甲方包裹</a>
+          <p class="meta" id="pack-title"></p>
+          <div class="acts" style="margin:16px 0 0">
+            <a class="btn hidden" id="pack-open" href="pack.html" target="_blank" rel="noreferrer">打开甲方包裹</a>
           </div>
         </article>
         <article class="card">
-          <h2>三个缺口</h2>
-          <p class="meta">诊断写给甲方看。每条都能 30 秒自验。证据不够的标成判断。</p>
+          <h2>当时给的缺口</h2>
+          <p class="meta">写给甲方看。每条都能 30 秒自验。证据不够的标成判断。</p>
           <div id="gaps"></div>
         </article>
         <article class="card">
-          <h2>15 条素材文案</h2>
-          <p class="meta">按家装行业包钩子公式库。建立在不信任上，不是美好想象。</p>
+          <h2>当时给的文案</h2>
+          <p class="meta">按行业包钩子公式。建立在不信任上，不是美好想象。</p>
           <div id="copies"></div>
         </article>
         <article class="card">
-          <h2>3 条钩子拆解</h2>
+          <h2>当时的钩子拆解</h2>
           <div id="breaks"></div>
         </article>
         <article class="card">
-          <h2>主战场外壳</h2>
-          <p class="meta">hiccai-pitch 定 1–2 个主战场：巨量 + 朋友圈。小红书和短视频是同一内核换外壳，冷启动不要四平台一起铺。</p>
+          <h2>当时的主战场外壳</h2>
+          <p class="meta">冷启动只打 1–2 个主战场。其余是同一内核换外壳，不要四平台一起铺。</p>
           <div id="plats" class="plats"></div>
         </article>
         <article class="card">
-          <h2>怎么投</h2>
+          <h2>当时怎么投</h2>
           <div id="delivery"></div>
         </article>
+        </div>
         </div>
         <article class="card hidden" id="empty-today">
           <h2>还没有你的客户</h2>
@@ -82,9 +101,9 @@
 
       <section class="hidden" data-view="customers">
         <div class="hook">
-          <div class="k">客户</div>
           <h1>只看你自己的书。先用的置顶。</h1>
         </div>
+        <div id="customer-list" class="chase"></div>
         <article class="card form">
           <h2>新建</h2>
           <label for="hunt">猎场</label>
@@ -102,21 +121,13 @@
 
       <section class="hidden" data-view="pack">
         <div class="hook">
-          <div class="k">包裹</div>
           <h1>发给甲方的那一页。他们不进后台。</h1>
         </div>
-        <article class="card">
-          <p>恒基旧改 · 快档 · 证据 D · 来自 hiccai-pitch 家装包</p>
-          <div class="acts" style="margin-top:12px">
-            <a class="btn" href="pack.html" target="_blank" rel="noreferrer">打开</a>
-            <button class="btn ghost" data-copy="%E6%89%93%E5%BC%80%20pack.html">复制路径</button>
-          </div>
-        </article>
+        <div id="pack-list" class="chase"></div>
       </section>
 
       <section class="hidden" data-view="ledger">
         <div class="hook">
-          <div class="k">台账</div>
           <h1>对方原话原样记。问价和成交会回写成有回音。</h1>
         </div>
         <article class="card">
@@ -131,7 +142,6 @@
 
       <section class="hidden" data-view="account">
         <div class="hook">
-          <div class="k">账号</div>
           <h1>改自己的密码。别人看不到你的客户。</h1>
         </div>
         <article class="card form">
@@ -151,7 +161,6 @@
 
       <section class="hidden" data-view="settings">
         <div class="hook">
-          <div class="k">超级管理员</div>
           <h1>密钥只有你能看。可换渠道、同步最新模型、测连接。</h1>
         </div>
         <article class="card form">
@@ -161,14 +170,13 @@
           <input id="white-email" type="email" placeholder="name@company.com">
           <div class="acts"><button class="btn" id="add-white" type="button">加入白名单</button></div>
           <div id="white-list" class="chase" style="margin-top:14px"></div>
-          <p id="users-line" class="meta" style="margin-top:12px"></p>
+          <p id="users-line" class="meta" style="margin-top:16px"></p>
         </article>
         <div id="llm-box"></div>
       </section>
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script src="js/pitch-home.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
