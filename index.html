@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>猎鹰增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260819f">
+  <link rel="stylesheet" href="css/app.css?v=20260819k">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -26,8 +26,7 @@
       <a href="#" data-nav="customers">客户</a>
       <a href="#" data-nav="pack">包裹</a>
       <a href="#" data-nav="ledger">台账</a>
-      <a href="#" data-nav="account">账号</a>
-      <a href="#" data-nav="settings" id="nav-settings" class="hidden">模型设置</a>
+      <a href="#" data-nav="settings">设置</a>
       <a href="#" id="nav-logout">退出</a>
       </nav>
       <div class="foot">各账各册 · 互不可见</div>
@@ -176,11 +175,12 @@
         </article>
       </section>
 
-      <section class="hidden" data-view="account">
+      <section class="hidden" data-view="settings">
         <div class="hook">
-          <h1>改自己的密码。</h1>
+          <h1 id="settings-line"></h1>
         </div>
         <article class="card form">
+          <h2>密码</h2>
           <label for="old-pass">旧密码</label>
           <div class="pass-wrap">
             <input id="old-pass" type="password" autocomplete="current-password">
@@ -193,25 +193,19 @@
           </div>
           <div class="acts"><button class="btn" id="change-pass" type="button">更改密码</button></div>
         </article>
-      </section>
-
-      <section class="hidden" data-view="settings">
-        <div class="hook">
-          <h1>密钥只有你能看。</h1>
-        </div>
-        <article class="card form">
-          <h2>可注册的邮箱</h2>
-          <label for="white-email">邮箱</label>
+        <article class="card form hidden" id="whitelist-card">
+          <h2>开通账号</h2>
+          <p class="meta">开通之后让他自己去注册页设密码。密码你也看不到。</p>
+          <label for="white-email">他的邮箱</label>
           <input id="white-email" type="email" placeholder="name@company.com">
-          <div class="acts"><button class="btn" id="add-white" type="button">加入</button></div>
+          <div class="acts"><button class="btn" id="add-white" type="button">开通</button></div>
           <div id="white-list" class="chase" style="margin-top:14px"></div>
-          <p id="users-line" class="meta" style="margin-top:16px"></p>
         </article>
         <div id="llm-box"></div>
       </section>
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260819f"></script>
+  <script type="module" src="js/app.js?v=20260819k"></script>
 </body>
 </html>

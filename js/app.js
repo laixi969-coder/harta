@@ -533,26 +533,32 @@ async function loadLlm() {
 }
 
 async function loadUsers() {
-  const line = document.getElementById("users-line");
   const list = document.getElementById("white-list");
   const res = await fetch("/api/users");
   if (!res.ok) return;
   const data = await res.json();
-  if (line) {
-    line.textContent =
-      "已注册：" + data.users.map((u) => `${u.email}（${u.role === "admin" ? "管理员" : "销售"}）`).join("、");
-  }
+  // 一份名单就够。开通了没注册、和已经在用，是同一个人的两种状态，
+  // 不是两张表。原来并排挂两份，谁看都要愣一下。
+  const registered = new Map((data.users || []).map((u) => [u.email, u.role]));
+  const adminEmail = (data.users || []).find((u) => u.role === "admin")?.email || "";
   if (list) {
     list.innerHTML = (data.whitelist || [])
-      .map(
-        (email) => `<div class="row">
+      .map((email) => {
+        const role = registered.get(email);
+        const state = role
+          ? role === "admin"
+            ? "管理员 · 在用"
+            : "已注册 · 在用"
+          : "已开通，还没注册";
+        const locked = email === adminEmail;
+        return `<div class="row">
         <div>
           <strong>${email}</strong>
-          ${email === "66445039@qq.com" ? `<div class="meta">不可移除</div>` : ""}
+          <div class="meta">${state}</div>
         </div>
-        <button type="button" class="go" data-white-del="${email}" ${email === "66445039@qq.com" ? "disabled" : ""}>移出</button>
-      </div>`,
-      )
+        ${locked ? "" : `<button type="button" class="go" data-white-del="${email}">移出</button>`}
+      </div>`;
+      })
       .join("");
   }
 }
@@ -569,8 +575,11 @@ async function boot() {
   const user = await me.json();
   const who = document.getElementById("who");
   who.textContent = user.email;
-  const settingsNav = document.getElementById("nav-settings");
-  if (user.isAdmin) settingsNav.classList.remove("hidden");
+  // 设置人人都有。销售那页只有密码，超管多出名单和模型两块。
+  document.getElementById("settings-line").textContent = user.isAdmin
+    ? "密钥和谁能进这个台子，只有你能定。"
+    : "这台子上你能设的只有密码。别的都跟着客户走。";
+  if (user.isAdmin) document.getElementById("whitelist-card").classList.remove("hidden");
   const huntSel = document.getElementById("hunt");
   if (huntSel) {
     const got = await fetch("/api/hunts");
