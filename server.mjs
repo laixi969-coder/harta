@@ -12,7 +12,7 @@ import {
   register,
   removeFromWhitelist,
 } from "./lib/auth.mjs";
-import { publicLlm, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
+import { addCustomProvider, publicLlm, removeProvider, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
 import { addCustomer, addLedger, findShared, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
@@ -361,6 +361,26 @@ async function handleApi(req, res, url) {
     try {
       const config = saveProvider(body.id, body);
       return json(res, 200, config);
+    } catch (err) {
+      return json(res, 400, { error: err.message });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/llm/add") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    try {
+      return json(res, 200, addCustomProvider(body.name));
+    } catch (err) {
+      return json(res, 400, { error: err.message });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/llm/remove") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    try {
+      return json(res, 200, removeProvider(body.id));
     } catch (err) {
       return json(res, 400, { error: err.message });
     }

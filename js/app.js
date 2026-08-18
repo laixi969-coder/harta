@@ -550,6 +550,12 @@ function providerCard(id, p, active) {
   return `<article class="card form" data-provider="${id}">
     <h2>${p.name} ${active === id ? '<span class="tag">当前使用</span>' : ""}</h2>
     <p class="meta">${p.hasKey ? p.apiKeyMasked : "还没填密钥"} · ${p.lastTestDetail || "还没测过"}</p>
+    ${
+      p.builtin
+        ? ""
+        : `<label for="llm-name-${id}">名字</label>
+    <input id="llm-name-${id}" data-llm-name="${id}" value="${p.name || ""}" placeholder="好认就行，比如 火山方舟">`
+    }
     <label for="llm-key-${id}">密钥</label>
     <input id="llm-key-${id}" data-llm-key="${id}" type="password" autocomplete="off" placeholder="${p.hasKey ? "留空则不改" : ""}">
     <label for="llm-base-${id}">接口地址</label>
@@ -563,6 +569,7 @@ function providerCard(id, p, active) {
     <div class="acts-inline">
       <button class="textish" data-llm-sync="${id}" type="button">同步最新模型</button>
       <button class="textish" data-llm-test="${id}" type="button">连接测试</button>
+      ${p.builtin ? "" : `<button class="textish" data-llm-del="${id}" type="button">删掉这个接口</button>`}
     </div>
   </article>`;
 }
@@ -576,9 +583,18 @@ async function loadLlm() {
     return;
   }
   const data = await res.json();
-  box.innerHTML = Object.entries(data.providers)
-    .map(([id, p]) => providerCard(id, p, data.active))
-    .join("");
+  // 一个人可能同时挂着火山、硅基流动、一个自建中转，所以自定义接口不止一个
+  box.innerHTML =
+    Object.entries(data.providers)
+      .map(([id, p]) => providerCard(id, p, data.active))
+      .join("") +
+    `<article class="card form">
+      <h2>再加一个接口</h2>
+      <p class="meta">任何 OpenAI 兼容的地址都行。加好之后跟上面几个一样填密钥、同步模型。</p>
+      <label for="llm-new-name">名字</label>
+      <input id="llm-new-name" placeholder="好认就行，比如 火山方舟">
+      <div class="acts"><button class="btn" id="llm-add" type="button">加上</button></div>
+    </article>`;
 }
 
 async function loadUsers() {
@@ -887,19 +903,43 @@ document.body.addEventListener("click", async (e) => {
   const sync = e.target.closest("[data-llm-sync]");
   const test = e.target.closest("[data-llm-test]");
   const use = e.target.closest("[data-llm-use]");
-  const id = (save || sync || test || use)?.dataset.llmSave
-    || (save || sync || test || use)?.dataset.llmSync
-    || (save || sync || test || use)?.dataset.llmTest
-    || (save || sync || test || use)?.dataset.llmUse;
+  const del = e.target.closest("[data-llm-del]");
+  if (e.target.id === "llm-add") {
+    const name = document.getElementById("llm-new-name")?.value || "";
+    const res = await fetch("/api/llm/add", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json();
+    toast(res.ok ? `已加上「${name}」，现在填密钥` : data.error || "加不上");
+    if (res.ok) loadLlm();
+    return;
+  }
+  const hit = save || sync || test || use || del;
+  const id = hit?.dataset.llmSave || hit?.dataset.llmSync || hit?.dataset.llmTest
+    || hit?.dataset.llmUse || hit?.dataset.llmDel;
   if (!id) return;
+  if (del) {
+    const res = await fetch("/api/llm/remove", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    toast(res.ok ? "已删掉" : data.error || "删不掉");
+    if (res.ok) loadLlm();
+    return;
+  }
   const key = document.querySelector(`[data-llm-key="${id}"]`)?.value;
   const baseUrl = document.querySelector(`[data-llm-base="${id}"]`)?.value;
   const model = document.querySelector(`[data-llm-model="${id}"]`)?.value;
+  const name = document.querySelector(`[data-llm-name="${id}"]`)?.value;
   if (save) {
     const res = await fetch("/api/llm", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, apiKey: key, baseUrl, model }),
+      body: JSON.stringify({ id, apiKey: key, baseUrl, model, name }),
     });
     const data = await res.json();
     toast(res.ok ? "已保存" : data.error || "保存失败");
