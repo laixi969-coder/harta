@@ -1,4 +1,5 @@
 import { bindEyes } from "./eyes.js";
+import { rankCopyGroups, rankShells, topRepliedLabel } from "./rank-feedback.js";
 
 const state = {
   view: "today",
@@ -75,23 +76,26 @@ function renderToday() {
   document.getElementById("hook-gate").textContent = pack?.gate || "出过的档会留在这位客户名下，可随时翻回当时给了什么。";
 
   const hist = document.getElementById("history");
-  hist.innerHTML = packs.length
-    ? packs
-        .map(
-          (p) => `<button type="button" data-pack="${p.id}" class="${p.id === (pack && pack.id) ? "on" : ""}">
+  if (packs.length < 2) {
+    hist.innerHTML = "";
+  } else {
+    hist.innerHTML = packs
+      .map(
+        (p) => `<button type="button" data-pack="${p.id}" class="${p.id === (pack && pack.id) ? "on" : ""}">
         <span class="when">${p.deliveredAt || p.createdAt}</span>
         <span class="what">${p.title || p.tier}</span>
         <span class="tag">${p.tier} · ${copyCount(p)} 条</span>
       </button>`,
-        )
-        .join("")
-    : `<p class="meta">还没有历史出档。</p>`;
+      )
+      .join("");
+  }
 
+  const rankedCopies = pack ? rankCopyGroups(pack.copies, state.workspace.feedback, pack.id) : [];
   const win = document.getElementById("win");
-  const replies = Object.entries(state.workspace.feedback || {}).filter(([, v]) => v === "replied");
-  if (replies.length) {
+  const winLine = topRepliedLabel(rankedCopies);
+  if (winLine) {
     win.classList.remove("hidden");
-    win.innerHTML = `<b>上次有效</b> · 记下了 ${replies.length} 条有回音`;
+    win.innerHTML = `<b>上次有效</b> · ${winLine}`;
   } else {
     win.classList.add("hidden");
     win.textContent = "";
@@ -112,10 +116,42 @@ function renderToday() {
 
   document.getElementById("using-name").textContent = mine.name;
   document.getElementById("using-hunt").textContent = mine.hunt;
-  document.getElementById("using-tier").textContent = `${pack.tier} · 证据${pack.evidence}`;
+  document.getElementById("using-tier").textContent =
+    pack.evidence === "D" ? `${pack.tier} · 赛道判断` : `${pack.tier} · 证据${pack.evidence}`;
   document.getElementById("using-meta").textContent =
     `${mine.pitch} · ${mine.city || ""} · ${pack.evidenceNote || ""}`;
   document.getElementById("pack-title").textContent = `当时标题：${pack.title}`;
+
+  const demandBox = document.getElementById("demand");
+  const demandCard = document.getElementById("demand-card");
+  const demand = pack.demand;
+  if (demandBox && demandCard) {
+    if (demand && demand.who) {
+      demandCard.classList.remove("hidden");
+      const lines = (items) =>
+        (items || []).map((t) => `<p>${t}</p>`).join("");
+      demandBox.innerHTML = `
+        <div class="gap">
+          <p class="meta">截谁</p>
+          <p>${demand.who}</p>
+        </div>
+        <div class="gap">
+          <p class="meta">他会这么说</p>
+          ${lines(demand.say)}
+        </div>
+        <div class="gap">
+          <p class="meta">他在搜</p>
+          ${lines(demand.search)}
+        </div>
+        <div class="gap">
+          <p class="meta">别打谁</p>
+          ${lines(demand.skip)}
+        </div>`;
+    } else {
+      demandCard.classList.add("hidden");
+      demandBox.innerHTML = "";
+    }
+  }
 
   const open = document.getElementById("pack-open");
   if (pack.sharePath) {
@@ -138,23 +174,21 @@ function renderToday() {
     )
     .join("");
 
-  document.getElementById("copies").innerHTML = Object.entries(pack.copies || {})
-    .map(([group, lines]) => {
-      const items = lines
-        .map((text, i) => {
-          const key = `${pack.id}-${group}-${i}`;
-          const fb = (state.workspace.feedback || {})[key];
+  document.getElementById("copies").innerHTML = rankedCopies
+    .map((g) => {
+      const items = g.rows
+        .map((row) => {
           return `<div class="line">
-            <p>${text}</p>
+            <p>${row.text}</p>
             <div class="acts">
-              <button class="btn tiny ghost" data-copy="${encodeURIComponent(text)}">复制</button>
-              <button class="btn tiny ${fb === "replied" ? "on-yes" : "ghost"}" data-fb="${key}" data-val="replied">有回音</button>
-              <button class="btn tiny ${fb === "dead" ? "on-no" : "ghost"}" data-fb="${key}" data-val="dead">没反应</button>
+              <button class="btn tiny ghost" data-copy="${encodeURIComponent(row.text)}">复制</button>
+              <button class="btn tiny ${row.fb === "replied" ? "on-yes" : "ghost"}" data-fb="${row.key}" data-val="replied">有回音</button>
+              <button class="btn tiny ${row.fb === "dead" ? "on-no" : "ghost"}" data-fb="${row.key}" data-val="dead">没反应</button>
             </div>
           </div>`;
         })
         .join("");
-      return `<section class="plat" style="margin-top:10px"><h3>${group}<span>${lines.length} 条</span></h3>${items}</section>`;
+      return `<section class="plat" style="margin-top:10px"><h3>${g.group}<span>${g.replied ? `${g.replied} 条有回音` : `${g.rows.length} 条`}</span></h3>${items}</section>`;
     })
     .join("");
 
@@ -167,16 +201,15 @@ function renderToday() {
     )
     .join("");
 
-  document.getElementById("plats").innerHTML = Object.entries(pack.shells || {})
-    .map(([name, lines]) => {
-      const main = (pack.battlefields || []).includes(name);
-      const items = lines
+  document.getElementById("plats").innerHTML = rankShells(pack.shells, pack.battlefields)
+    .map((s) => {
+      const items = s.lines
         .map(
           (text) => `<div class="line"><p>${text}</p>
           <div class="acts"><button class="btn tiny ghost" data-copy="${encodeURIComponent(text)}">复制</button></div></div>`,
         )
         .join("");
-      return `<section class="plat"><h3>${name}<span>${main ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
+      return `<section class="plat"><h3>${s.name}<span>${s.main ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
     })
     .join("");
 
@@ -444,6 +477,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     body: JSON.stringify({
       hunt: document.getElementById("hunt").value,
       name: document.getElementById("cname").value,
+      city: document.getElementById("city")?.value || "",
       pitch: document.getElementById("pitch").value,
     }),
   });
@@ -454,7 +488,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
   }
   state.workspace = data;
   state.packId = "";
-  toast("已进你自己的本子");
+  toast("已建档并出快档");
   renderToday();
   renderLedger();
   nav("today");

@@ -30,14 +30,6 @@ function parseCookies(header) {
   return out;
 }
 
-function json(res, code, body, extra = {}) {
-  res.writeHead(code, {
-    "content-type": "application/json; charset=utf-8",
-    ...extra,
-  });
-  res.end(JSON.stringify(body));
-}
-
 function currentUser(req) {
   const sid = parseCookies(req.headers.cookie).falcon_sid;
   if (!sid) return null;
@@ -68,10 +60,58 @@ function requireAdmin(req, res) {
   return user;
 }
 
+const MAX_BODY = 64 * 1024;
+const buckets = new Map();
+
+function clientIp(req) {
+  return req.socket?.remoteAddress || "unknown";
+}
+
+function rateLimit(req, key, max, windowMs) {
+  const id = `${clientIp(req)}:${key}`;
+  const now = Date.now();
+  let b = buckets.get(id);
+  if (!b || now > b.reset) b = { n: 0, reset: now + windowMs };
+  b.n += 1;
+  buckets.set(id, b);
+  return b.n <= max;
+}
+
+function securityHeaders(extra = {}) {
+  const { cache, ...rest } = extra;
+  return {
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "same-origin",
+    "cache-control": cache || "no-store",
+    ...rest,
+  };
+}
+
+function json(res, code, body, extra = {}) {
+  res.writeHead(code, {
+    "content-type": "application/json; charset=utf-8",
+    ...securityHeaders(),
+    ...extra,
+  });
+  res.end(JSON.stringify(body));
+}
+
 function readBody(req) {
+  const declared = Number(req.headers["content-length"] || 0);
+  if (declared > MAX_BODY) return Promise.reject(new Error("请求太大"));
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", (c) => chunks.push(c));
+    let size = 0;
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > MAX_BODY) {
+        reject(new Error("请求太大"));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
     req.on("end", () => {
       const raw = Buffer.concat(chunks).toString("utf8");
       if (!raw) return resolve({});
@@ -99,12 +139,25 @@ const TYPES = {
   ".md": "text/markdown; charset=utf-8",
 };
 
+const ALLOW_FILES = new Set([
+  "/login.html",
+  "/register.html",
+  "/index.html",
+  "/pack.html",
+  "/pack-bochi.html",
+  "/pack-chengmei.html",
+]);
+const ALLOW_DIRS = ["/css/", "/js/", "/images/"];
+
 function safeFile(urlPath) {
-  const clean = decodeURIComponent(urlPath.split("?")[0]);
-  const rel = clean === "/" ? "/index.html" : clean;
-  const abs = path.normalize(path.join(ROOT, rel));
-  if (!abs.startsWith(ROOT)) return null;
-  if (abs.includes(`${path.sep}data${path.sep}`)) return null;
+  let clean = decodeURIComponent(urlPath.split("?")[0]);
+  if (clean === "/") clean = "/index.html";
+  if (clean.includes("..") || clean.includes("\0")) return null;
+  const allowed =
+    ALLOW_FILES.has(clean) || ALLOW_DIRS.some((dir) => clean.startsWith(dir));
+  if (!allowed) return null;
+  const abs = path.normalize(path.join(ROOT, clean));
+  if (!abs.startsWith(ROOT + path.sep) && abs !== ROOT) return null;
   return abs;
 }
 
@@ -116,6 +169,9 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/login") {
+    if (!rateLimit(req, "login", 8, 10 * 60 * 1000)) {
+      return json(res, 429, { error: "试的次数太多，过几分钟再来" });
+    }
     const body = await readBody(req);
     const result = loginOrBootstrap(body.email, body.password);
     if (result.error) return json(res, 400, { error: result.error });
@@ -135,6 +191,9 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/register") {
+    if (!rateLimit(req, "register", 5, 10 * 60 * 1000)) {
+      return json(res, 429, { error: "试的次数太多，过几分钟再来" });
+    }
     const body = await readBody(req);
     const result = register(body.email, body.password);
     if (result.error) return json(res, 400, { error: result.error });
@@ -284,6 +343,9 @@ async function handleApi(req, res, url) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
+    if (!rateLimit(req, "all", 120, 60 * 1000)) {
+      return json(res, 429, { error: "请求太频繁" });
+    }
     if (url.pathname.startsWith("/api/")) {
       await handleApi(req, res, url);
       return;
@@ -291,19 +353,25 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/index.html" || url.pathname === "/") {
       const user = currentUser(req);
       if (!user) {
-        res.writeHead(302, { location: "/login.html" });
+        res.writeHead(302, { location: "/login.html", ...securityHeaders() });
         res.end();
         return;
       }
     }
     const file = safeFile(url.pathname);
     if (!file || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-      res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+      res.writeHead(404, { "content-type": "text/plain; charset=utf-8", ...securityHeaders() });
       res.end("找不到");
       return;
     }
     const ext = path.extname(file);
-    res.writeHead(200, { "content-type": TYPES[ext] || "application/octet-stream" });
+    const cache = [".css", ".js", ".jpg", ".jpeg", ".png", ".webp", ".svg"].includes(ext)
+      ? "public, max-age=86400"
+      : "no-store";
+    res.writeHead(200, {
+      "content-type": TYPES[ext] || "application/octet-stream",
+      ...securityHeaders({ cache }),
+    });
     fs.createReadStream(file).pipe(res);
   } catch (err) {
     json(res, 500, { error: err.message || "服务器出错" });
