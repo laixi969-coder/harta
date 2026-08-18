@@ -1,0 +1,12 @@
+# 真实客户产出与台账不进版本管理 —— 本仓库是公开的
+leads/
+
+# 示例产出（虚构客户）在 examples/，是可以公开的
+
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+
+# 自指软链（ln -s 跑重复了产生的），不进版本管理
+/hiccai-pitch

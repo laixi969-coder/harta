@@ -1,0 +1,193 @@
+{
+  "_meta": {
+    "last_reviewed": "2026-08-13",
+    "source": "模型知识（训练数据截至 2026-05），非平台官方文档实时抓取",
+    "warning": "平台规格变动频繁，尤其字数上限。提案中引用任何具体数字前，必须提示客户以投放后台实时校验为准。宁可写『约 30 字』也不要写『严格 30 字』。",
+    "how_to_update": "只改本文件的数字即可，references/platforms.md 与 scripts/check_limits.py 都读它，方法层不用动。改完把 last_reviewed 换成当天日期。",
+    "confidence_legend": {
+      "high": "结构性事实或长期稳定的规格，基本不会变",
+      "medium": "常见数值，可能有小幅调整，用前扫一眼后台",
+      "low": "把握不大，必须核实后再写进提案"
+    }
+  },
+  "platforms": {
+    "juliang_feed": {
+      "name": "巨量引擎 · 信息流（抖音 / 今日头条 / 西瓜）",
+      "short": "巨量信息流",
+      "scene": "娱乐场景，用户在放松刷视频",
+      "engine_type": "留资型主战场",
+      "title_max": 30,
+      "title_confidence": "medium",
+      "title_note": "不同版位不同，30 字内较稳妥；前 10 字最关键，信息流会截断显示",
+      "video_ratio": [
+        "9:16",
+        "16:9",
+        "1:1"
+      ],
+      "video_primary": "9:16",
+      "video_size": "1080x1920",
+      "image_size": [
+        "1080x1920",
+        "1280x720",
+        "720x720"
+      ],
+      "spec_confidence": "high",
+      "conversion": [
+        "表单留资",
+        "电话拨打",
+        "微信复制",
+        "抖音号引流",
+        "应用下载"
+      ],
+      "fit_industries": "留资型全线：家装、教育、汽车、医美、招商、本地生活"
+    },
+    "qianchuan": {
+      "name": "巨量千川（抖音电商）",
+      "short": "千川",
+      "scene": "购物场景，用户已在电商心智里",
+      "engine_type": "成交型主战场",
+      "formats": {
+        "短视频带货": "用户在刷、没打算买。素材要完成全部五步销售",
+        "商品卡/货架": "用户在搜、已经想买。核心是主图+标题+价格，赢的是比价",
+        "直播间引流": "素材只负责把人送进直播间，**不要把销售讲完**——讲完了他为什么还进去。制造只有进直播间才能解决的悬念"
+      },
+      "format_note": "三种形态逻辑完全不同，最常见的错误是当成一件事。详见 references/selling.md",
+      "title_max": 30,
+      "title_confidence": "medium",
+      "title_note": "素材规格同巨量，但考核口径是 ROI 不是留资成本",
+      "video_ratio": [
+        "9:16"
+      ],
+      "video_primary": "9:16",
+      "video_size": "1080x1920",
+      "image_size": [
+        "1080x1920",
+        "800x800"
+      ],
+      "spec_confidence": "high",
+      "conversion": [
+        "商品购买",
+        "直播间引流",
+        "商品卡"
+      ],
+      "fit_industries": "成交型：快消、美妆、日用、服饰、食品"
+    },
+    "tencent_moments": {
+      "name": "腾讯广告 · 微信朋友圈",
+      "short": "朋友圈",
+      "scene": "社交场景。用户在看熟人动态，广告是打断——容忍度最低，广告感一重就被划走",
+      "engine_type": "留资型 / 品牌曝光",
+      "title_max": 40,
+      "title_confidence": "medium",
+      "title_note": "外层文案超出会被折叠成『全文』，关键信息必须放在折叠线之前",
+      "brand_name_max": 10,
+      "video_ratio": [
+        "9:16",
+        "1:1",
+        "16:9"
+      ],
+      "video_primary": "9:16",
+      "image_size": [
+        "800x800",
+        "1080x1920",
+        "1280x720"
+      ],
+      "spec_confidence": "medium",
+      "conversion": [
+        "表单留资",
+        "企微加好友",
+        "小程序",
+        "公众号关注",
+        "电话"
+      ],
+      "fit_industries": "高客单留资型：家装、教育、汽车、金融、房产。企微承接是朋友圈相对其他平台的最大优势"
+    },
+    "tencent_video_account": {
+      "name": "腾讯广告 · 视频号",
+      "short": "视频号",
+      "scene": "社交 + 内容混合场景，有社交关系链加持",
+      "engine_type": "留资型 / 成交型均可",
+      "title_max": 30,
+      "title_confidence": "low",
+      "video_ratio": [
+        "9:16"
+      ],
+      "video_primary": "9:16",
+      "video_size": "1080x1920",
+      "spec_confidence": "medium",
+      "conversion": [
+        "企微加好友",
+        "小程序",
+        "直播间",
+        "表单留资"
+      ],
+      "fit_industries": "中老年人群权重高于抖音：保健、保险、家装、本地生活"
+    },
+    "xiaohongshu_juguang": {
+      "name": "小红书 · 聚光",
+      "short": "小红书聚光",
+      "scene": "搜索 + 种草场景。用户在主动找答案，决策意图强于抖音",
+      "engine_type": "留资型 / 种草",
+      "title_max": 20,
+      "title_confidence": "medium",
+      "title_note": "标题超出会截断；小红书的标题即封面大字，权重极高",
+      "body_max": 1000,
+      "body_confidence": "medium",
+      "image_ratio": [
+        "3:4",
+        "1:1"
+      ],
+      "image_primary": "3:4",
+      "image_size": "1080x1440",
+      "spec_confidence": "high",
+      "conversion": [
+        "私信留资",
+        "表单",
+        "站外跳转",
+        "企微"
+      ],
+      "fit_industries": "女性决策主导品类：医美、母婴、家装软装、教育、本地生活、美妆",
+      "special_note": "广告感容忍度最低的平台。素材必须做成笔记形态，投放素材沿用信息流那套硬广会直接跑不动"
+    },
+    "kuaishou": {
+      "name": "快手 · 磁力引擎",
+      "short": "快手",
+      "scene": "熟人+老铁场景，信任驱动强，下沉市场权重高",
+      "engine_type": "留资型 / 成交型均可",
+      "title_max": 30,
+      "title_confidence": "low",
+      "video_ratio": [
+        "9:16"
+      ],
+      "video_primary": "9:16",
+      "video_size": "1080x1920",
+      "spec_confidence": "medium",
+      "conversion": [
+        "表单留资",
+        "电话",
+        "微信",
+        "商品购买"
+      ],
+      "fit_industries": "下沉市场与实体：本地生活、招商加盟、农业、建材、低客单快消"
+    },
+    "baidu_feed": {
+      "name": "百度信息流 / 搜索",
+      "short": "百度",
+      "scene": "搜索意图场景，用户带着明确问题来",
+      "engine_type": "留资型",
+      "title_max": 30,
+      "title_confidence": "low",
+      "image_size": [
+        "1280x720",
+        "1080x1920"
+      ],
+      "spec_confidence": "low",
+      "conversion": [
+        "表单留资",
+        "电话",
+        "在线咨询"
+      ],
+      "fit_industries": "高决策成本、用户会主动搜的：医美、教育、招商、法律、B2B"
+    }
+  }
+}

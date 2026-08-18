@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · Falcon</title>
+  <link rel="stylesheet" href="css/app.css">
+  <style>.login-wrap{max-width:420px;margin:10vh auto;padding:0 20px}</style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="hook">
+      <div class="k">Falcon</div>
+      <h1>登录获客工作台</h1>
+      <p class="meta">白名单里的邮箱才能注册。超级管理员首次登录输入的密码即以后的密码。</p>
+    </div>
+    <div class="tabs">
+      <a class="on" href="login.html">登录</a>
+      <a href="register.html">注册</a>
+    </div>
+    <form class="card form" id="form">
+      <label for="email">邮箱</label>
+      <input id="email" name="email" type="email" value="66445039@qq.com" autocomplete="username">
+      <label for="password">密码</label>
+      <div class="pass-wrap">
+        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="在这里输入">
+        <button type="button" class="eye" data-eye="password" aria-label="显示密码">显示</button>
+      </div>
+      <p id="err" class="meta" style="color:var(--down);min-height:1.4em;margin-top:10px"></p>
+      <div class="acts"><button class="btn" type="submit">登录</button></div>
+    </form>
+  </div>
+  <script type="module">
+    import { bindEyes } from "./js/eyes.js";
+    bindEyes();
+    document.getElementById("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const err = document.getElementById("err");
+      err.textContent = "";
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: document.getElementById("email").value,
+          password: document.getElementById("password").value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        err.textContent = data.error || "登录失败";
+        return;
+      }
+      location.href = "/";
+    });
+  </script>
+</body>
+</html>

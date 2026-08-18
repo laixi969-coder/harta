@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XX家装 · 测试样例｜获客素材提案</title>
+<style>
+:root{
+  --ink:#1a1a1a; --ink-2:#4a4a4a; --ink-3:#8a8a8a;
+  --line:#e6e6e6; --bg:#ffffff; --bg-2:#f7f7f5;
+  --warn:#c0392b; --warn-bg:#fdf4f3; --accent:#1a1a1a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",
+    "Microsoft YaHei","Source Han Sans SC",sans-serif;
+  color:var(--ink); background:var(--bg);
+  line-height:1.75; font-size:16px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:760px;margin:0 auto;padding:0 24px 80px}
+section{padding:56px 0;border-bottom:1px solid var(--line)}
+section:last-child{border-bottom:none}
+
+/* 封面 */
+.cover{padding:80px 0 64px;border-bottom:1px solid var(--line)}
+.cover .client{font-size:14px;color:var(--ink-3);letter-spacing:.08em;margin-bottom:20px}
+.cover h1{font-size:34px;line-height:1.35;font-weight:700;letter-spacing:-.01em}
+.cover .sub{margin-top:20px;font-size:16px;color:var(--ink-2)}
+.cover .meta{margin-top:36px;font-size:13px;color:var(--ink-3)}
+.cover-img{width:100%;height:auto;border-radius:4px;margin-top:32px;display:block}
+
+h2{font-size:13px;font-weight:600;letter-spacing:.14em;color:var(--ink-3);
+   text-transform:uppercase;margin-bottom:28px}
+h3{font-size:22px;font-weight:700;margin:0 0 16px;line-height:1.45}
+p{margin:0 0 16px;color:var(--ink-2)}
+p strong,li strong{color:var(--ink);font-weight:600}
+
+/* 缺口卡片 */
+.gap{background:var(--bg-2);border-left:3px solid var(--warn);
+     padding:28px 28px 12px;margin-bottom:24px;border-radius:0 4px 4px 0}
+.gap h3{color:var(--ink)}
+.gap .label{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.1em;
+  color:var(--warn);background:var(--warn-bg);padding:4px 10px;border-radius:3px;
+  margin-bottom:14px}
+.gap dl{margin:0}
+.gap dt{font-size:13px;font-weight:600;color:var(--ink);margin-top:18px}
+.gap dd{margin:6px 0 0;color:var(--ink-2)}
+.evidence{font-size:13px;color:var(--ink-3);border-top:1px dashed var(--line);
+  margin-top:20px;padding:14px 0;font-style:normal}
+
+/* 素材文案 */
+.copy-group{margin-bottom:32px}
+.copy-group h4{font-size:14px;font-weight:600;color:var(--ink-3);margin-bottom:14px}
+ol.copies{list-style:none;counter-reset:c}
+ol.copies li{counter-increment:c;position:relative;padding:14px 0 14px 44px;
+  border-bottom:1px solid var(--line);font-size:17px;color:var(--ink);line-height:1.6}
+ol.copies li::before{content:counter(c,decimal-leading-zero);position:absolute;left:0;top:16px;
+  font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+/* 成品图 */
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:8px}
+.shots figure{margin:0}
+.shots img{width:100%;height:auto;display:block;border-radius:4px;border:1px solid var(--line)}
+.shots figcaption{font-size:12px;color:var(--ink-3);margin-top:8px;line-height:1.5}
+
+/* 分镜表 */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:28px}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;font-weight:600;color:var(--ink-3);white-space:nowrap;
+   background:var(--bg-2);letter-spacing:.04em}
+td{color:var(--ink-2)}
+
+/* 报价锚 */
+.anchors{margin:0 0 28px}
+.anchor{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid var(--line)}
+.anchor .n{flex:0 0 28px;font-size:12px;color:var(--ink-3);padding-top:4px;
+  font-variant-numeric:tabular-nums}
+.anchor .t{flex:1}
+.anchor .t b{display:block;font-size:15px;color:var(--ink);margin-bottom:4px}
+.anchor .t span{font-size:15px;color:var(--ink-2)}
+.offer{background:var(--ink);color:#fff;padding:28px;border-radius:4px;margin-top:8px}
+.offer .k{font-size:12px;letter-spacing:.12em;opacity:.6;margin-bottom:10px}
+.offer .v{font-size:26px;font-weight:700;line-height:1.4}
+.offer .d{margin-top:14px;font-size:14px;opacity:.85;line-height:1.7}
+
+/* 下一步 */
+.next{background:var(--bg-2);padding:32px;border-radius:4px}
+.next h3{margin-bottom:12px}
+.next p:last-child{margin-bottom:0}
+
+footer{padding:40px 0 0;font-size:12px;color:var(--ink-3);line-height:1.8}
+
+@media (max-width:600px){
+  body{font-size:15px}
+  .wrap{padding:0 18px 56px}
+  .cover{padding:52px 0 40px}
+  .cover h1{font-size:26px}
+  section{padding:40px 0}
+  .gap{padding:22px 20px 10px}
+  h3{font-size:19px}
+  ol.copies li{font-size:16px}
+  .offer{padding:22px}
+  .offer .v{font-size:22px}
+}
+@media print{
+  body{font-size:11pt}
+  .wrap{max-width:100%;padding:0}
+  section{padding:24pt 0;break-inside:avoid}
+  .gap,.offer,.next,figure,table{break-inside:avoid}
+  h3{break-after:avoid}
+  a{text-decoration:none;color:inherit}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 1 · 封面：只放标题和客户名，不放公司介绍 -->
+  <header class="cover">
+    <div class="client">XX家装 · 测试样例</div>
+    <h1>你在卖美，客户在怕坑</h1>
+    <p class="sub">关于老房翻新获客素材的三个缺口，以及 15 条可以直接拍的素材。</p>
+    <div class="meta">2026-08-13　｜　⚠️ 本文件为 skill 验证样例，非真实客户提案</div>
+    <!-- 提案封面图（由 hiccai-title-pic 生成，1920×1080）；不用可整行删除 -->
+    <img class="cover-img" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIwIDEwODAiPjxyZWN0IHdpZHRoPSIxOTIwIiBoZWlnaHQ9IjEwODAiIGZpbGw9IiNlOGU2ZTEiLz48dGV4dCB4PSI1MCUiIHk9IjQ3JSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTA2IiBmaWxsPSIjOWM5NjhjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7mj5DmoYjlsIHpnaLvvIh0aXRsZS1waWMg55Sf5oiQ77yJPC90ZXh0Pjx0ZXh0IHg9IjUwJSIgeT0iNTMlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSI2OCIgZmlsbD0iI2I4YjJhOCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+MTkyMHgxMDgwIOWNoOS9jTwvdGV4dD48L3N2Zz4=" alt="">
+  </header>
+
+  <!-- 2 · 诊断：先疼。开门见山，不铺垫 -->
+  <section>
+    <h2>我们看到的</h2>
+
+    <div class="gap">
+      <span class="label">缺口一</span>
+      <h3>作品视角</h3>
+      <dl>
+        <dt>现状</dt><dd>你们的素材主流在讲设计理念、施工工艺、完工效果——回答的是「好不好看」。而这个赛道跑量素材的前 3 秒，绝大多数在讲报价陷阱、增项、避坑——客户真正在问的是「我会不会被宰」。</dd>
+        <dt>代价</dt><dd>钩子错位的损失发生在前 3 秒，素材根本没被送出去。按家装留资成本 400–800 元/条估算，月投 8 万大约每月多花 1.5–2 万买同样的线索量。<strong>这个数字是估的</strong>——你们后台如果明显更好，说明落地页在救场。</dd>
+        <dt>为什么改不动</dt><dd>这不是文案能力问题。装修公司的素材通常由设计师顺手产出，他们的专业训练是「呈现作品」，不是「接住恐惧」。让一个以作品为荣的设计师去讲这行有多少坑，是反职业本能的——他会本能觉得那是自曝家丑。<strong>所以这个缺口不会因为换个文案、开个会就闭合。</strong></dd>
+      </dl>
+      <p class="evidence">证据级别：跑量素材的比例是我们的经验判断，不是抓取统计。你们手上如果有近 30 天的竞品素材，给我们 10 条，这条能升级成带数据的对比。</p>
+    </div>
+
+    <div class="gap">
+      <span class="label">缺口二</span>
+      <h3>素材断供</h3>
+      <dl>
+        <dt>现状</dt><dd>装修公司的典型素材产能是设计师兼职做，一周稳定 2 条；而信息流素材的有效期是 5–7 天。供给节奏 2 条/周，衰减节奏 1 条/5 天——<strong>每周净欠</strong>。</dd>
+        <dt>代价</dt><dd>欠的部分不是「少投了」，是「在用跑废的素材继续投」——CTR 已经掉下去，钱照烧。这部分是纯损耗，不产生线索。</dd>
+        <dt>为什么改不动</dt><dd>这是结构问题不是努力问题。要补上缺口需要稳定周产 5–7 条的产能，按现在的模式意味着专职招 1–2 个人，月成本 1.5–3 万，且从招到能出活要 2–3 个月。<strong>而这两三个月里，缺口每天都在扩大。</strong></dd>
+      </dl>
+      <p class="evidence">证据级别：产能与衰减周期为行业经验值，非贵司实测数据。</p>
+    </div>
+
+    <div class="gap">
+      <span class="label">缺口三</span>
+      <h3>老房当新房打</h3>
+      <dl>
+        <dt>现状</dt><dd>老房翻新的消费者，恐惧结构和新房完全不同：新房怕增项和效果，老房还多怕三样——怕动到承重墙、怕拆开才知道的意外、怕邻居投诉停工。但你们的老房素材仍在沿用新房那套讲效果、讲设计。<strong>手上最独特的恐惧资产，一条都没用。</strong></dd>
+        <dt>代价</dt><dd>差异化没建立起来，就只能回到价格上竞争。老房翻新本来是决策更慎重、更愿意为「稳」付溢价的人群，用新房打法去接，等于主动放弃溢价空间。</dd>
+        <dt>为什么改不动</dt><dd>在多数公司里，老房翻新是新房业务的附属品类，共用一套素材模板、一套话术、一个内容负责人。<strong>它没有独立的内容策略，不是因为没人想到，是因为它在组织里没有独立的位置。</strong></dd>
+      </dl>
+      <p class="evidence">证据级别：组织归因为我们的判断，基于同类企业的普遍结构，非对贵司内部的了解。</p>
+    </div>
+
+    <p>在广州做老房翻新这个定位是对的。老城区存量房大、新房增量有限，这是顺着城市阶段走的选择。<strong>问题不在定位，在于定位选对了，但内容还在用通用打法。</strong></p>
+  </section>
+
+  <!-- 3 · 方法：点到为止，篇幅必须短于诊断。不要提 AI -->
+  <section>
+    <h2>我们会怎么做</h2>
+    <p>把素材的出发点从「呈现作品」换成「接住恐惧」：先用行业里真实存在的风险点做钩子，再用你们能证明的东西收口。产能上按批次稳定供给，让新素材的补充速度跟得上衰减速度。老房翻新单独立一套内容线——新房打法接不住的那三种恐惧，正好是你们的差异化。</p>
+  </section>
+
+  <!-- 4 · 样品：篇幅最大。眼见为实 -->
+  <section>
+    <h2>样品 · 素材文案</h2>
+    <div class="copy-group">
+      <h4>A 组 · 报价陷阱</h4>
+      <ol class="copies">
+        <li>老房翻新的报价单，有 4 项是纯纯的坑，第 3 项最狠</li>
+        <li>同样 90 平老房，为什么有人报 8 万、有人报 25 万——差的不是材料</li>
+      </ol>
+    </div>
+    <div class="copy-group">
+      <h4>C 组 · 老房风险（别人不敢讲）</h4>
+      <ol class="copies">
+        <li>广州 80 年代的老房，这堵墙千万别拆</li>
+        <li>老房翻新最贵的不是设计，是拆出来的意外</li>
+        <li>老房水电用了 30 年不换会怎样——我拆开了一套</li>
+        <li>老房动工前不做这一件事，可能被邻居投诉到停工</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>样品 · 成品图</h2>
+    <div class="shots">
+      <figure><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDgwIDE5MjAiPjxyZWN0IHdpZHRoPSIxMDgwIiBoZWlnaHQ9IjE5MjAiIGZpbGw9IiNlOGU2ZTEiLz48dGV4dCB4PSI1MCUiIHk9IjQ3JSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNjAiIGZpbGw9IiM5Yzk2OGMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPuaKpeS7t+WNlei/mSA0IOmhueaYr+WdkTwvdGV4dD48dGV4dCB4PSI1MCUiIHk9IjUzJSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMzgiIGZpbGw9IiNiOGIyYTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiPjEwODB4MTkyMCDljaDkvY08L3RleHQ+PC9zdmc+" alt=""><figcaption>报价单这 4 项是坑</figcaption></figure>
+      <figure><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDgwIDE5MjAiPjxyZWN0IHdpZHRoPSIxMDgwIiBoZWlnaHQ9IjE5MjAiIGZpbGw9IiNlOGU2ZTEiLz48dGV4dCB4PSI1MCUiIHk9IjQ3JSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNjAiIGZpbGw9IiM5Yzk2OGMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPui/meWgteWimeWNg+S4h+WIq+aLhjwvdGV4dD48dGV4dCB4PSI1MCUiIHk9IjUzJSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMzgiIGZpbGw9IiNiOGIyYTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiPjEwODB4MTkyMCDljaDkvY08L3RleHQ+PC9zdmc+" alt=""><figcaption>这堵墙千万别拆</figcaption></figure>
+      <figure><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDgwIDE5MjAiPjxyZWN0IHdpZHRoPSIxMDgwIiBoZWlnaHQ9IjE5MjAiIGZpbGw9IiNlOGU2ZTEiLz48dGV4dCB4PSI1MCUiIHk9IjQ3JSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNjAiIGZpbGw9IiM5Yzk2OGMiIHRleHQtYW5jaG9yPSJtaWRkbGUiPuWQiOWQjDEy5LiH5YGa5a6MMTjkuIc8L3RleHQ+PHRleHQgeD0iNTAlIiB5PSI1MyUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjM4IiBmaWxsPSIjYjhiMmE4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4xMDgweDE5MjAg5Y2g5L2NPC90ZXh0Pjwvc3ZnPg==" alt=""><figcaption>合同12万做完18万</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>样品 · 分镜脚本</h2>
+    <h3>第 3 条：广州 80 年代的老房，这堵墙千万别拆</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>时间</th><th>景别/运镜</th><th>画面</th><th>台词/文案</th><th>情绪</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>0-3s</td><td>特写/急推</td><td>手电筒照在一道有裂纹的墙面上，手指敲击发出空响</td><td>「广州 80 年代的老房，这堵墙千万别拆」</td><td>压低声音，像在提醒</td></tr>
+          <tr><td>3-15s</td><td>中景/手持</td><td>走进正在拆除的老房现场，镜头扫过裸露的红砖与老管线</td><td>「去年有户人家把这面墙敲了，整栋楼的验收报告全部重做」</td><td>叙述，节奏加快</td></tr>
+          <tr><td>15-30s</td><td>近景/固定</td><td>翻出原始图纸，用红笔圈出承重墙位置</td><td>「分辨方法只有一个：看原始图纸的填充，别信施工队的口头判断」</td><td>给干货，语速放慢</td></tr>
+          <tr><td>End</td><td>特写/定格</td><td>红笔圈定格</td><td>「你家是哪一年的房子，评论区打出来」</td><td>戛然而止</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 5 · 报价：先立锚，再报价 -->
+  <section>
+    <h2>怎么投</h2>
+    <div class="anchors">
+      <div class="anchor"><div class="n">01</div><div class="t">
+        <b>主战场</b><span>巨量信息流拉量 + 朋友圈打高客单人群。家装决策周期长，企微能长期培育，这是朋友圈相对巨量最大的优势。百度不能漏——装修是典型的主动搜索品类。</span></div></div>
+      <div class="anchor"><div class="n">02</div><div class="t">
+        <b>测试路径</b><span>先测钩子，再测画面，最后测收口。第一批建议用「报价陷阱」与「老房风险」两组钩子对打，同一条画面只换前 3 秒，跑满学习期再判断——这样才知道是哪个钩子在起作用。</span></div></div>
+      <div class="anchor"><div class="n">03</div><div class="t">
+        <b>补给节奏</b><span>按在跑素材数 ÷ 素材有效期计算：若同时在跑 10 条、平均有效期 5 天，每周需补 14 条。你们目前的产能是每周 2 条。</span></div></div>
+    </div>
+    <p style="font-size:14px;color:var(--ink-3)">出价和定向让你们代运营定，我们负责让他们有好素材可投。</p>
+  </section>
+
+  <!-- 6 · 报价 -->
+  <section>
+    <h2>怎么合作</h2>
+    <div class="anchors">
+      <div class="anchor"><div class="n">01</div><div class="t">
+        <b>不改的成本</b><span>按前面估算，钩子错位大约让你每月多花 1.5–2 万买同样的线索量。</span></div></div>
+      <div class="anchor"><div class="n">02</div><div class="t">
+        <b>自己补这个产能</b><span>要自己补上这个产能，需要专职 1–2 人，月成本 1.5–3 万，从招到能稳定出活 2–3 个月。这期间缺口每天都在扩大。</span></div></div>
+    </div>
+    <div class="offer">
+      <div class="k">起步试单</div>
+      <div class="v">首批 15 条素材　8,000 元</div>
+      <div class="d">含 15 条素材文案 + 5 张竖版成品图 + 3 条分镜脚本，7 个工作日交付。跑满 7 天后对比同期存量素材的 CTR 与留资成本；若两项均无改善，第二批免费重做。</div>
+    </div>
+    <p style="margin-top:20px;font-size:14px;color:var(--ink-3)">
+      长期供给按月度用量核算，跑完首批再谈——先用数据说话。
+    </p>
+  </section>
+
+  <!-- 6 · 下一步：一个免费、具体、有时间点的动作 -->
+  <section>
+    <div class="next">
+      <h3>下一步</h3>
+      <p>给我们 10 条你们现在在投的素材，三个工作日内把「作品视角」这一条升级成带数据的逐条对比，不收费。或者从这 15 条里挑 3 条最敢拍的，先拍出来测数据。</p>
+    </div>
+  </section>
+
+  <footer>
+    —<br>
+    文中留资成本、产能、衰减周期均为行业估算值，非贵司实测数据，欢迎用你们的后台数字修正。
+  </footer>
+
+</div>
+</body>
+</html>
