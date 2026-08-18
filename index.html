@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>猎鹰增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260818">
+  <link rel="stylesheet" href="css/app.css?v=20260818d">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -125,7 +125,7 @@
             <option>口腔</option><option>本地高客单</option>
           </select>
           <label for="cname">客户名</label>
-          <input id="cname" placeholder="公司 / 机构 / 诊所">
+          <input id="cname" required placeholder="公司 / 机构 / 诊所">
           <label for="city">城市</label>
           <input id="city" placeholder="广州">
           <label for="pitch">一句话卖点</label>
@@ -164,12 +164,12 @@
           <label for="old-pass">旧密码</label>
           <div class="pass-wrap">
             <input id="old-pass" type="password" autocomplete="current-password">
-            <button type="button" class="eye" data-eye="old-pass" aria-label="显示密码">显示</button>
+            <button type="button" class="eye" data-eye="old-pass" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
           </div>
           <label for="new-pass">新密码</label>
           <div class="pass-wrap">
             <input id="new-pass" type="password" autocomplete="new-password" placeholder="至少 6 位">
-            <button type="button" class="eye" data-eye="new-pass" aria-label="显示密码">显示</button>
+            <button type="button" class="eye" data-eye="new-pass" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
           </div>
           <div class="acts"><button class="btn" id="change-pass" type="button">更改密码</button></div>
         </article>

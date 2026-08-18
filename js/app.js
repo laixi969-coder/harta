@@ -13,7 +13,7 @@ function toast(t) {
   el.textContent = t;
   el.classList.remove("hidden");
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.classList.add("hidden"), 2400);
+  toast._t = setTimeout(() => el.classList.add("hidden"), 3200);
 }
 
 function applyTheme() {
@@ -92,7 +92,7 @@ function renderToday() {
         (p) => `<button type="button" data-pack="${p.id}" class="${p.id === (pack && pack.id) ? "on" : ""}">
         <span class="when">${p.deliveredAt || p.createdAt}</span>
         <span class="what">${p.title || p.tier}</span>
-        <span class="tag">${p.tier} · ${copyCount(p)} 条</span>
+        <span class="meta">${p.tier} · ${copyCount(p)} 条</span>
       </button>`,
       )
       .join("");
@@ -202,8 +202,8 @@ function renderToday() {
               </div>
               <div class="slip-step">
                 <span class="slip-k">用过之后</span>
-                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${row.key}" data-val="replied">有回音</button>
-                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${row.key}" data-val="dead">没反应</button>
+                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${row.key}" data-val="replied" aria-pressed="${row.fb === "replied" ? "true" : "false"}">${row.fb === "replied" ? "已记有回音" : "有回音"}</button>
+                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${row.key}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${row.fb === "dead" ? "已记没反应" : "没反应"}</button>
               </div>
             </div>
           </div>`;
@@ -274,9 +274,8 @@ function renderChase(chase) {
     ? chase
         .map(
           (c) => `<div class="row">
-      <div><strong>${c.name}</strong><div class="meta">${c.hunt} · 已出 ${packsOf(c).length} 份</div></div>
-      <div><span class="tag">${c.pitch || "未写卖点"}</span></div>
-      <button type="button" class="do" data-using="${c.id}">先用这位</button>
+      <div><strong>${c.name}</strong><div class="meta">${c.hunt} · 已出 ${packsOf(c).length} 份 · ${c.pitch || "未写卖点"}</div></div>
+      <button type="button" class="go" data-using="${c.id}">先用这位</button>
     </div>`,
         )
         .join("")
@@ -300,13 +299,9 @@ function renderCustomers() {
           return `<div class="row">
         <div>
           <strong>${c.name}</strong>
-          <div class="meta">${c.hunt}${using ? " · 先用" : ""}</div>
+          <div class="meta">${c.hunt}${using ? " · 先用" : ""} · ${packs.length ? `已出 ${packs.length} 份` : "还没出档"}${latest ? ` · ${latest.deliveredAt || latest.createdAt}` : ""}</div>
         </div>
-        <div>
-          <span class="tag">${packs.length ? `已出 ${packs.length} 份` : "还没出档"}</span>
-          ${latest ? `<div class="meta">${latest.deliveredAt || latest.createdAt} · ${latest.tier}</div>` : ""}
-        </div>
-        <button type="button" class="do" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这位"}</button>
+        <button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这位"}</button>
       </div>`;
         })
         .join("")
@@ -325,10 +320,9 @@ function renderPackIndex() {
           ({ customer, pack }) => `<div class="row">
       <div>
         <strong>${customer.name}</strong>
-        <div class="meta">${pack.deliveredAt || pack.createdAt} · ${pack.tier}</div>
+        <div class="meta">${pack.deliveredAt || pack.createdAt} · ${pack.tier} · ${pack.title || ""}</div>
       </div>
-      <div class="meta">${pack.title || ""}</div>
-      <button type="button" class="do" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>
+      <button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>
     </div>`,
         )
         .join("")
@@ -462,9 +456,11 @@ async function loadUsers() {
     list.innerHTML = (data.whitelist || [])
       .map(
         (email) => `<div class="row">
-        <div><strong>${email}</strong></div>
-        <div class="meta">${email === "66445039@qq.com" ? "不可移除" : ""}</div>
-        <button type="button" class="textish" data-white-del="${email}" ${email === "66445039@qq.com" ? "disabled" : ""}>移出</button>
+        <div>
+          <strong>${email}</strong>
+          ${email === "66445039@qq.com" ? `<div class="meta">不可移除</div>` : ""}
+        </div>
+        <button type="button" class="go" data-white-del="${email}" ${email === "66445039@qq.com" ? "disabled" : ""}>移出</button>
       </div>`,
       )
       .join("");
@@ -519,6 +515,8 @@ document.getElementById("add-white")?.addEventListener("click", async () => {
 document.getElementById("create-customer")?.addEventListener("click", async () => {
   const btn = document.getElementById("create-customer");
   btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "正在建档…";
   try {
     const res = await fetch("/api/customers", {
       method: "POST",
@@ -534,6 +532,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     if (!res.ok) {
       toast(data.error || "建档失败");
       btn.disabled = false;
+      btn.textContent = old;
       return;
     }
     state.workspace = data;
@@ -546,6 +545,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     toast("网络不通，请再试");
   }
   btn.disabled = false;
+  btn.textContent = old;
 });
 
 document.getElementById("change-pass")?.addEventListener("click", async () => {

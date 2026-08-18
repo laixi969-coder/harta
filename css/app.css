@@ -79,12 +79,13 @@ html {
   overflow-x: clip;
   scrollbar-color: var(--border) transparent;
   scrollbar-width: thin;
+  -webkit-text-size-adjust: 100%;
 }
 body {
   font-family: var(--font-ui);
   color: var(--ink-1);
   line-height: 1.6;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 400;
   font-kerning: normal;
   background:
@@ -123,6 +124,7 @@ body::before {
 }
 
 a { color: inherit; text-decoration: none; }
+button, a, .do, .go, .eye, .verdict, .textish { touch-action: manipulation; }
 
 .skip {
   position: absolute;
@@ -229,6 +231,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
   box-shadow: none;
   border-left-color: var(--accent-2);
 }
+.rail #nav-logout {
+  margin-top: 16px;
+  border-top: 1px solid color-mix(in oklch, var(--rail-ink) 18%, transparent);
+}
 .rail .foot {
   margin-top: auto;
   padding: 16px 12px 4px;
@@ -242,7 +248,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   min-width: 0;
   padding: 0 0 88px;
   background: transparent;
-  animation: rise 720ms var(--ease) both;
+  animation: rise 400ms var(--ease) both;
 }
 .mast {
   height: 92px;
@@ -310,7 +316,7 @@ section[data-view] { padding: 0 56px; }
   border-bottom: 1px solid var(--border);
   background: transparent;
   color: inherit;
-  padding: 12px 0;
+  padding: 16px 0;
   cursor: pointer;
   border-radius: 0;
 }
@@ -335,7 +341,7 @@ section[data-view] { padding: 0 56px; }
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 28px 0 8px;
+  padding: 24px 0 8px;
   box-shadow: none;
   margin-bottom: 8px;
   backdrop-filter: none;
@@ -626,6 +632,7 @@ section[data-view] { padding: 0 56px; }
   box-shadow: inset 0 -1px 0 transparent;
 }
 .verdict:hover { color: var(--ink-1); }
+.verdict:active { transform: scale(0.98); }
 .verdict.on-yes { color: var(--up); box-shadow: inset 0 -1px 0 var(--up); }
 .verdict.on-no { color: var(--down); box-shadow: inset 0 -1px 0 var(--down); }
 
@@ -686,8 +693,8 @@ section[data-view] { padding: 0 56px; }
 .chase { display: grid; gap: 0; }
 .chase .row {
   display: grid;
-  grid-template-columns: 1.4fr 1fr auto;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
   align-items: center;
   padding: 14px 0;
   border-radius: 0;
@@ -695,15 +702,29 @@ section[data-view] { padding: 0 56px; }
   border-bottom: 1px solid var(--border);
 }
 .tag {
-  display: inline-block;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  padding: 3px 8px;
-  border-radius: 0;
+  display: inline;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  padding: 0;
+  border: 0;
   background: transparent;
-  color: var(--accent);
-  border: 1px solid color-mix(in oklch, var(--accent) 45%, var(--border));
+  color: var(--ink-3);
 }
+.go {
+  border: 0;
+  background: transparent;
+  color: var(--ink-1);
+  font-weight: 600;
+  font-size: 0.88rem;
+  min-height: 44px;
+  padding: 0;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: inset 0 -1px 0 transparent;
+}
+.go:hover { color: var(--accent); box-shadow: inset 0 -1px 0 var(--rule); }
+.go:active { transform: scale(0.98); }
+.go:disabled { opacity: 0.4; cursor: not-allowed; }
 
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--border); }
@@ -727,11 +748,13 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .form > label:first-of-type { margin-top: 4px; }
 .form input, .form select, .form textarea {
   width: 100%;
-  padding: 10px 0;
+  min-height: 44px;
+  padding: 12px 0;
   border: 0;
   border-bottom: 1px solid var(--border);
   background: transparent;
   border-radius: 0;
+  font-size: 1rem;
 }
 .form input:focus, .form select:focus, .form textarea:focus,
 .form input:focus-visible, .form select:focus-visible, .form textarea:focus-visible {
@@ -740,6 +763,13 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   box-shadow: 0 1px 0 var(--accent);
 }
 .form textarea { min-height: 90px; }
+.form input:-webkit-autofill,
+.form input:-webkit-autofill:hover,
+.form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink-1);
+  box-shadow: 0 0 0 1000px var(--bg) inset;
+  caret-color: var(--accent);
+}
 
 /* ——— 甲方包裹 ——— */
 .pack {
@@ -749,7 +779,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   padding: 64px 40px 112px;
   min-height: 100dvh;
   box-shadow: var(--paper-shadow);
-  animation: rise 720ms var(--ease) both;
+  animation: rise 400ms var(--ease) both;
 }
 .pack .letterhead {
   display: flex;
@@ -800,20 +830,27 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .eye {
   position: absolute;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
-  min-width: 44px;
+  width: 44px;
   height: 44px;
+  padding: 0;
   border-radius: 0;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  line-height: 1;
+  line-height: 0;
 }
-.eye:hover { color: var(--ink-1); }
+.eye svg { display: block; }
+.eye:hover, .eye.is-on { color: var(--ink-1); }
+.eye:focus-visible {
+  outline: none;
+  color: var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
 .tabs {
   display: flex;
   gap: 24px;
@@ -883,7 +920,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   background: var(--bg);
   max-width: 38rem;
   box-shadow: -28px 0 56px oklch(24% 0.03 70 / 0.08);
-  animation: rise 720ms var(--ease) both;
+  animation: rise 400ms var(--ease) both;
 }
 .gate-form .hook {
   border-bottom: 0;
@@ -907,7 +944,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .rail nav { flex-direction: row; flex-wrap: wrap; }
   .rail a, .rail button.linkish { width: auto; min-width: 64px; }
   .rail .foot { display: none; }
-  .plats, .chase .row,
+  .plats,
   .folio, .folio-3, .field-grid, .sleeve-fields { grid-template-columns: 1fr; }
   .folio-cell,
   .folio-cell:nth-child(2n),
@@ -925,7 +962,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .sleeve-fields .full { grid-column: auto; }
   .line-row { grid-template-columns: 1fr; }
   .line-row .do { justify-self: start; }
-  .topbar, section[data-view] { padding-left: 20px; padding-right: 20px; }
+  .topbar, section[data-view] { padding-left: 16px; padding-right: 16px; }
   .tools { width: 100%; }
   .tools .btn { flex: 1; }
   .hook h1 { max-width: none; }
@@ -944,7 +981,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   to { opacity: 1; transform: none; }
 }
 .card, .hook, .win {
-  animation: rise 680ms var(--ease) both;
+  animation: rise 360ms var(--ease) both;
 }
 .card:nth-of-type(1) { animation-delay: 40ms; }
 .card:nth-of-type(2) { animation-delay: 80ms; }

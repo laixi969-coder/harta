@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>登录 · 猎鹰增长</title>
-  <link rel="stylesheet" href="css/app.css?v=20260818">
+  <link rel="stylesheet" href="css/app.css?v=20260818d">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -34,11 +34,11 @@
       </div>
       <form class="form" id="form">
         <label for="email">邮箱</label>
-        <input id="email" name="email" type="email" autocomplete="username" placeholder="白名单邮箱">
+        <input id="email" name="email" type="email" autocomplete="username" required placeholder="白名单邮箱">
         <label for="password">密码</label>
         <div class="pass-wrap">
-          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="在这里输入">
-          <button type="button" class="eye" data-eye="password" aria-label="显示密码">显示</button>
+          <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="在这里输入">
+          <button type="button" class="eye" data-eye="password" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
         </div>
         <p id="err" class="meta" role="alert" style="color:var(--down);min-height:1.4em;margin-top:16px"></p>
         <div class="acts"><button class="btn" type="submit">进入</button></div>
@@ -54,6 +54,7 @@
       const btn = e.target.querySelector("[type=submit]");
       err.textContent = "";
       btn.disabled = true;
+      btn.textContent = "正在进入…";
       try {
         const res = await fetch("/api/login", {
           method: "POST",
@@ -67,12 +68,17 @@
         if (!res.ok) {
           err.textContent = data.error || "登录失败";
           btn.disabled = false;
+          btn.textContent = "进入";
+          const email = document.getElementById("email");
+          (email.value ? document.getElementById("password") : email).focus();
           return;
         }
         location.href = "/";
       } catch {
         err.textContent = "网络不通，请再试";
         btn.disabled = false;
+        btn.textContent = "进入";
+        document.getElementById("email").focus();
       }
     });
   </script>
