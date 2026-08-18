@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>注册 · Falcon</title>
+  <title>注册 · 猎鹰增长</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
   <script>
     (function () {
@@ -20,8 +20,8 @@
   <div class="gate">
     <aside class="gate-panel">
       <div>
-        <p class="mark">Falcon</p>
-        <p class="gate-sub">获客工作台</p>
+        <img class="logo" src="images/logo-on-dark.png" width="1163" height="321" alt="猎鹰增长 Falcon">
+        <p class="brand-line">助力线索｜引流｜获客</p>
       </div>
       <p class="gate-line">内部使用 · 各账各册</p>
     </aside>
@@ -58,6 +58,7 @@
     document.getElementById("form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const err = document.getElementById("err");
+      const btn = e.target.querySelector("[type=submit]");
       err.textContent = "";
       const password = document.getElementById("password").value;
       const password2 = document.getElementById("password2").value;
@@ -65,20 +66,27 @@
         err.textContent = "两次密码不一致";
         return;
       }
-      const res = await fetch("/api/register", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email: document.getElementById("email").value,
-          password,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        err.textContent = data.error || "注册失败";
-        return;
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/register", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            email: document.getElementById("email").value,
+            password,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          err.textContent = data.error || "注册失败";
+          btn.disabled = false;
+          return;
+        }
+        location.href = "/";
+      } catch {
+        err.textContent = "网络不通，请再试";
+        btn.disabled = false;
       }
-      location.href = "/";
     });
   </script>
 </body>

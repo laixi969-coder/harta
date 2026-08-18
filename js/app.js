@@ -471,27 +471,35 @@ document.getElementById("add-white")?.addEventListener("click", async () => {
 });
 
 document.getElementById("create-customer")?.addEventListener("click", async () => {
-  const res = await fetch("/api/customers", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      hunt: document.getElementById("hunt").value,
-      name: document.getElementById("cname").value,
-      city: document.getElementById("city")?.value || "",
-      pitch: document.getElementById("pitch").value,
-    }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    toast(data.error || "建档失败");
-    return;
+  const btn = document.getElementById("create-customer");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/customers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        hunt: document.getElementById("hunt").value,
+        name: document.getElementById("cname").value,
+        city: document.getElementById("city")?.value || "",
+        pitch: document.getElementById("pitch").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || "建档失败");
+      btn.disabled = false;
+      return;
+    }
+    state.workspace = data;
+    state.packId = "";
+    toast("已建档并出快档");
+    renderToday();
+    renderLedger();
+    nav("today");
+  } catch {
+    toast("网络不通，请再试");
   }
-  state.workspace = data;
-  state.packId = "";
-  toast("已建档并出快档");
-  renderToday();
-  renderLedger();
-  nav("today");
+  btn.disabled = false;
 });
 
 document.getElementById("change-pass")?.addEventListener("click", async () => {

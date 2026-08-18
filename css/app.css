@@ -2,9 +2,8 @@
  * 纸面、墨色、黄铜印记。图是信头，不是壁纸。 */
 
 :root {
-  --font-mark: "Cormorant Garamond", "Noto Serif SC", "Songti SC", serif;
-  --font-display: "Noto Serif SC", "Songti SC", "Source Han Serif SC", serif;
-  --font-ui: "Noto Sans SC", "Source Sans 3", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-ui: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-display: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
 
   --page: oklch(96.4% 0.012 88);
   --bg: oklch(98.4% 0.007 88);
@@ -122,25 +121,27 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding-bottom: 20px;
   border-bottom: 1px solid color-mix(in oklch, var(--rail-ink) 22%, transparent);
 }
-.brand .mark,
-.mark {
-  font-family: var(--font-mark);
-  font-weight: 500;
-  font-size: 1.65rem;
-  letter-spacing: 0.22em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-.brand small,
-.gate-sub {
+.logo {
   display: block;
-  font-family: var(--font-ui);
-  font-weight: 400;
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  color: var(--rail-ink);
-  margin-top: 10px;
+  width: 168px;
+  height: auto;
+  aspect-ratio: 1163 / 321;
 }
+.gate-panel .logo { width: min(260px, 72%); }
+.pack .letterhead .logo { width: 148px; }
+.brand-line {
+  margin-top: 10px;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--rail-ink);
+  white-space: nowrap;
+}
+.gate-panel .brand-line { color: oklch(90% 0.018 88); }
+.pack .brand-line { color: var(--ink-3); letter-spacing: 0.08em; }
+.brand small,
+.gate-sub,
+.brand .mark,
+.mark { display: none; }
 .rail a, .rail button.linkish {
   display: flex;
   align-items: center;
@@ -223,7 +224,7 @@ section[data-view] { padding: 0 48px; }
   font-family: var(--font-display);
   font-size: clamp(1.55rem, 2.2vw, 2.05rem);
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.02em;
   line-height: 1.35;
   text-wrap: balance;
   max-width: 22em;
@@ -333,8 +334,9 @@ section[data-view] { padding: 0 48px; }
   letter-spacing: 0.06em;
   font-size: 0.84rem;
   min-height: 40px;
-  transition: background 140ms var(--ease), color 140ms var(--ease), border-color 140ms var(--ease);
+  transition: background 140ms var(--ease), color 140ms var(--ease), border-color 140ms var(--ease), opacity 140ms var(--ease);
 }
+.btn:active { opacity: 0.84; }
 .btn:hover { background: color-mix(in oklch, var(--ink-1) 88%, var(--accent)); }
 .btn.gold {
   background: transparent;
@@ -425,12 +427,11 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .pack .letterhead {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: flex-end;
   padding-bottom: 16px;
   margin-bottom: 28px;
   border-bottom: 1px solid var(--rule);
 }
-.pack .letterhead .mark { font-size: 1.15rem; letter-spacing: 0.28em; }
 .pack .letterhead span {
   font-size: 0.72rem;
   letter-spacing: 0.16em;
@@ -442,6 +443,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   font-weight: 600;
   margin: 12px 0 20px;
   line-height: 1.35;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 .pack h2 {
@@ -484,6 +486,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   letter-spacing: 0.08em;
   line-height: 1;
 }
+.eye:hover { color: var(--ink-1); }
 .tabs {
   display: flex;
   gap: 24px;
@@ -498,6 +501,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   letter-spacing: 0.14em;
   font-size: 0.8rem;
 }
+.tabs a:hover { color: var(--ink-1); }
 .tabs a.on {
   background: transparent;
   color: var(--ink-1);
@@ -534,8 +538,6 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
     linear-gradient(180deg, oklch(18% 0.02 80 / 0.58) 0%, oklch(20% 0.02 80 / 0.28) 42%, oklch(16% 0.02 80 / 0.55) 100%),
     var(--photo) center / cover no-repeat;
 }
-.gate-panel .mark { font-size: 2rem; }
-.gate-panel .gate-sub { color: oklch(90% 0.02 88); letter-spacing: 0.28em; }
 .gate-line {
   font-size: 0.72rem;
   letter-spacing: 0.18em;
@@ -580,6 +582,8 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .mast { height: 48px; }
   .gate { grid-template-columns: 1fr; }
   .gate-panel { min-height: 148px; padding: 28px 24px; }
+  .logo { width: 148px; }
+  .brand-line { letter-spacing: 0.04em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
