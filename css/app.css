@@ -550,6 +550,8 @@ section[data-view] { padding: 0 56px; }
   align-items: start;
 }
 .field-grid-one { grid-template-columns: minmax(0, 36rem); }
+/* 带正文的平台横跨两栏：小红书的正文挤在窄栏里没法读 */
+.field-col-wide { grid-column: 1 / -1; margin-top: 8px; }
 .field-col { min-width: 0; }
 .field-col-quiet .plat { opacity: 0.92; }
 .plats {
@@ -603,6 +605,8 @@ section[data-view] { padding: 0 56px; }
 }
 .line:first-child { padding-top: 10px; }
 .line p { color: var(--ink-1); font-size: 1rem; text-wrap: pretty; }
+/* 小红书正文的分行是内容的一部分，复制出去带换行，预览也得看得出来 */
+.asis { white-space: pre-line; }
 .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .acts-inline {
   display: flex;

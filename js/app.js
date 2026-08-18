@@ -238,6 +238,11 @@ function renderToday() {
         (r) => `<div class="line"><p><b>红线</b> ${r.words.join("、")} · ${r.where}</p>
           <p class="meta">${r.text}</p></div>`,
       ),
+      ...(c.watch || []).map(
+        (r) => `<div class="line"><p><b>看一眼</b> ${r.words.join("、")} · ${r.where}</p>
+          <p class="meta">这个词要看语境。是在教客户怎么问就没事，是在打包票就得改</p>
+          <p class="meta">${r.text}</p></div>`,
+      ),
       ...(c.length || []).map(
         (r) => `<div class="line"><p><b>${r.level === "hard" ? "发不出去" : "会有代价"}</b> ${r.platform} · ${r.field} 约 ${r.max} 字，这条 ${r.n} 字</p>
           <p class="meta">${r.why || ""}</p>
@@ -313,7 +318,7 @@ function renderToday() {
         const rows = present
           .map(
             (f) => `<div class="line-row"${present.length > 1 ? ' style="margin-top:8px"' : ""}>
-              <div>${present.length > 1 ? `<p class="field-k">${f.label}</p>` : ""}<p>${item[f.key]}</p></div>
+              <div>${present.length > 1 ? `<p class="field-k">${f.label}</p>` : ""}<p${f.key === "body" ? ' class="asis"' : ""}>${item[f.key]}</p></div>
               <button type="button" class="do" data-copy="${encodeURIComponent(item[f.key])}">复制</button>
             </div>`,
           )
@@ -324,11 +329,23 @@ function renderToday() {
     return `<section class="plat ${kind}"><h3>${s.name}<span>${kind === "is-main" ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
   };
   const platBox = document.getElementById("plats");
-  if (mains.length && extras.length) {
+  // 有正文的平台（小红书、朋友圈折叠后）塞进窄栏会挤成一条，
+  // 单独占满整行。窄栏只放一句话的平台。
+  const hasBody = (s) =>
+    (s.lines || []).some((raw) => typeof raw === "object" && raw && raw.body);
+  const wide = extras.filter(hasBody);
+  const narrow = extras.filter((s) => !hasBody(s));
+  if (mains.length && narrow.length) {
     platBox.className = "field-grid";
     platBox.innerHTML = `
       <div class="field-col">${mains.map((s) => platBlock(s, "is-main")).join("")}</div>
-      <div class="field-col field-col-quiet">${extras.map((s) => platBlock(s, "is-shell")).join("")}</div>`;
+      <div class="field-col field-col-quiet">${narrow.map((s) => platBlock(s, "is-shell")).join("")}</div>
+      ${wide.length ? `<div class="field-col field-col-quiet field-col-wide">${wide.map((s) => platBlock(s, "is-shell")).join("")}</div>` : ""}`;
+  } else if (mains.length && wide.length) {
+    platBox.className = "field-grid field-grid-one";
+    platBox.innerHTML = `
+      <div class="field-col">${mains.map((s) => platBlock(s, "is-main")).join("")}</div>
+      <div class="field-col field-col-quiet">${wide.map((s) => platBlock(s, "is-shell")).join("")}</div>`;
   } else {
     platBox.className = "field-grid field-grid-one";
     const only = mains.length ? mains : extras;
