@@ -11,6 +11,7 @@ import {
   loginOrBootstrap,
   register,
   removeFromWhitelist,
+  resetPassword,
 } from "./lib/auth.mjs";
 import { addCustomProvider, publicLlm, removeProvider, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
 import { addCustomer, addLedger, editLine, findShared, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
@@ -335,6 +336,14 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/users") {
     if (!requireAdmin(req, res)) return;
+    return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist() });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/users/reset") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const result = resetPassword(body.email);
+    if (result.error) return json(res, 400, { error: result.error });
     return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist() });
   }
 

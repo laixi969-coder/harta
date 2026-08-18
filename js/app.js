@@ -342,6 +342,32 @@ function renderToday() {
     .map((b) => `<article class="note"><h3>${b.copy}</h3><p>${b.why}</p></article>`)
     .join("")}</div>`;
 
+  const landingCard = document.getElementById("landing-card");
+  if (landingCard) {
+    const l = pack.landing;
+    landingCard.classList.toggle("hidden", !l?.firstScreen);
+    if (l?.firstScreen) {
+      document.getElementById("landing").innerHTML = `<div class="sleeves">
+        <article class="sleeve sleeve-across">
+          <div class="sleeve-tab"><span>第一屏那句话</span><span>${l.way || ""}</span></div>
+          <div class="sleeve-body">
+            <div class="line slip">
+              <p class="line-text">${l.firstScreen}</p>
+              <div class="slip-bar"><div class="slip-step">
+                <button type="button" class="do" data-copy="${encodeURIComponent(l.firstScreen)}">复制这句</button>
+              </div></div>
+            </div>
+            <div class="sleeve-fields">
+              <div><p class="field-k">留了资立刻给</p><p>${l.reward || ""}</p></div>
+              <div><p class="field-k">表单只问</p><p>${(l.form || []).join("；") || "没写"}</p></div>
+              ${l.leak ? `<div class="full"><p class="field-k">最常漏在这</p><p>${l.leak}</p></div>` : ""}
+            </div>
+          </div>
+        </article>
+      </div>`;
+    }
+  }
+
   const shells = rankShells(pack.shells, pack.battlefields);
   const mains = shells.filter((s) => s.main);
   const extras = shells.filter((s) => !s.main);
@@ -668,7 +694,10 @@ async function loadUsers() {
           <strong>${email}</strong>
           <div class="meta">${state}</div>
         </div>
-        ${locked ? "" : `<button type="button" class="go" data-white-del="${email}">移出</button>`}
+        <div class="acts-inline">
+          ${role && !locked ? `<button type="button" class="go" data-white-reset="${email}">重设密码</button>` : ""}
+          ${locked ? "" : `<button type="button" class="go" data-white-del="${email}">移出</button>`}
+        </div>
       </div>`;
       })
       .join("");
@@ -946,6 +975,21 @@ document.body.addEventListener("click", async (e) => {
 });
 
 document.body.addEventListener("click", async (e) => {
+  const reset = e.target.closest("[data-white-reset]");
+  if (reset) {
+    const email = reset.dataset.whiteReset;
+    // 抹掉密码不是小事，问一句。抹完他登录不了，得自己回注册页重设
+    if (!confirm(`把 ${email} 的密码抹掉？他要自己回注册页重新设一个。客户和历史出档不会丢。`)) return;
+    const res = await fetch("/api/users/reset", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    toast(res.ok ? `${email} 的密码已抹掉，让他去注册页重新设` : data.error || "重设失败");
+    if (res.ok) loadUsers();
+    return;
+  }
   const save = e.target.closest("[data-llm-save]");
   const sync = e.target.closest("[data-llm-sync]");
   const test = e.target.closest("[data-llm-test]");
