@@ -1,51 +1,262 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-18T03:10:00+08:00",
+  "generatedAt": "2026-08-18T05:20:00+08:00",
   "title": "Design System: Falcon 猎鹰增长 · 获客工作台",
   "extensions": {
     "colorMeta": {
-      "page":   { "role": "neutral", "displayName": "象牙纸", "canonical": "oklch(95.6% 0.016 86)", "dark": "oklch(18% 0.012 80)", "tonalRamp": ["oklch(15% 0.012 86)","oklch(26% 0.014 86)","oklch(38% 0.016 86)","oklch(52% 0.018 86)","oklch(66% 0.018 86)","oklch(80% 0.017 86)","oklch(95.6% 0.016 86)","oklch(99% 0.008 86)"] },
-      "bg":     { "role": "neutral", "displayName": "函纸", "canonical": "oklch(97.8% 0.01 88)", "dark": "oklch(21% 0.012 78)", "tonalRamp": ["oklch(15% 0.01 88)","oklch(26% 0.01 88)","oklch(38% 0.01 88)","oklch(52% 0.01 88)","oklch(66% 0.01 88)","oklch(82% 0.01 88)","oklch(97.8% 0.01 88)","oklch(99.4% 0.006 88)"] },
-      "border": { "role": "neutral", "displayName": "灰细线", "canonical": "oklch(80% 0.022 82)", "dark": "oklch(34% 0.018 78)", "tonalRamp": ["oklch(15% 0.022 82)","oklch(27% 0.022 82)","oklch(39% 0.022 82)","oklch(52% 0.022 82)","oklch(66% 0.022 82)","oklch(80% 0.022 82)","oklch(90% 0.016 82)","oklch(96% 0.01 82)"] },
-      "ink-1":  { "role": "neutral", "displayName": "墨", "canonical": "oklch(22% 0.018 75)", "dark": "oklch(93% 0.014 88)", "tonalRamp": ["oklch(15% 0.018 75)","oklch(22% 0.018 75)","oklch(34% 0.02 75)","oklch(47% 0.02 75)","oklch(60% 0.02 75)","oklch(73% 0.018 75)","oklch(86% 0.014 75)","oklch(95% 0.01 75)"] },
-      "ink-2":  { "role": "neutral", "displayName": "淡墨", "canonical": "oklch(38% 0.02 72)", "dark": "oklch(78% 0.02 85)" },
-      "ink-3":  { "role": "neutral", "displayName": "铅灰", "canonical": "oklch(38% 0.022 70)", "dark": "oklch(72% 0.02 85)" },
-      "wash":   { "role": "neutral", "displayName": "上缘纸", "canonical": "oklch(97.2% 0.014 88)", "dark": "oklch(19% 0.012 80)" },
-      "accent": { "role": "primary", "displayName": "黄铜印记", "canonical": "oklch(48% 0.072 76)", "dark": "oklch(70% 0.07 80)", "tonalRamp": ["oklch(15% 0.05 76)","oklch(26% 0.06 76)","oklch(37% 0.07 76)","oklch(48% 0.072 76)","oklch(60% 0.08 76)","oklch(72% 0.07 76)","oklch(84% 0.05 76)","oklch(94% 0.028 76)"] },
-      "rule":   { "role": "primary", "displayName": "黄铜棱", "canonical": "oklch(58% 0.09 76)", "dark": "oklch(68% 0.07 80)" },
-      "accent-2":    { "role": "primary", "displayName": "亮铜", "canonical": "oklch(62% 0.09 80)", "dark": "oklch(74% 0.08 82)" },
-      "accent-soft": { "role": "primary", "displayName": "铜晕", "canonical": "oklch(92% 0.03 82)", "dark": "oklch(28% 0.03 78)" },
-      "on-accent":   { "role": "primary", "displayName": "铜上字", "canonical": "oklch(97% 0.01 88)", "dark": "oklch(18% 0.012 80)" },
-      "rail":            { "role": "secondary", "displayName": "漆木", "canonical": "oklch(21% 0.014 58)", "dark": "oklch(14% 0.01 80)", "tonalRamp": ["oklch(12% 0.012 58)","oklch(21% 0.014 58)","oklch(32% 0.016 58)","oklch(44% 0.018 58)","oklch(57% 0.018 58)","oklch(70% 0.016 58)","oklch(84% 0.012 58)","oklch(94% 0.008 58)"] },
-      "rail-ink":        { "role": "secondary", "displayName": "漆上字", "canonical": "oklch(78% 0.018 95)", "dark": "oklch(70% 0.02 85)" },
-      "rail-ink-active": { "role": "secondary", "displayName": "漆上当前项", "canonical": "oklch(96% 0.01 88)", "dark": "oklch(94% 0.012 88)" },
-      "up":   { "role": "tertiary", "displayName": "有回音", "canonical": "oklch(40% 0.07 160)", "dark": "oklch(72% 0.06 160)" },
-      "down": { "role": "tertiary", "displayName": "别打谁", "canonical": "oklch(42% 0.12 25)", "dark": "oklch(68% 0.1 25)" },
-      "on-photo":   { "role": "neutral", "displayName": "图上白字", "canonical": "oklch(96% 0.01 88)" },
-      "on-photo-2": { "role": "neutral", "displayName": "图上次字", "canonical": "oklch(88% 0.02 88)" }
+      "page": {
+        "role": "neutral",
+        "displayName": "象牙纸",
+        "canonical": "oklch(95.6% 0.016 86)",
+        "dark": "oklch(18% 0.012 80)",
+        "tonalRamp": [
+          "oklch(15% 0.012 86)",
+          "oklch(26% 0.014 86)",
+          "oklch(38% 0.016 86)",
+          "oklch(52% 0.018 86)",
+          "oklch(66% 0.018 86)",
+          "oklch(80% 0.017 86)",
+          "oklch(95.6% 0.016 86)",
+          "oklch(99% 0.008 86)"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "函纸",
+        "canonical": "oklch(97.8% 0.01 88)",
+        "dark": "oklch(21% 0.012 78)",
+        "tonalRamp": [
+          "oklch(15% 0.01 88)",
+          "oklch(26% 0.01 88)",
+          "oklch(38% 0.01 88)",
+          "oklch(52% 0.01 88)",
+          "oklch(66% 0.01 88)",
+          "oklch(82% 0.01 88)",
+          "oklch(97.8% 0.01 88)",
+          "oklch(99.4% 0.006 88)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "灰细线",
+        "canonical": "oklch(80% 0.022 82)",
+        "dark": "oklch(34% 0.018 78)",
+        "tonalRamp": [
+          "oklch(15% 0.022 82)",
+          "oklch(27% 0.022 82)",
+          "oklch(39% 0.022 82)",
+          "oklch(52% 0.022 82)",
+          "oklch(66% 0.022 82)",
+          "oklch(80% 0.022 82)",
+          "oklch(90% 0.016 82)",
+          "oklch(96% 0.01 82)"
+        ]
+      },
+      "ink-1": {
+        "role": "neutral",
+        "displayName": "墨",
+        "canonical": "oklch(22% 0.018 75)",
+        "dark": "oklch(93% 0.014 88)",
+        "tonalRamp": [
+          "oklch(15% 0.018 75)",
+          "oklch(22% 0.018 75)",
+          "oklch(34% 0.02 75)",
+          "oklch(47% 0.02 75)",
+          "oklch(60% 0.02 75)",
+          "oklch(73% 0.018 75)",
+          "oklch(86% 0.014 75)",
+          "oklch(95% 0.01 75)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "淡墨",
+        "canonical": "oklch(38% 0.02 72)",
+        "dark": "oklch(78% 0.02 85)"
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "铅灰",
+        "canonical": "oklch(38% 0.022 70)",
+        "dark": "oklch(72% 0.02 85)"
+      },
+      "wash": {
+        "role": "neutral",
+        "displayName": "上缘纸",
+        "canonical": "oklch(97.2% 0.014 88)",
+        "dark": "oklch(19% 0.012 80)"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "黄铜印记",
+        "canonical": "oklch(48% 0.072 76)",
+        "dark": "oklch(70% 0.07 80)",
+        "tonalRamp": [
+          "oklch(15% 0.05 76)",
+          "oklch(26% 0.06 76)",
+          "oklch(37% 0.07 76)",
+          "oklch(48% 0.072 76)",
+          "oklch(60% 0.08 76)",
+          "oklch(72% 0.07 76)",
+          "oklch(84% 0.05 76)",
+          "oklch(94% 0.028 76)"
+        ]
+      },
+      "rule": {
+        "role": "primary",
+        "displayName": "黄铜棱",
+        "canonical": "oklch(58% 0.09 76)",
+        "dark": "oklch(68% 0.07 80)"
+      },
+      "accent-2": {
+        "role": "primary",
+        "displayName": "亮铜",
+        "canonical": "oklch(62% 0.09 80)",
+        "dark": "oklch(74% 0.08 82)"
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "铜晕",
+        "canonical": "oklch(92% 0.03 82)",
+        "dark": "oklch(28% 0.03 78)"
+      },
+      "on-accent": {
+        "role": "primary",
+        "displayName": "铜上字",
+        "canonical": "oklch(97% 0.01 88)",
+        "dark": "oklch(18% 0.012 80)"
+      },
+      "rail": {
+        "role": "secondary",
+        "displayName": "漆木",
+        "canonical": "oklch(21% 0.014 58)",
+        "dark": "oklch(14% 0.01 80)",
+        "tonalRamp": [
+          "oklch(12% 0.012 58)",
+          "oklch(21% 0.014 58)",
+          "oklch(32% 0.016 58)",
+          "oklch(44% 0.018 58)",
+          "oklch(57% 0.018 58)",
+          "oklch(70% 0.016 58)",
+          "oklch(84% 0.012 58)",
+          "oklch(94% 0.008 58)"
+        ]
+      },
+      "rail-ink": {
+        "role": "secondary",
+        "displayName": "漆上字",
+        "canonical": "oklch(78% 0.018 95)",
+        "dark": "oklch(70% 0.02 85)"
+      },
+      "rail-ink-active": {
+        "role": "secondary",
+        "displayName": "漆上当前项",
+        "canonical": "oklch(96% 0.01 88)",
+        "dark": "oklch(94% 0.012 88)"
+      },
+      "up": {
+        "role": "tertiary",
+        "displayName": "有回音",
+        "canonical": "oklch(40% 0.07 160)",
+        "dark": "oklch(72% 0.06 160)"
+      },
+      "down": {
+        "role": "tertiary",
+        "displayName": "别打谁",
+        "canonical": "oklch(42% 0.12 25)",
+        "dark": "oklch(68% 0.1 25)"
+      },
+      "on-photo": {
+        "role": "neutral",
+        "displayName": "图上白字",
+        "canonical": "oklch(96% 0.01 88)"
+      },
+      "on-photo-2": {
+        "role": "neutral",
+        "displayName": "图上次字",
+        "canonical": "oklch(88% 0.02 88)"
+      },
+      "panel-2": {
+        "role": "neutral",
+        "displayName": "字段底",
+        "canonical": "oklch(93.4% 0.018 86)",
+        "dark": "oklch(24% 0.014 76)"
+      }
     },
     "typographyMeta": {
-      "display":  { "displayName": "页面标题", "purpose": "每页只有一句。固定字号，不用 clamp()。" },
-      "headline": { "displayName": "区块标题", "purpose": "「该截的需求」「缺口」「文案」这一级。" },
-      "title":    { "displayName": "条目标题", "purpose": "缺口名、文案组名、历史档标题。" },
-      "body":     { "displayName": "正文", "purpose": "文案原句与段落。长文段 65–75ch。" },
-      "dense":    { "displayName": "紧凑正文", "purpose": "纸格内正文、侧栏导航。" },
-      "meta":     { "displayName": "档案体 meta", "purpose": "说明句、账号、条数、控件文字。等宽 + tabular-nums。" },
-      "label":    { "displayName": "档案体标签", "purpose": "字段名、缺口编号、表头、信头、章节名。宽字距。" }
+      "display": {
+        "displayName": "页面标题",
+        "purpose": "每页只有一句。固定字号，不用 clamp()。"
+      },
+      "headline": {
+        "displayName": "区块标题",
+        "purpose": "「该截的需求」「缺口」「文案」这一级。"
+      },
+      "title": {
+        "displayName": "条目标题",
+        "purpose": "缺口名、文案组名、历史档标题。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "文案原句与段落。长文段 65–75ch。"
+      },
+      "dense": {
+        "displayName": "紧凑正文",
+        "purpose": "纸格内正文、侧栏导航。"
+      },
+      "meta": {
+        "displayName": "档案体 meta",
+        "purpose": "说明句、账号、条数、控件文字。等宽 + tabular-nums。"
+      },
+      "label": {
+        "displayName": "档案体标签",
+        "purpose": "字段名、缺口编号、表头、信头、章节名。宽字距。"
+      }
     },
     "shadows": [
-      { "name": "paper-shadow", "value": "0 1px 0 oklch(100% 0.01 88 / 0.55), 0 18px 40px -28px oklch(28% 0.03 70 / 0.28)", "purpose": "纸边。只用于甲方包裹和提示条这类「一张纸」。深色下换成 0 1px 0 oklch(100% 0.01 88 / 0.04), 0 24px 48px -32px oklch(0% 0 0 / 0.55)。" },
-      { "name": "gate-sheet", "value": "-28px 0 56px oklch(24% 0.03 70 / 0.08)", "purpose": "纸侧。登录页右侧那张纸压在照片立面上的侧边。整站仅此一处。" },
-      { "name": "none", "value": "none", "purpose": "其余一切。卡片、按钮、弹层、悬停一律无投影。" }
+      {
+        "name": "paper-shadow",
+        "value": "0 1px 0 oklch(100% 0.01 88 / 0.55), 0 18px 40px -28px oklch(28% 0.03 70 / 0.28)",
+        "purpose": "纸边。只用于甲方包裹和提示条这类「一张纸」。深色下换成 0 1px 0 oklch(100% 0.01 88 / 0.04), 0 24px 48px -32px oklch(0% 0 0 / 0.55)。"
+      },
+      {
+        "name": "gate-sheet",
+        "value": "-28px 0 56px oklch(24% 0.03 70 / 0.08)",
+        "purpose": "纸侧。登录页右侧那张纸压在照片立面上的侧边。整站仅此一处。"
+      },
+      {
+        "name": "none",
+        "value": "none",
+        "purpose": "其余一切。卡片、按钮、弹层、悬停一律无投影。"
+      }
     ],
     "motion": [
-      { "name": "ease", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "唯一缓动。指数型 ease-out，无回弹、无弹性。" },
-      { "name": "state", "value": "160ms", "purpose": "导航项、颜色态切换。" },
-      { "name": "control", "value": "180ms", "purpose": "按钮底色、边框、按下缩放。" },
-      { "name": "press", "value": "scale(0.98)", "purpose": "按下反馈。永不改变尺寸或投影。" }
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "唯一缓动。指数型 ease-out，无回弹、无弹性。"
+      },
+      {
+        "name": "state",
+        "value": "160ms",
+        "purpose": "导航项、颜色态切换。"
+      },
+      {
+        "name": "control",
+        "value": "180ms",
+        "purpose": "按钮底色、边框、按下缩放。"
+      },
+      {
+        "name": "press",
+        "value": "scale(0.98)",
+        "purpose": "按下反馈。永不改变尺寸或投影。"
+      }
     ],
     "breakpoints": [
-      { "name": "narrow", "value": "860px" }
+      {
+        "name": "narrow",
+        "value": "860px"
+      }
     ],
     "grain": {
       "value": "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.28  0 0 0 0 0.18  0 0 0 0.22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
@@ -86,12 +297,12 @@
       "css": ".ds-verdict-k { font-size: 0.72rem; letter-spacing: 0.12em; color: var(--ink-3, #6b6157); font-family: ui-monospace, 'SF Mono', Menlo, 'Noto Sans SC', monospace; margin-right: 14px; } .ds-verdict { border: 0; background: transparent; color: var(--ink-2, #5c5347); padding: 8px 0; min-height: 44px; min-width: 44px; margin-right: 14px; border-radius: 0; font-size: 0.84rem; letter-spacing: 0.04em; font-family: ui-monospace, 'SF Mono', Menlo, 'Noto Sans SC', monospace; cursor: pointer; box-shadow: inset 0 -1px 0 var(--border, #c9bfae); } .ds-verdict:hover { color: var(--ink-1, #2b2419); box-shadow: inset 0 -1px 0 var(--ink-2, #5c5347); } .ds-verdict:focus-visible { outline: 2px solid var(--accent, #8a6a2f); outline-offset: 3px; } .ds-verdict:active { transform: scale(0.98); } .ds-verdict-on { color: var(--up, #3d6b4f); box-shadow: inset 0 -1px 0 var(--up, #3d6b4f); }"
     },
     {
-      "name": "下划线输入框",
+      "name": "填色输入框",
       "kind": "input",
-      "refersTo": "input-underline",
-      "description": "无框无底，只有一条 1px 细下划线。聚焦转黄铜，不发光不换底色。",
+      "refersTo": "input-field",
+      "description": "极淡填色，不画线。下划线字段在十五个字段时会把纸变成横格本。",
       "html": "<label class=\"ds-label\" for=\"ds-i\">客户名</label><input class=\"ds-input\" id=\"ds-i\" placeholder=\"公司 / 机构 / 诊所\">",
-      "css": ".ds-label { display: block; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em; margin: 0 0 6px; color: var(--ink-2, #5c5347); font-family: ui-monospace, 'SF Mono', Menlo, 'Noto Sans SC', monospace; } .ds-input { width: 100%; min-height: 44px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--border, #c9bfae); background: transparent; border-radius: 0; font-size: 1rem; color: var(--ink-1, #2b2419); font-family: 'Noto Sans SC', 'PingFang SC', sans-serif; } .ds-input::placeholder { color: var(--ink-3, #6b6157); opacity: 1; } .ds-input:focus { outline: none; border-bottom-color: var(--accent, #8a6a2f); box-shadow: 0 1px 0 var(--accent, #8a6a2f); }"
+      "css": ".ds-label { display: block; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em; margin: 0 0 6px; color: var(--ink-2, #5c5347); font-family: ui-monospace, 'SF Mono', Menlo, 'Noto Sans SC', monospace; } .ds-input { width: 100%; min-height: 44px; padding: 11px 14px; border: 1px solid transparent; background: var(--panel-2, #ece7dd); border-radius: 2px; font-size: 1rem; color: var(--ink-1, #2b2419); font-family: 'Noto Sans SC', 'PingFang SC', sans-serif; transition: background 160ms, border-color 160ms; } .ds-input::placeholder { color: var(--ink-3, #6b6157); opacity: 1; } .ds-input:hover { border-color: var(--border, #c9bfae); } .ds-input:focus { outline: none; background: var(--bg, #faf8f3); border-color: var(--accent, #8a6a2f); }"
     },
     {
       "name": "侧栏导航项",
@@ -130,13 +341,46 @@
       "深浅两套同一套制度，只换纸色，不换性格"
     ],
     "rules": [
-      { "name": "The 四材料规则", "body": "纸、墨、黄铜、漆木。任何新界面上出现第五种材料（尤其是蓝、紫、青绿、荧光）都是错的。语义色只有两个：有回音的绿、别打谁的红，各自只有一个用途，用完即止。", "section": "colors" },
-      { "name": "The 黄铜是印记规则", "body": "黄铜只出现在三处：标识、当前项、关键分割线。它永远是线或字，永远不是块。一屏上黄铜的总面积超过 2% 就是滥用。", "section": "colors" },
-      { "name": "The 换纸不换性格规则", "body": "深浅两套共用同一套 token 名、同一套结构、同一套间距。切换主题只换纸色和漆色，不换圆角、不换字重、不换动效、不换任何一处布局。", "section": "colors" },
-      { "name": "The 六级规则", "body": "字号只有 --t-1 到 --t-6 加正文 1rem。写新组件时从这七个里挑，挑不到就说明层级设计错了，回去改层级，不要加第八个字号。", "section": "typography" },
-      { "name": "The 档案体规则", "body": "凡是「可以被抄进台账的东西」，日期、编号、金额、条数、档位、字段名，一律走档案体。凡是「人说的话」，标题、文案、说明，一律走思源黑。判断标准是这行字会不会被人一列列地扫。", "section": "typography" },
-      { "name": "The 无盒子规则", "body": "禁止 box-shadow 作为卡片、按钮、弹层、悬停态的装饰。质感靠纸纹、漆面和黄铜棱线。悬停反馈用颜色和 1px 下划线，不用抬起。", "section": "elevation" },
-      { "name": "The 竖条禁令", "body": "禁止任何超过 1px 的彩色左/右竖条（包括用 inset box-shadow 假装的）。要标记「这一组重要」，用横向黄铜棱线加粗到 2px、用标签文字、用留白，或者什么都不用。唯一豁免是侧栏当前项的 2px 竖标，它标的是导航位置。", "section": "elevation" }
+      {
+        "name": "The 四材料规则",
+        "body": "纸、墨、黄铜、漆木。任何新界面上出现第五种材料（尤其是蓝、紫、青绿、荧光）都是错的。语义色只有两个：有回音的绿、别打谁的红，各自只有一个用途，用完即止。",
+        "section": "colors"
+      },
+      {
+        "name": "The 黄铜是印记规则",
+        "body": "黄铜只出现在三处：标识、当前项、关键分割线。它永远是线或字，永远不是块。一屏上黄铜的总面积超过 2% 就是滥用。",
+        "section": "colors"
+      },
+      {
+        "name": "The 换纸不换性格规则",
+        "body": "深浅两套共用同一套 token 名、同一套结构、同一套间距。切换主题只换纸色和漆色，不换圆角、不换字重、不换动效、不换任何一处布局。",
+        "section": "colors"
+      },
+      {
+        "name": "The 六级规则",
+        "body": "字号只有 --t-1 到 --t-6 加正文 1rem。写新组件时从这七个里挑，挑不到就说明层级设计错了，回去改层级，不要加第八个字号。",
+        "section": "typography"
+      },
+      {
+        "name": "The 档案体规则",
+        "body": "凡是「可以被抄进台账的东西」，日期、编号、金额、条数、档位、字段名，一律走档案体。凡是「人说的话」，标题、文案、说明，一律走思源黑。判断标准是这行字会不会被人一列列地扫。",
+        "section": "typography"
+      },
+      {
+        "name": "The 无盒子规则",
+        "body": "禁止 box-shadow 作为卡片、按钮、弹层、悬停态的装饰。质感靠纸纹、漆面和黄铜棱线。悬停反馈用颜色和 1px 下划线，不用抬起。",
+        "section": "elevation"
+      },
+      {
+        "name": "The 竖条禁令",
+        "body": "禁止任何超过 1px 的彩色左/右竖条（包括用 inset box-shadow 假装的）。要标记「这一组重要」，用横向黄铜棱线加粗到 2px、用标签文字、用留白，或者什么都不用。唯一豁免是侧栏当前项的 2px 竖标，它标的是导航位置。",
+        "section": "elevation"
+      },
+      {
+        "name": "The 只有块画线规则",
+        "body": "横线是结构的活，不是条目的活。区块标题、章节、组头可以画线；组里的每一条不画，靠留白分。一屏上的通栏横线超过十条，纸就变成了横格本。表格是唯一例外。",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do 用 OKLCH，中性色一律往暖色相（70–88）偏，chroma 0.01–0.022。",
@@ -163,7 +407,9 @@
       "Don't 让三个同等淡字并排，也不要每行三个空心按钮。",
       "Don't 在同一界面里出现第二套控件高度或第二套边框语言。",
       "Don't 把「白名单」「超管」「API Key」这类内部机制词写进销售看得见的界面。",
-      "Don't 在甲方看的任何一页上写「AI」。"
+      "Don't 在甲方看的任何一页上写「AI」。",
+      "Don't 给列表里的每一条画通栏横线。条靠留白分，只有块画线。",
+      "Don't 用下划线做输入框。两个字段好看，十五个字段就是横格本。"
     ]
   }
 }

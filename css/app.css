@@ -475,18 +475,17 @@ section[data-view] { padding: 0 56px; }
 .sleeve {
   display: grid;
   grid-template-columns: 3.6rem minmax(0, 1fr);
-  border-top: 1px solid var(--border);
+  margin-top: 26px;
 }
-.sleeve:first-child { border-top: 1px solid var(--rule); }
+.sleeve:first-child { margin-top: 0; border-top: 1px solid var(--rule); }
 .sleeve-tab {
-  padding: 18px 8px 12px 0;
+  padding: 16px 8px 12px 0;
   color: var(--accent);
   font-size: var(--t-6);
   letter-spacing: 0.1em;
   line-height: 1.4;
-  border-right: 1px solid var(--border);
 }
-.sleeve-body { padding: 16px 0 16px 20px; min-width: 0; }
+.sleeve-body { padding: 16px 0 0; min-width: 0; }
 .sleeve-body > h3 {
   font-family: var(--font-display);
   font-size: var(--t-3);
@@ -585,10 +584,9 @@ section[data-view] { padding: 0 56px; }
 
 .notes { margin-top: 8px; }
 .note {
-  padding: 14px 0;
-  border-top: 1px solid var(--border);
+  padding: 22px 0 0;
 }
-.note:first-child { border-top: 1px solid var(--rule); }
+.note:first-child { padding-top: 12px; }
 .note h3 {
   font-family: var(--font-display);
   font-size: 1rem;
@@ -599,12 +597,11 @@ section[data-view] { padding: 0 56px; }
 .line {
   background: transparent;
   border: 0;
-  border-top: 1px solid var(--border);
   border-radius: 0;
-  padding: 12px 0 10px;
+  padding: 18px 0 0;
   margin-bottom: 0;
 }
-.line:first-child { border-top: 0; }
+.line:first-child { padding-top: 10px; }
 .line p { color: var(--ink-1); font-size: 1rem; text-wrap: pretty; }
 .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .acts-inline {
@@ -770,6 +767,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .form label {
   display: block;
   font-size: var(--t-6);
+  /* 字段之间靠留白分，不靠线分 */
   font-weight: 500;
   letter-spacing: 0.12em;
   margin: 20px 0 6px;
@@ -779,18 +777,21 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .form input, .form select, .form textarea {
   width: 100%;
   min-height: 44px;
-  padding: 12px 0;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-  border-radius: 0;
+  padding: 11px 14px;
+  border: 1px solid transparent;
+  background: var(--panel-2);
+  border-radius: var(--r);
   font-size: 1rem;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.form input:hover, .form select:hover, .form textarea:hover {
+  border-color: var(--border);
 }
 .form input:focus, .form select:focus, .form textarea:focus,
 .form input:focus-visible, .form select:focus-visible, .form textarea:focus-visible {
   outline: none;
-  border-bottom-color: var(--accent);
-  box-shadow: 0 1px 0 var(--accent);
+  background: var(--bg);
+  border-color: var(--accent);
 }
 .form textarea { min-height: 90px; }
 .form input:-webkit-autofill,
@@ -859,7 +860,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .pass-wrap input { padding-right: 48px; }
 .eye {
   position: absolute;
-  right: 0;
+  right: 2px;
   bottom: 0;
   display: inline-flex;
   align-items: center;

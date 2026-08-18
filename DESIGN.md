@@ -6,6 +6,7 @@ colors:
   wash: "oklch(97.2% 0.014 88)"
   bg: "oklch(97.8% 0.01 88)"
   border: "oklch(80% 0.022 82)"
+  panel-2: "oklch(93.4% 0.018 86)"
   rule: "oklch(58% 0.09 76)"
   ink-1: "oklch(22% 0.018 75)"
   ink-2: "oklch(38% 0.02 72)"
@@ -122,13 +123,16 @@ components:
   toggle-verdict-on:
     backgroundColor: "transparent"
     textColor: "{colors.up}"
-  input-underline:
-    backgroundColor: "transparent"
+  input-field:
+    backgroundColor: "{colors.panel-2}"
     textColor: "{colors.ink-1}"
     typography: "{typography.body}"
-    rounded: "{rounded.flush}"
-    padding: "12px 0"
+    rounded: "{rounded.sheet}"
+    padding: "11px 14px"
     height: "44px"
+  input-field-focus:
+    backgroundColor: "{colors.bg}"
+    textColor: "{colors.ink-1}"
   nav-item:
     backgroundColor: "transparent"
     textColor: "{colors.rail-ink}"
@@ -243,6 +247,8 @@ components:
 
 **The 无盒子规则。** 禁止 `box-shadow` 作为卡片、按钮、弹层、悬停态的装饰。质感靠纸纹、漆面和黄铜棱线。悬停反馈用颜色和 1px 下划线，不用抬起。
 
+**The 只有块画线规则。** 横线是结构的活，不是条目的活。区块标题、章节、组头可以画线；组里的每一条不画，靠留白分。一屏上的通栏横线超过十条，纸就变成了横格本 —— 那时候线已经不再表达层级，只是噪音。表格是唯一例外：那里画线就是它的本职。
+
 **The 竖条禁令。** 禁止任何超过 1px 的彩色左/右竖条（包括用 `inset box-shadow` 假装的）。要标记「这一组重要」，用横向黄铜棱线加粗到 2px、用标签文字、用留白，或者什么都不用。唯一豁免是侧栏当前项的 2px 竖标，它标的是导航位置。
 
 ## 5. Components
@@ -277,8 +283,9 @@ components:
 
 ### Inputs / Fields
 
-- **Style:** 无框、无底，只有一条 1px 灰细下划线。`12px 0` 内边距，最小高 44px。标签在上方，label 级档案体。
-- **Focus:** 下划线转黄铜 + 一道 1px 黄铜投影加粗。不发光、不换底色、不加外框。
+- **Style:** 极淡的填色字段（`panel-2`），无边框、无下划线，2px 圆角，`11px 14px` 内边距，最小高 44px。标签在上方，label 级档案体。
+- **Focus:** 底色转 `bg`，边框转黄铜。不发光、不投影。
+- **为什么不是下划线：** 下划线字段在两三个字段时很干净，到了十五个字段就是十五条通栏横线，纸变成横格本。填色字段一条线都不画。
 - **Password:** 必须配眼睛图标按钮，点一下必须看见明文。
 - **Autofill:** 强制覆盖浏览器黄色底，保持 `bg` 底和 `ink-1` 字。
 
@@ -319,8 +326,10 @@ components:
 - **Don't** 用宋体写中文。中文一律思源黑。
 - **Don't** 把图铺成全屏壁纸。图只有两个位置：登录左侧立面、主台信头窄条。
 - **Don't** 做卡片套卡片、三等圆角卡片墙，或者用一排横线把纸切成表。
+- **Don't** 给列表里的每一条画通栏横线。条靠留白分，只有块画线。
+- **Don't** 用下划线做输入框。两个字段好看，十五个字段就是横格本。
 - **Don't** 让三个同等淡字并排，也不要每行三个空心按钮。
 - **Don't** 在同一界面里出现第二套控件高度或第二套边框语言。
 - **Don't** 把「白名单」「超管」「API Key」这类内部机制词写进销售看得见的界面。
 - **Don't** 在甲方看的任何一页上写「AI」。
-- **审计测试：** 如果一个元素需要投影才能让人看出它是一层，它的边框、底色或间距就设计错了。如果一屏上黄铜面积超过 2%，黄铜就被滥用了。如果一屏上有第七个字号，层级就设计错了。
+- **审计测试：** 数一屏上的通栏横线。超过十条就说明有人在用线代替留白。如果一个元素需要投影才能让人看出它是一层，它的边框、底色或间距就设计错了。如果一屏上黄铜面积超过 2%，黄铜就被滥用了。如果一屏上有第七个字号，层级就设计错了。
