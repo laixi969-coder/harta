@@ -13,7 +13,10 @@ import {
   removeFromWhitelist,
 } from "./lib/auth.mjs";
 import { publicLlm, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
-import { addCustomer, addLedger, readWorkspace, setFeedback, setUsing } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, findShared, readWorkspace, setFeedback, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { listHunts } from "./lib/industry.mjs";
+import { renderPackPage } from "./lib/pack-page.mjs";
+import { fieldsFor } from "./lib/platform.mjs";
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
@@ -54,7 +57,7 @@ function requireAdmin(req, res) {
   const user = requireUser(req, res);
   if (!user) return null;
   if (!isAdmin(user)) {
-    json(res, 403, { error: "只有超级管理员能看和改模型密钥" });
+    json(res, 403, { error: "只有管理员能改密钥" });
     return null;
   }
   return user;
@@ -221,6 +224,22 @@ async function handleApi(req, res, url) {
     return json(res, 200, { ok: true });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/hunts") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    return json(res, 200, { hunts: listHunts() });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/platform-fields") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const fields = {};
+    for (const p of ["巨量信息流", "朋友圈", "小红书", "百度", "视频号", "快手", "短视频", "千川"]) {
+      fields[p] = fieldsFor(p).map((f) => ({ key: f.key, label: f.label }));
+    }
+    return json(res, 200, { fields });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/workspace") {
     const user = requireUser(req, res);
     if (!user) return;
@@ -231,9 +250,22 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const body = await readBody(req);
-    const result = addCustomer(user.email, body);
+    const result = await addCustomer(user.email, body);
     if (result.error) return json(res, 400, { error: result.error });
     return json(res, 200, result.workspace);
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/full") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    try {
+      const result = await upgradeToFull(user.email, body.packId);
+      if (result.error) return json(res, 400, { error: result.error });
+      return json(res, 200, result.workspace);
+    } catch (err) {
+      return json(res, 400, { error: err.message || "出全档失败" });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/feedback") {
@@ -358,6 +390,22 @@ const server = http.createServer(async (req, res) => {
       res.end("请求太频繁，请等一会儿再试");
       return;
     }
+    // 甲方那一页：不进后台，只凭链接。链接不对就是 404，不提示"存在但没权限"。
+    if (url.pathname.startsWith("/p/")) {
+      const found = findShared(url.pathname.slice(3));
+      if (!found) {
+        res.writeHead(404, { "content-type": "text/plain; charset=utf-8", ...securityHeaders() });
+        res.end("这个链接不对");
+        return;
+      }
+      res.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        ...securityHeaders({ cache: "no-store" }),
+      });
+      res.end(renderPackPage(found.pack, found.customer));
+      return;
+    }
+
     if (url.pathname === "/index.html" || url.pathname === "/") {
       const user = currentUser(req);
       if (!user) {
@@ -373,9 +421,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const ext = path.extname(file);
-    const cache = [".css", ".js", ".jpg", ".jpeg", ".png", ".webp", ".svg"].includes(ext)
+    // 图片长缓存；样式和脚本每次回源核对，改完销售刷新就能看到，不用等一天。
+    const cache = [".jpg", ".jpeg", ".png", ".webp", ".svg"].includes(ext)
       ? "public, max-age=86400"
-      : "no-store";
+      : [".css", ".js"].includes(ext)
+        ? "no-cache"
+        : "no-store";
     res.writeHead(200, {
       "content-type": TYPES[ext] || "application/octet-stream",
       ...securityHeaders({ cache }),

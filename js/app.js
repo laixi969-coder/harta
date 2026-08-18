@@ -3,8 +3,9 @@ import { rankCopyGroups, rankShells, topRepliedLabel } from "./rank-feedback.js"
 
 const state = {
   view: "today",
-  theme: localStorage.getItem("falcon-theme") || "light",
+  theme: document.documentElement.getAttribute("data-theme") || "light",
   workspace: { customers: [], ledger: [], feedback: {}, usingId: "" },
+  platformFields: {},
   packId: "",
 };
 
@@ -78,10 +79,13 @@ function renderToday() {
   const nCopy = pack ? copyCount(pack) : 0;
   const nGap = pack?.gaps?.length || 0;
   const fields = pack?.battlefields?.join("、") || "尚未定主战场";
+  // 侦察档没有缺口，主体是提问。首行不能替它报「0 个缺口」。
+  const nAsk = pack?.questions?.length || 0;
+  const headCount = nGap ? `${nGap} 个缺口` : nAsk ? `${nAsk} 个要先问清的` : "";
   document.getElementById("hook-line").textContent = pack
-    ? `${mine.name} · ${pack.deliveredAt || pack.createdAt} 已出${pack.tier}：${nGap} 个缺口 · ${nCopy} 条文案 · 主战场${fields}。下面还有 ${chase.length} 个可追。`
+    ? `${mine.name} · ${pack.deliveredAt || pack.createdAt} 已出${pack.tier}：${headCount ? `${headCount} · ` : ""}${nCopy} 条文案 · 主战场${fields}。下面还有 ${chase.length} 个可追。`
     : `${mine.name} 还没有出过档。下面还有 ${chase.length} 个可追。`;
-  document.getElementById("hook-gate").textContent = pack?.gate || "出过的档会留在这位客户名下，可随时翻回当时给了什么。";
+  document.getElementById("hook-gate").textContent = pack?.gate || "";
 
   const hist = document.getElementById("history");
   if (packs.length < 2) {
@@ -171,6 +175,81 @@ function renderToday() {
     open.classList.add("hidden");
   }
 
+  const landscapeCard = document.getElementById("landscape-card");
+  if (landscapeCard) {
+    const has = Boolean(pack.landscape);
+    landscapeCard.classList.toggle("hidden", !has);
+    if (has) document.getElementById("landscape").textContent = pack.landscape;
+  }
+
+  const questionsCard = document.getElementById("questions-card");
+  const gapsCard = document.getElementById("gaps-card");
+  const questions = pack.questions || [];
+  if (questionsCard) {
+    questionsCard.classList.toggle("hidden", !questions.length);
+    document.getElementById("questions").innerHTML = `<div class="sleeves">${questions
+      .map(
+        (q, i) => `<article class="sleeve">
+        <div class="sleeve-tab">问${["一", "二", "三", "四", "五"][i] || i + 1}</div>
+        <div class="sleeve-body">
+          <h3>${q.ask}</h3>
+          ${q.why ? `<p class="meta">为什么问：${q.why}</p>` : ""}
+        </div>
+      </article>`,
+      )
+      .join("")}</div>`;
+  }
+  if (gapsCard) gapsCard.classList.toggle("hidden", !(pack.gaps || []).length);
+
+  const boardsCard = document.getElementById("boards-card");
+  const boards = pack.boards || [];
+  if (boardsCard) {
+    boardsCard.classList.toggle("hidden", !boards.length);
+    document.getElementById("boards").innerHTML = `<div class="sleeves">${boards
+      .map(
+        (b) => `<article class="sleeve sleeve-across">
+        <div class="sleeve-tab"><span>${b.title}</span><span>${b.platform || ""}</span></div>
+        <div class="sleeve-body">
+          ${b.hook ? `<p class="meta">前 3 秒：${b.hook}</p>` : ""}
+          ${(b.shots || [])
+            .map(
+              (sh) => `<p><b>${sh.at || ""}</b> ${sh.visual}${sh.line ? `　口播：${sh.line}` : ""}</p>`,
+            )
+            .join("")}
+          ${b.close ? `<p class="meta">收口：${b.close}</p>` : ""}
+        </div>
+      </article>`,
+      )
+      .join("")}</div>`;
+  }
+
+  const full = document.getElementById("go-full");
+  if (full) {
+    // 没反应的客户不跑全档，所以这个按钮只在已经有档、还没补分镜时出现
+    full.classList.toggle("hidden", !pack.id || boards.length > 0);
+    full.dataset.pack = pack.id || "";
+  }
+
+  const checksCard = document.getElementById("checks-card");
+  if (checksCard) {
+    const c = pack.checks || {};
+    const rows = [
+      ...(c.redline || []).map(
+        (r) => `<div class="line"><p><b>红线</b> ${r.words.join("、")} · ${r.where}</p>
+          <p class="meta">${r.text}</p></div>`,
+      ),
+      ...(c.length || []).map(
+        (r) => `<div class="line"><p><b>${r.level === "hard" ? "发不出去" : "会有代价"}</b> ${r.platform} · ${r.field} 约 ${r.max} 字，这条 ${r.n} 字</p>
+          <p class="meta">${r.why || ""}</p>
+          <p class="meta">${r.text}</p></div>`,
+      ),
+    ];
+    checksCard.classList.toggle("hidden", !rows.length);
+    document.getElementById("checks").innerHTML = rows.length
+      ? rows.join("") + `<p class="meta" style="margin-top:12px">${c.note || ""}</p>`
+      : "";
+  }
+
   document.getElementById("gaps").innerHTML = `<div class="sleeves">${(pack.gaps || [])
     .map(
       (g, i) => `<article class="sleeve">
@@ -197,7 +276,6 @@ function renderToday() {
             <p>${row.text}</p>
             <div class="slip-bar">
               <div class="slip-step">
-                <span class="slip-k">先发出去</span>
                 <button type="button" class="do" data-copy="${encodeURIComponent(row.text)}">复制这条</button>
               </div>
               <div class="slip-step">
@@ -223,12 +301,25 @@ function renderToday() {
   const shells = rankShells(pack.shells, pack.battlefields);
   const mains = shells.filter((s) => s.main);
   const extras = shells.filter((s) => !s.main);
+  // 小红书要分封面大字、标题、正文三样分别复制；朋友圈折叠线前后两样。
+  // 一个「复制这条」按钮解决不了，那是把三个字段当成一句话。
   const platBlock = (s, kind) => {
+    const fields = state.platformFields[s.name] || [{ key: "title", label: "文案" }];
     const items = s.lines
-      .map(
-        (text) => `<div class="line slip line-row"><p>${text}</p>
-          <button type="button" class="do" data-copy="${encodeURIComponent(text)}">复制这条</button></div>`,
-      )
+      .map((raw) => {
+        const item = typeof raw === "string" ? { title: raw } : raw || {};
+        const present = fields.filter((f) => item[f.key]);
+        // 只有一个字段时不用标名字，那是废话
+        const rows = present
+          .map(
+            (f) => `<div class="line-row"${present.length > 1 ? ' style="margin-top:8px"' : ""}>
+              <div>${present.length > 1 ? `<p class="field-k">${f.label}</p>` : ""}<p>${item[f.key]}</p></div>
+              <button type="button" class="do" data-copy="${encodeURIComponent(item[f.key])}">复制</button>
+            </div>`,
+          )
+          .join("");
+        return `<div class="line slip">${rows}</div>`;
+      })
       .join("");
     return `<section class="plat ${kind}"><h3>${s.name}<span>${kind === "is-main" ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
   };
@@ -301,7 +392,7 @@ function renderCustomers() {
           <strong>${c.name}</strong>
           <div class="meta">${c.hunt}${using ? " · 先用" : ""} · ${packs.length ? `已出 ${packs.length} 份` : "还没出档"}${latest ? ` · ${latest.deliveredAt || latest.createdAt}` : ""}</div>
         </div>
-        <button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这位"}</button>
+        ${using ? "" : `<button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这位"}</button>`}
       </div>`;
         })
         .join("")
@@ -357,7 +448,7 @@ function bind() {
     const copy = e.target.closest("[data-copy]");
     if (copy) {
       navigator.clipboard.writeText(decodeURIComponent(copy.dataset.copy));
-      toast("已复制，去平台发出去");
+      toast("已复制");
       return;
     }
     const fb = e.target.closest("[data-fb]");
@@ -369,7 +460,6 @@ function bind() {
       }).then(async (res) => {
         if (res.ok) state.workspace = await res.json();
         renderToday();
-        toast(fb.dataset.val === "replied" ? "记下有回音" : "记下没反应");
       });
       return;
     }
@@ -410,9 +500,9 @@ function providerCard(id, p, active) {
     : `<input data-llm-model="${id}" value="${p.model || ""}" placeholder="先同步模型，或手填">`;
   return `<article class="card form" data-provider="${id}">
     <h2>${p.name} ${active === id ? '<span class="tag">当前使用</span>' : ""}</h2>
-    <p class="meta">密钥 ${p.hasKey ? p.apiKeyMasked : "还没填"} · ${p.lastTestDetail || "还没测过"}</p>
-    <label for="llm-key-${id}">API Key</label>
-    <input id="llm-key-${id}" data-llm-key="${id}" type="password" autocomplete="off" placeholder="${p.hasKey ? "已保存，留空则不改" : "只有超级管理员能看"}">
+    <p class="meta">${p.hasKey ? p.apiKeyMasked : "还没填密钥"} · ${p.lastTestDetail || "还没测过"}</p>
+    <label for="llm-key-${id}">密钥</label>
+    <input id="llm-key-${id}" data-llm-key="${id}" type="password" autocomplete="off" placeholder="${p.hasKey ? "留空则不改" : ""}">
     <label for="llm-base-${id}">接口地址</label>
     <input id="llm-base-${id}" data-llm-base="${id}" value="${p.baseUrl || ""}">
     <label for="llm-model-${id}">模型</label>
@@ -433,7 +523,7 @@ async function loadLlm() {
   if (!box) return;
   const res = await fetch("/api/llm");
   if (res.status === 403 || res.status === 401) {
-    box.innerHTML = `<article class="card"><p>只有超级管理员能看模型密钥。</p></article>`;
+    box.innerHTML = `<article class="card"><p>只有管理员能看密钥。</p></article>`;
     return;
   }
   const data = await res.json();
@@ -450,7 +540,7 @@ async function loadUsers() {
   const data = await res.json();
   if (line) {
     line.textContent =
-      "已注册：" + data.users.map((u) => `${u.email}（${u.role === "admin" ? "超管" : "销售"}）`).join("、");
+      "已注册：" + data.users.map((u) => `${u.email}（${u.role === "admin" ? "管理员" : "销售"}）`).join("、");
   }
   if (list) {
     list.innerHTML = (data.whitelist || [])
@@ -469,6 +559,8 @@ async function loadUsers() {
 
 async function boot() {
   applyTheme();
+  document.getElementById("mast-date").textContent =
+    new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "-");
   const me = await fetch("/api/me");
   if (me.status === 401) {
     location.href = "/login.html";
@@ -476,12 +568,30 @@ async function boot() {
   }
   const user = await me.json();
   const who = document.getElementById("who");
-  who.textContent = `${user.isAdmin ? "超级管理员" : "销售"} · ${user.email}`;
+  who.textContent = user.email;
   const settingsNav = document.getElementById("nav-settings");
   if (user.isAdmin) settingsNav.classList.remove("hidden");
-  document.getElementById("rail-foot").textContent = user.isAdmin
-    ? "超管可换模型、管白名单"
-    : "只看见自己的客户，看不到密钥";
+  const huntSel = document.getElementById("hunt");
+  if (huntSel) {
+    const got = await fetch("/api/hunts");
+    const { hunts = [] } = got.ok ? await got.json() : {};
+    // 行业不止这些。选「其他行业」就现场长一份包，存下来，下次它就在列表里了。
+    huntSel.innerHTML =
+      hunts.map((h) => `<option>${h}</option>`).join("") +
+      `<option value="__new__">其他行业…</option>`;
+    const newLabel = document.getElementById("new-hunt-label");
+    const newInput = document.getElementById("new-hunt");
+    huntSel.addEventListener("change", () => {
+      const isNew = huntSel.value === "__new__";
+      newLabel?.classList.toggle("hidden", !isNew);
+      newInput?.classList.toggle("hidden", !isNew);
+      if (isNew) newInput?.focus();
+    });
+  }
+
+  const pf = await fetch("/api/platform-fields");
+  if (pf.ok) state.platformFields = (await pf.json()).fields || {};
+
   const space = await fetch("/api/workspace");
   if (space.ok) state.workspace = await space.json();
   bindEyes();
@@ -508,24 +618,58 @@ document.getElementById("add-white")?.addEventListener("click", async () => {
     body: JSON.stringify({ email: document.getElementById("white-email").value }),
   });
   const data = await res.json();
-  toast(res.ok ? "已加入白名单" : data.error || "加入失败");
+  toast(res.ok ? "已加入" : data.error || "加入失败");
   if (res.ok) loadUsers();
+});
+
+document.getElementById("go-full")?.addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const packId = btn.dataset.pack;
+  if (!packId) return;
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "正在出分镜…";
+  try {
+    const res = await fetch("/api/full", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ packId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || "出分镜失败");
+      return;
+    }
+    state.workspace = data;
+    toast("分镜已补上，这份升成全档");
+    renderToday();
+  } catch {
+    toast("网络不通，请再试");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
 });
 
 document.getElementById("create-customer")?.addEventListener("click", async () => {
   const btn = document.getElementById("create-customer");
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "正在建档…";
+  btn.textContent = "正在出档，最多两三分钟…";
   try {
     const res = await fetch("/api/customers", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        hunt: document.getElementById("hunt").value,
+        hunt:
+          document.getElementById("hunt").value === "__new__"
+            ? document.getElementById("new-hunt")?.value || ""
+            : document.getElementById("hunt").value,
         name: document.getElementById("cname").value,
         city: document.getElementById("city")?.value || "",
         pitch: document.getElementById("pitch").value,
+        link: document.getElementById("link")?.value || "",
+        material: document.getElementById("cmaterial")?.value || "",
       }),
     });
     const data = await res.json();
@@ -537,7 +681,30 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     }
     state.workspace = data;
     state.packId = "";
-    toast("已建档并出快档");
+    const made = data.customers?.find((c) => c.id === data.usingId)?.packs?.[0];
+    toast(
+      made
+        ? made.origin?.huntGrown
+          ? `已建档，出的是${made.tier}。顺手给这个行业长了一份行业包，下次直接用`
+          : `已建档，出的是${made.tier}`
+        : "已建档",
+    );
+    const sel = document.getElementById("hunt");
+    if (sel && sel.value === "__new__") {
+      const got = await fetch("/api/hunts");
+      if (got.ok) {
+        const { hunts = [] } = await got.json();
+        sel.innerHTML =
+          hunts.map((h) => `<option>${h}</option>`).join("") +
+          `<option value="__new__">其他行业…</option>`;
+      }
+      document.getElementById("new-hunt-label")?.classList.add("hidden");
+      document.getElementById("new-hunt")?.classList.add("hidden");
+    }
+    ["link", "cmaterial", "cname", "pitch", "new-hunt"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
     renderToday();
     renderLedger();
     nav("today");
@@ -576,7 +743,7 @@ document.body.addEventListener("click", async (e) => {
     body: JSON.stringify({ email: del.dataset.whiteDel }),
   });
   const data = await res.json();
-  toast(res.ok ? "已移出白名单" : data.error || "移出失败");
+  toast(res.ok ? "已移出" : data.error || "移出失败");
   if (res.ok) loadUsers();
 });
 

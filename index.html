@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>猎鹰增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260818d">
+  <link rel="stylesheet" href="css/app.css?v=20260819f">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -30,14 +30,17 @@
       <a href="#" data-nav="settings" id="nav-settings" class="hidden">模型设置</a>
       <a href="#" id="nav-logout">退出</a>
       </nav>
-      <div class="foot" id="rail-foot">各账各册 · 互不可见</div>
+      <div class="foot">各账各册 · 互不可见</div>
     </aside>
     <main class="main" id="work">
-      <div class="mast" aria-hidden="true"></div>
+      <header class="mast">
+        <span>猎鹰增长 · 获客工作台</span>
+        <span id="mast-date"></span>
+      </header>
       <div class="topbar">
         <div class="who" id="who">正在确认登录…</div>
         <div class="tools">
-          <button class="btn ghost" data-theme-toggle type="button" aria-pressed="false">切换色调</button>
+          <button class="btn ghost" data-theme-toggle type="button" aria-pressed="false">深浅</button>
           <button class="btn gold" data-nav="customers">新建客户</button>
         </div>
       </div>
@@ -52,7 +55,6 @@
         <div class="win hidden" id="win"></div>
         <article class="card hidden" id="no-pack">
           <h2>还没给这位出过档</h2>
-          <p class="meta">建档以后出的快档会留在这里。现在只能看已经给过的。</p>
         </article>
         <div id="pack-body">
         <article class="card card-id">
@@ -61,39 +63,57 @@
           <p class="meta" id="pack-title"></p>
           <div class="acts" style="margin:16px 0 0">
             <a class="btn hidden" id="pack-open" href="pack.html" target="_blank" rel="noreferrer">打开甲方包裹</a>
+            <button class="btn ghost hidden" id="go-full" type="button">客户有反应了，补分镜</button>
           </div>
         </article>
         <div class="chapter">
-          <p class="chapter-name">判断</p>
+          <p class="chapter-name">一 · 判断</p>
+        <article class="card hidden" id="landscape-card">
+          <h2>赛道格局</h2>
+          <p class="meta">公开检索能看到的，不是对这家的断言。</p>
+          <p id="landscape"></p>
+        </article>
         <article class="card" id="demand-card">
           <h2>该截的需求</h2>
-          <p class="meta">打准人，不是多捞人。截谁和别打谁先定，他说什么、在搜什么是证据。</p>
           <div id="demand"></div>
         </article>
-        <article class="card">
-          <h2>当时给的缺口</h2>
-          <p class="meta">写给甲方看。每条都能 30 秒自验。证据不够的标成判断。</p>
+        <article class="card" id="gaps-card">
+          <h2>缺口</h2>
           <div id="gaps"></div>
+        </article>
+        <article class="card hidden" id="questions-card">
+          <h2>先问他这几个</h2>
+          <p class="meta">一个精准的提问比一个错误的诊断值钱。答案回来再升级成快档。</p>
+          <div id="questions"></div>
         </article>
         </div>
         <div class="chapter">
-          <p class="chapter-name">出活</p>
+          <p class="chapter-name">二 · 出活</p>
+        <article class="card hidden" id="checks-card">
+          <h2>发出去之前</h2>
+          <div id="checks"></div>
+        </article>
         <article class="card">
-          <h2>当时给的文案</h2>
-          <p class="meta">每条先复制发出去。用过之后再记下有没有回音。有回音的组会往前排。</p>
+          <h2>文案</h2>
+          <p class="meta">有回音的组会往前排。</p>
           <div id="copies"></div>
         </article>
         <article class="card">
-          <h2>当时的钩子拆解</h2>
+          <h2>钩子拆解</h2>
           <div id="breaks"></div>
         </article>
+        <article class="card hidden" id="boards-card">
+          <h2>分镜脚本</h2>
+          <p class="meta">一个人拿手机能拍出来的。前 3 秒先给事故感，别先讲故事。</p>
+          <div id="boards"></div>
+        </article>
         <article class="card">
-          <h2>当时的主战场外壳</h2>
-          <p class="meta">只打 1–2 个主战场。复制到对应平台发出去。其余是换外壳，不要四平台一起铺。</p>
+          <h2>主战场</h2>
+          <p class="meta">只打 1–2 个。其余是换外壳，别四平台一起铺。</p>
           <div id="plats" class="field-grid"></div>
         </article>
         <article class="card">
-          <h2>当时怎么投</h2>
+          <h2>怎么投</h2>
           <div id="delivery"></div>
         </article>
         </div>
@@ -101,12 +121,10 @@
         </div>
         <article class="card hidden" id="empty-today">
           <h2>还没有你的客户</h2>
-          <p class="meta">每个账号单独一本。先建档，才会出现先用客户和可追名单。</p>
           <div class="acts"><button class="btn" data-nav="customers">去建档</button></div>
         </article>
         <article class="card">
           <h2>还可以追</h2>
-          <p class="meta">要点「先用这位」，台面才会换成他的档。</p>
           <div id="chase" class="chase"></div>
         </article>
       </section>
@@ -114,30 +132,32 @@
       <section class="hidden" data-view="customers">
         <div class="hook">
           <h1>只看你自己的书。先用的置顶。</h1>
-          <p class="meta">要点「先用这位」或「看当时给的」，才会换到那一档。</p>
         </div>
         <div id="customer-list" class="chase"></div>
         <article class="card form">
           <h2>新建</h2>
           <label for="hunt">猎场</label>
-          <select id="hunt">
-            <option>家装</option><option>医美</option><option>教育</option>
-            <option>口腔</option><option>本地高客单</option>
-          </select>
+          <select id="hunt"></select>
+          <label for="new-hunt" id="new-hunt-label" class="hidden">新行业叫什么</label>
+          <input id="new-hunt" class="hidden" placeholder="例如 月子中心。第一次会先给这个行业长一份行业包">
           <label for="cname">客户名</label>
           <input id="cname" required placeholder="公司 / 机构 / 诊所">
           <label for="city">城市</label>
           <input id="city" placeholder="广州">
           <label for="pitch">一句话卖点</label>
           <input id="pitch" placeholder="他们卖什么">
-          <div class="acts"><button class="btn" id="create-customer" type="button">建档，只进你的本子</button></div>
+          <label for="link">他们的官网 / 主页</label>
+          <input id="link" placeholder="留空就只出侦察档，不出诊断">
+          <label for="cmaterial">或者直接贴他们的材料</label>
+          <textarea id="cmaterial" placeholder="官网文案、在投素材、公众号文章。贴了才算看过"></textarea>
+          <p class="meta">看过他们的东西才出诊断，没看过只出侦察档。这不是设置，是规矩。</p>
+          <div class="acts"><button class="btn" id="create-customer" type="button">建档</button></div>
         </article>
       </section>
 
       <section class="hidden" data-view="pack">
         <div class="hook">
           <h1>发给甲方的那一页。他们不进后台。</h1>
-          <p class="meta">点「打开这份」，台面回到当时给的那一档。</p>
         </div>
         <div id="pack-list" class="chase"></div>
       </section>
@@ -158,7 +178,7 @@
 
       <section class="hidden" data-view="account">
         <div class="hook">
-          <h1>改自己的密码。别人看不到你的客户。</h1>
+          <h1>改自己的密码。</h1>
         </div>
         <article class="card form">
           <label for="old-pass">旧密码</label>
@@ -177,14 +197,13 @@
 
       <section class="hidden" data-view="settings">
         <div class="hook">
-          <h1>密钥只有你能看。可换渠道、同步最新模型、测连接。</h1>
+          <h1>密钥只有你能看。</h1>
         </div>
         <article class="card form">
-          <h2>用户白名单</h2>
-          <p class="meta">只有名单里的邮箱才能注册。超级管理员不能被移出。</p>
-          <label for="white-email">加入邮箱</label>
+          <h2>可注册的邮箱</h2>
+          <label for="white-email">邮箱</label>
           <input id="white-email" type="email" placeholder="name@company.com">
-          <div class="acts"><button class="btn" id="add-white" type="button">加入白名单</button></div>
+          <div class="acts"><button class="btn" id="add-white" type="button">加入</button></div>
           <div id="white-list" class="chase" style="margin-top:14px"></div>
           <p id="users-line" class="meta" style="margin-top:16px"></p>
         </article>
@@ -193,6 +212,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=20260819f"></script>
 </body>
 </html>
