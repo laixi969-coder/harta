@@ -230,6 +230,14 @@ function renderToday() {
     full.dataset.pack = pack.id || "";
   }
 
+  const refill = document.getElementById("go-refill");
+  if (refill) {
+    // 补货是给已经在用素材的客户的。手动点：没在发的时候补等于对着空气烧钱
+    refill.classList.toggle("hidden", !pack.id);
+    refill.dataset.customer = mine.id || "";
+    refill.textContent = winLine ? "顺着有回音的方向补一批" : "补一批新素材";
+  }
+
   const checksCard = document.getElementById("checks-card");
   if (checksCard) {
     const c = pack.checks || {};
@@ -668,6 +676,36 @@ document.getElementById("go-full")?.addEventListener("click", async (e) => {
     }
     state.workspace = data;
     toast("分镜已补上，这份升成全档");
+    renderToday();
+  } catch {
+    toast("网络不通，请再试");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+});
+
+document.getElementById("go-refill")?.addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const customerId = btn.dataset.customer;
+  if (!customerId) return;
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "正在补货…";
+  try {
+    const res = await fetch("/api/refill", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ customerId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || "补货失败");
+      return;
+    }
+    state.workspace = data;
+    state.packId = "";
+    toast("新一批已出，上一批留在历史里");
     renderToday();
   } catch {
     toast("网络不通，请再试");

@@ -13,7 +13,7 @@ import {
   removeFromWhitelist,
 } from "./lib/auth.mjs";
 import { publicLlm, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
-import { addCustomer, addLedger, findShared, readWorkspace, setFeedback, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, findShared, readWorkspace, refillPack, setFeedback, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
@@ -253,6 +253,19 @@ async function handleApi(req, res, url) {
     const result = await addCustomer(user.email, body);
     if (result.error) return json(res, 400, { error: result.error });
     return json(res, 200, result.workspace);
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/refill") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    try {
+      const result = await refillPack(user.email, body.customerId);
+      if (result.error) return json(res, 400, { error: result.error });
+      return json(res, 200, result.workspace);
+    } catch (err) {
+      return json(res, 400, { error: err.message || "补货失败" });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/full") {
