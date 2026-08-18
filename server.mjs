@@ -13,7 +13,7 @@ import {
   removeFromWhitelist,
 } from "./lib/auth.mjs";
 import { publicLlm, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
-import { addCustomer, addLedger, findShared, readWorkspace, refillPack, setFeedback, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, findShared, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
@@ -243,16 +243,30 @@ async function handleApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/workspace") {
     const user = requireUser(req, res);
     if (!user) return;
-    return json(res, 200, readWorkspace(user.email));
+    // 界面靠轮询这个口等出档结果，顺手把服务重启留下的僵死任务清掉
+    return json(res, 200, sweepStaleJobs(user.email));
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {
     const user = requireUser(req, res);
     if (!user) return;
     const body = await readBody(req);
-    const result = await addCustomer(user.email, body);
+    const result = addCustomer(user.email, body);
     if (result.error) return json(res, 400, { error: result.error });
     return json(res, 200, result.workspace);
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/repack") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    try {
+      const result = repack(user.email, body.customerId, { material: body.material });
+      if (result.error) return json(res, 400, { error: result.error });
+      return json(res, 200, result.workspace);
+    } catch (err) {
+      return json(res, 400, { error: err.message || "重出失败" });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/refill") {
@@ -260,7 +274,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     try {
-      const result = await refillPack(user.email, body.customerId);
+      const result = refillPack(user.email, body.customerId);
       if (result.error) return json(res, 400, { error: result.error });
       return json(res, 200, result.workspace);
     } catch (err) {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>猎鹰增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260819t">
+  <link rel="stylesheet" href="css/app.css?v=20260819w">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -55,6 +55,11 @@
         <article class="card hidden" id="no-pack">
           <h2>还没给这位出过档</h2>
         </article>
+        <!-- 重出放在 pack-body 外面：没出成的时候 pack-body 整块是藏起来的，
+             按钮跟着藏了，正好在最需要它的时候点不到 -->
+        <div class="acts" style="margin:0 0 20px">
+          <button class="btn ghost hidden" id="go-repack" type="button">重出这份档</button>
+        </div>
         <div id="pack-body">
         <article class="card card-id">
           <h2>先用 · <span id="using-name"></span> <span class="tag" id="using-hunt"></span> <span class="tag" id="using-tier"></span></h2>
@@ -207,6 +212,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260819t"></script>
+  <script type="module" src="js/app.js?v=20260819w"></script>
 </body>
 </html>

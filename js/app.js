@@ -84,8 +84,16 @@ function renderToday() {
   const headCount = nGap ? `${nGap} 个缺口` : nAsk ? `${nAsk} 个要先问清的` : "";
   document.getElementById("hook-line").textContent = pack
     ? `${mine.name} · ${pack.deliveredAt || pack.createdAt} 已出${pack.tier}：${headCount ? `${headCount} · ` : ""}${nCopy} 条文案 · 主战场${fields}。下面还有 ${chase.length} 个可追。`
-    : `${mine.name} 还没有出过档。下面还有 ${chase.length} 个可追。`;
-  document.getElementById("hook-gate").textContent = pack?.gate || "";
+    : mine.job
+      ? `${mine.name} 正在${mine.job.kind}，一般一两分钟。出好了这一页自己会刷新，不用守着。`
+      : mine.lastFail
+      ? `${mine.name} 这次没出成：${mine.lastFail}。点「重出这份档」再来一次。`
+      : `${mine.name} 还没有出过档。下面还有 ${chase.length} 个可追。`;
+  // 模板档和真出的档在界面上长得一样，不说清楚销售会拿赛道模板去谈具体客户
+  const fromTemplate = pack?.origin?.engine === "template";
+  document.getElementById("hook-gate").textContent = fromTemplate
+    ? `这份是${mine.hunt}行业模板，不是给${mine.name}出的（${pack.origin.why}）。${pack.gate || ""}`
+    : pack?.gate || "";
 
   const hist = document.getElementById("history");
   if (packs.length < 2) {
@@ -111,6 +119,16 @@ function renderToday() {
   } else {
     win.classList.add("hidden");
     win.textContent = "";
+  }
+
+  /* 重出按钮必须画在「没有档」这条早返回之前：没出成的时候正是最需要它的时候。 */
+  const busy = Boolean(mine.job);
+  const repack = document.getElementById("go-repack");
+  if (repack) {
+    repack.classList.toggle("hidden", !mine.id);
+    repack.dataset.customer = mine.id || "";
+    repack.disabled = busy;
+    repack.textContent = busy ? `正在${mine.job.kind}…` : pack ? "重出这份档" : "重出";
   }
 
   const noPack = document.getElementById("no-pack");
@@ -235,6 +253,7 @@ function renderToday() {
     // 补货是给已经在用素材的客户的。手动点：没在发的时候补等于对着空气烧钱
     refill.classList.toggle("hidden", !pack.id);
     refill.dataset.customer = mine.id || "";
+    refill.disabled = busy;
     refill.textContent = winLine ? "顺着有回音的方向补一批" : "补一批新素材";
   }
 
@@ -249,6 +268,11 @@ function renderToday() {
       ...(c.watch || []).map(
         (r) => `<div class="line"><p><b>看一眼</b> ${r.words.join("、")} · ${r.where}</p>
           <p class="meta">这个词要看语境。是在教客户怎么问就没事，是在打包票就得改</p>
+          <p class="meta">${r.text}</p></div>`,
+      ),
+      ...(c.hints || []).map(
+        (r) => `<div class="line"><p><b>带了镜头提示</b> ${r.where}</p>
+          <p class="meta">这条里的「${r.hint}」会跟着一起发出去。镜头怎么拍写在分镜里，这一栏只放要发的那句话</p>
           <p class="meta">${r.text}</p></div>`,
       ),
       ...(c.length || []).map(
@@ -685,6 +709,59 @@ document.getElementById("go-full")?.addEventListener("click", async (e) => {
   }
 });
 
+/* 出档要一两分钟。点完立刻返回，这里每 4 秒问一次，客户身上的 job 清了就重画。
+ * 不用 WebSocket：一个销售同时最多等一份档，轮询足够，也不怕断线。 */
+let watching = 0;
+function watchJob(customerId) {
+  clearInterval(watching);
+  watching = setInterval(async () => {
+    try {
+      const res = await fetch("/api/workspace");
+      if (!res.ok) return;
+      const data = await res.json();
+      const c = data.customers?.find((x) => x.id === customerId);
+      if (c?.job) return;
+      clearInterval(watching);
+      state.workspace = data;
+      state.packId = "";
+      renderToday();
+      toast(c?.lastFail ? `没出成：${c.lastFail}` : "出好了");
+    } catch {
+      /* 网络抖一下不算数，下一轮再问 */
+    }
+  }, 4000);
+}
+
+document.getElementById("go-repack")?.addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const customerId = btn.dataset.customer;
+  if (!customerId) return;
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "正在重出…";
+  try {
+    const res = await fetch("/api/repack", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ customerId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || "重出失败");
+      return;
+    }
+    state.workspace = data;
+    renderToday();
+    toast("正在重出，出好了这里会自己刷新");
+    watchJob(customerId);
+  } catch {
+    toast("网络不通，请再试");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+});
+
 document.getElementById("go-refill")?.addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   const customerId = btn.dataset.customer;
@@ -704,9 +781,9 @@ document.getElementById("go-refill")?.addEventListener("click", async (e) => {
       return;
     }
     state.workspace = data;
-    state.packId = "";
-    toast("新一批已出，上一批留在历史里");
     renderToday();
+    toast("正在补货，出好了这里会自己刷新");
+    watchJob(customerId);
   } catch {
     toast("网络不通，请再试");
   } finally {
@@ -719,7 +796,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
   const btn = document.getElementById("create-customer");
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "正在出档，最多两三分钟…";
+  btn.textContent = "正在建档…";
   try {
     const res = await fetch("/api/customers", {
       method: "POST",
@@ -745,14 +822,8 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     }
     state.workspace = data;
     state.packId = "";
-    const made = data.customers?.find((c) => c.id === data.usingId)?.packs?.[0];
-    toast(
-      made
-        ? made.origin?.huntGrown
-          ? `已建档，出的是${made.tier}。顺手给这个行业长了一份行业包，下次直接用`
-          : `已建档，出的是${made.tier}`
-        : "已建档",
-    );
+    toast("客户已建好，正在出档。出好了这里会自己刷新，你可以先去忙别的");
+    watchJob(data.usingId);
     const sel = document.getElementById("hunt");
     if (sel && sel.value === "__new__") {
       const got = await fetch("/api/hunts");
