@@ -364,6 +364,46 @@ function renderToday() {
             </div>
           </div>
         </article>
+        ${
+          l.firstTouch?.open?.length
+            ? `<article class="sleeve sleeve-across">
+          <div class="sleeve-tab"><span>线索来了第一句</span><span>先兑现，不推销</span></div>
+          <div class="sleeve-body">
+            ${l.firstTouch.open
+              .map(
+                (o) => `<div class="line slip">
+              ${o.from ? `<p class="field-k">${o.from}</p>` : ""}
+              <p class="line-text">${o.say}</p>
+              <div class="slip-bar"><div class="slip-step">
+                <button type="button" class="do" data-copy="${encodeURIComponent(o.say)}">复制</button>
+              </div></div>
+            </div>`,
+              )
+              .join("")}
+            ${
+              l.firstTouch.pushback?.length
+                ? `<div class="sleeve-fields" style="margin-top:12px">${l.firstTouch.pushback
+                    .map(
+                      (p) =>
+                        `<div class="full"><p class="field-k">他说「${p.said}」</p><p>${p.reply}</p></div>`,
+                    )
+                    .join("")}</div>`
+                : ""
+            }
+          </div>
+        </article>`
+            : ""
+        }
+        ${
+          l.rewardOutline?.length
+            ? `<article class="sleeve sleeve-across">
+          <div class="sleeve-tab"><span>那份东西怎么做</span><span>${l.rewardOutline.length} 栏</span></div>
+          <div class="sleeve-body"><div class="sleeve-fields">${l.rewardOutline
+            .map((x, i) => `<div class="full"><p class="field-k">第 ${i + 1} 栏</p><p>${x}</p></div>`)
+            .join("")}</div></div>
+        </article>`
+            : ""
+        }
       </div>`;
     }
   }
