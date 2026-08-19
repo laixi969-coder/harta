@@ -164,19 +164,19 @@ function renderToday() {
       demandBox.innerHTML = `
         <div class="folio">
           <div class="folio-cell is-who">
-            <p class="k">截谁</p>
+            <p class="k">要截的这个人</p>
             <p>${demand.who}</p>
           </div>
           <div class="folio-cell is-skip">
-            <p class="k">别打谁</p>
+            <p class="k">不该打的人</p>
             ${lines(demand.skip)}
           </div>
           <div class="folio-cell">
-            <p class="k">他会这么说</p>
+            <p class="k">这个人会这么说</p>
             ${lines(demand.say)}
           </div>
           <div class="folio-cell">
-            <p class="k">他在搜</p>
+            <p class="k">这个人在搜</p>
             ${lines(demand.search)}
           </div>
         </div>`;
