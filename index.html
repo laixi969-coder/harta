@@ -175,8 +175,25 @@
 
       <section class="hidden" data-view="ledger">
         <div class="hook">
-          <h1>对方原话原样记。问价和成交会回写成有回音。</h1>
+          <h1>对方原话原样记。问价和成交，回头翻得出来。</h1>
         </div>
+        <article class="card form hidden" id="ledger-form-card">
+          <h2>记一笔</h2>
+          <label for="ledger-client">客户</label>
+          <select id="ledger-client"></select>
+          <label for="ledger-result">结果</label>
+          <select id="ledger-result">
+            <option>问了价</option>
+            <option>有兴趣</option>
+            <option>成交</option>
+            <option>没下文</option>
+          </select>
+          <label for="ledger-quote">报价</label>
+          <input id="ledger-quote" placeholder="没报就留空">
+          <label for="ledger-talk">他原话怎么说</label>
+          <textarea id="ledger-talk" placeholder="贴原话，不改写，不总结"></textarea>
+          <div class="acts"><button class="btn" id="add-ledger" type="button">记下</button></div>
+        </article>
         <article class="card">
           <table>
             <thead>

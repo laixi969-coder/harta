@@ -10,6 +10,14 @@ const state = {
   packId: "",
 };
 
+/* 客户名、文案、模型出的内容都会进 innerHTML，跟甲方页同一套转义 */
+const esc = (v) =>
+  String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
 function toast(t) {
   const el = document.getElementById("toast");
   el.textContent = t;
@@ -103,9 +111,9 @@ function renderToday() {
     hist.innerHTML = packs
       .map(
         (p) => `<button type="button" data-pack="${p.id}" class="${p.id === (pack && pack.id) ? "on" : ""}">
-        <span class="when">${p.deliveredAt || p.createdAt}</span>
-        <span class="what">${p.title || p.tier}</span>
-        <span class="meta">${p.tier} · ${copyCount(p)} 条</span>
+        <span class="when">${esc(p.deliveredAt || p.createdAt)}</span>
+        <span class="what">${esc(p.title || p.tier)}</span>
+        <span class="meta">${esc(p.tier)} · ${copyCount(p)} 条</span>
       </button>`,
       )
       .join("");
@@ -160,12 +168,12 @@ function renderToday() {
     if (demand && demand.who) {
       demandCard.classList.remove("hidden");
       const lines = (items) =>
-        (items || []).map((t) => `<p>${t}</p>`).join("");
+        (items || []).map((t) => `<p>${esc(t)}</p>`).join("");
       demandBox.innerHTML = `
         <div class="folio">
           <div class="folio-cell is-who">
             <p class="k">要截的这个人</p>
-            <p>${demand.who}</p>
+            <p>${esc(demand.who)}</p>
           </div>
           <div class="folio-cell is-skip">
             <p class="k">不该打的人</p>
@@ -211,8 +219,8 @@ function renderToday() {
         (q, i) => `<article class="sleeve">
         <div class="sleeve-tab">问${["一", "二", "三", "四", "五"][i] || i + 1}</div>
         <div class="sleeve-body">
-          <h3>${q.ask}</h3>
-          ${q.why ? `<p class="meta">为什么问：${q.why}</p>` : ""}
+          <h3>${esc(q.ask)}</h3>
+          ${q.why ? `<p class="meta">为什么问：${esc(q.why)}</p>` : ""}
         </div>
       </article>`,
       )
@@ -227,15 +235,15 @@ function renderToday() {
     document.getElementById("boards").innerHTML = `<div class="sleeves">${boards
       .map(
         (b) => `<article class="sleeve sleeve-across">
-        <div class="sleeve-tab"><span>${b.title}</span><span>${b.platform || ""}</span></div>
+        <div class="sleeve-tab"><span>${esc(b.title)}</span><span>${esc(b.platform || "")}</span></div>
         <div class="sleeve-body">
-          ${b.hook ? `<p class="meta">前 3 秒：${b.hook}</p>` : ""}
+          ${b.hook ? `<p class="meta">前 3 秒：${esc(b.hook)}</p>` : ""}
           ${(b.shots || [])
             .map(
-              (sh) => `<p><b>${sh.at || ""}</b> ${sh.visual}${sh.line ? `　口播：${sh.line}` : ""}</p>`,
+              (sh) => `<p><b>${esc(sh.at || "")}</b> ${esc(sh.visual)}${sh.line ? `　口播：${esc(sh.line)}` : ""}</p>`,
             )
             .join("")}
-          ${b.close ? `<p class="meta">收口：${b.close}</p>` : ""}
+          ${b.close ? `<p class="meta">收口：${esc(b.close)}</p>` : ""}
         </div>
       </article>`,
       )
@@ -247,6 +255,8 @@ function renderToday() {
     // 没反应的客户不跑全档，所以这个按钮只在已经有档、还没补分镜时出现
     full.classList.toggle("hidden", !pack.id || boards.length > 0);
     full.dataset.pack = pack.id || "";
+    full.dataset.customer = mine.id || "";
+    full.disabled = Boolean(mine.job);
   }
 
   const refill = document.getElementById("go-refill");
@@ -263,23 +273,23 @@ function renderToday() {
     const c = pack.checks || {};
     const rows = [
       ...(c.redline || []).map(
-        (r) => `<div class="line"><p><b>红线</b> ${r.words.join("、")} · ${r.where}</p>
-          <p class="meta">${r.text}</p></div>`,
+        (r) => `<div class="line"><p><b>红线</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
+          <p class="meta">${esc(r.text)}</p></div>`,
       ),
       ...(c.watch || []).map(
-        (r) => `<div class="line"><p><b>看一眼</b> ${r.words.join("、")} · ${r.where}</p>
+        (r) => `<div class="line"><p><b>看一眼</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
           <p class="meta">这个词要看语境。是在教客户怎么问就没事，是在打包票就得改</p>
-          <p class="meta">${r.text}</p></div>`,
+          <p class="meta">${esc(r.text)}</p></div>`,
       ),
       ...(c.hints || []).map(
-        (r) => `<div class="line"><p><b>带了镜头提示</b> ${r.where}</p>
-          <p class="meta">这条里的「${r.hint}」会跟着一起发出去。镜头怎么拍写在分镜里，这一栏只放要发的那句话</p>
-          <p class="meta">${r.text}</p></div>`,
+        (r) => `<div class="line"><p><b>带了镜头提示</b> ${esc(r.where)}</p>
+          <p class="meta">这条里的「${esc(r.hint)}」会跟着一起发出去。镜头怎么拍写在分镜里，这一栏只放要发的那句话</p>
+          <p class="meta">${esc(r.text)}</p></div>`,
       ),
       ...(c.length || []).map(
-        (r) => `<div class="line"><p><b>${r.level === "hard" ? "发不出去" : "会有代价"}</b> ${r.platform} · ${r.field} 约 ${r.max} 字，这条 ${r.n} 字</p>
-          <p class="meta">${r.why || ""}</p>
-          <p class="meta">${r.text}</p></div>`,
+        (r) => `<div class="line"><p><b>${r.level === "hard" ? "发不出去" : "会有代价"}</b> ${esc(r.platform)} · ${esc(r.field)} 约 ${r.max} 字，这条 ${r.n} 字</p>
+          <p class="meta">${esc(r.why || "")}</p>
+          <p class="meta">${esc(r.text)}</p></div>`,
       ),
     ];
     checksCard.classList.toggle("hidden", !rows.length);
@@ -293,14 +303,14 @@ function renderToday() {
       (g, i) => `<article class="sleeve">
         <div class="sleeve-tab">缺口${["一", "二", "三"][i] || i + 1}</div>
         <div class="sleeve-body">
-          <h3>${g.name}</h3>
-          <p class="meta">证据 ${pack.evidence}</p>
+          <h3>${esc(g.name)}</h3>
+          <p class="meta">证据 ${esc(pack.evidence)}</p>
           <div class="sleeve-fields">
-            <div><p class="field-k">现状</p><p>${g.fact}</p></div>
-            <div><p class="field-k">代价</p><p>${g.cost}</p></div>
-            <div class="full"><p class="field-k">为什么改不动</p><p>${g.cause}</p></div>
+            <div><p class="field-k">现状</p><p>${esc(g.fact)}</p></div>
+            <div><p class="field-k">代价</p><p>${esc(g.cost)}</p></div>
+            <div class="full"><p class="field-k">为什么改不动</p><p>${esc(g.cause)}</p></div>
           </div>
-          <p class="meta">你自己可以：${g.verify}</p>
+          <p class="meta">你自己可以：${esc(g.verify)}</p>
         </div>
       </article>`,
     )
@@ -315,8 +325,8 @@ function renderToday() {
           const text = edited(pack, k, row.text);
           const was = editOf(pack, k)?.was;
           return `<div class="line slip" data-line="${encodeURIComponent(k)}">
-            <p class="line-text">${text}</p>
-            ${was ? `<p class="meta">改过 · 原句是「${was}」</p>` : ""}
+            <p class="line-text">${esc(text)}</p>
+            ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}
             <div class="slip-bar">
               <div class="slip-step">
                 <button type="button" class="do" data-copy="${encodeURIComponent(text)}">复制这条</button>
@@ -324,22 +334,22 @@ function renderToday() {
               </div>
               <div class="slip-step">
                 <span class="slip-k">用过之后</span>
-                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${row.key}" data-val="replied" aria-pressed="${row.fb === "replied" ? "true" : "false"}">${row.fb === "replied" ? "已记有回音" : "有回音"}</button>
-                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${row.key}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${row.fb === "dead" ? "已记没反应" : "没反应"}</button>
+                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${esc(row.key)}" data-val="replied" aria-pressed="${row.fb === "replied" ? "true" : "false"}">${row.fb === "replied" ? "已记有回音" : "有回音"}</button>
+                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${esc(row.key)}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${row.fb === "dead" ? "已记没反应" : "没反应"}</button>
               </div>
             </div>
           </div>`;
         })
         .join("");
       return `<article class="sleeve sleeve-across${g.replied ? " is-hot" : ""}">
-        <div class="sleeve-tab"><span>${g.group}</span><span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span></div>
+        <div class="sleeve-tab"><span>${esc(g.group)}</span><span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span></div>
         <div class="sleeve-body">${items}</div>
       </article>`;
     })
     .join("")}</div>`;
 
   document.getElementById("breaks").innerHTML = `<div class="notes">${(pack.breakdowns || [])
-    .map((b) => `<article class="note"><h3>${b.copy}</h3><p>${b.why}</p></article>`)
+    .map((b) => `<article class="note"><h3>${esc(b.copy)}</h3><p>${esc(b.why)}</p></article>`)
     .join("")}</div>`;
 
   const landingCard = document.getElementById("landing-card");
@@ -349,18 +359,18 @@ function renderToday() {
     if (l?.firstScreen) {
       document.getElementById("landing").innerHTML = `<div class="sleeves">
         <article class="sleeve sleeve-across">
-          <div class="sleeve-tab"><span>第一屏那句话</span><span>${l.way || ""}</span></div>
+          <div class="sleeve-tab"><span>第一屏那句话</span><span>${esc(l.way || "")}</span></div>
           <div class="sleeve-body">
             <div class="line slip">
-              <p class="line-text">${l.firstScreen}</p>
+              <p class="line-text">${esc(l.firstScreen)}</p>
               <div class="slip-bar"><div class="slip-step">
                 <button type="button" class="do" data-copy="${encodeURIComponent(l.firstScreen)}">复制这句</button>
               </div></div>
             </div>
             <div class="sleeve-fields">
-              <div><p class="field-k">留了资立刻给</p><p>${l.reward || ""}</p></div>
-              <div><p class="field-k">表单只问</p><p>${(l.form || []).join("；") || "没写"}</p></div>
-              ${l.leak ? `<div class="full"><p class="field-k">最常漏在这</p><p>${l.leak}</p></div>` : ""}
+              <div><p class="field-k">留了资立刻给</p><p>${esc(l.reward || "")}</p></div>
+              <div><p class="field-k">表单只问</p><p>${esc((l.form || []).join("；") || "没写")}</p></div>
+              ${l.leak ? `<div class="full"><p class="field-k">最常漏在这</p><p>${esc(l.leak)}</p></div>` : ""}
             </div>
           </div>
         </article>
@@ -372,8 +382,8 @@ function renderToday() {
             ${l.firstTouch.open
               .map(
                 (o) => `<div class="line slip">
-              ${o.from ? `<p class="field-k">${o.from}</p>` : ""}
-              <p class="line-text">${o.say}</p>
+              ${o.from ? `<p class="field-k">${esc(o.from)}</p>` : ""}
+              <p class="line-text">${esc(o.say)}</p>
               <div class="slip-bar"><div class="slip-step">
                 <button type="button" class="do" data-copy="${encodeURIComponent(o.say)}">复制</button>
               </div></div>
@@ -385,7 +395,7 @@ function renderToday() {
                 ? `<div class="sleeve-fields" style="margin-top:12px">${l.firstTouch.pushback
                     .map(
                       (p) =>
-                        `<div class="full"><p class="field-k">他说「${p.said}」</p><p>${p.reply}</p></div>`,
+                        `<div class="full"><p class="field-k">他说「${esc(p.said)}」</p><p>${esc(p.reply)}</p></div>`,
                     )
                     .join("")}</div>`
                 : ""
@@ -399,7 +409,7 @@ function renderToday() {
             ? `<article class="sleeve sleeve-across">
           <div class="sleeve-tab"><span>那份东西怎么做</span><span>${l.rewardOutline.length} 栏</span></div>
           <div class="sleeve-body"><div class="sleeve-fields">${l.rewardOutline
-            .map((x, i) => `<div class="full"><p class="field-k">第 ${i + 1} 栏</p><p>${x}</p></div>`)
+            .map((x, i) => `<div class="full"><p class="field-k">第 ${i + 1} 栏</p><p>${esc(x)}</p></div>`)
             .join("")}</div></div>
         </article>`
             : ""
@@ -426,8 +436,8 @@ function renderToday() {
             const text = edited(pack, k, item[f.key]);
             const was = editOf(pack, k)?.was;
             return `<div class="line-row"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}">
-              <div>${present.length > 1 ? `<p class="field-k">${f.label}</p>` : ""}<p class="line-text${f.key === "body" ? " asis" : ""}">${text}</p>
-              ${was ? `<p class="meta">改过 · 原句是「${was}」</p>` : ""}</div>
+              <div>${present.length > 1 ? `<p class="field-k">${esc(f.label)}</p>` : ""}<p class="line-text${f.key === "body" ? " asis" : ""}">${esc(text)}</p>
+              ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}</div>
               <div class="acts-inline">
                 <button type="button" class="do" data-copy="${encodeURIComponent(text)}">复制</button>
                 <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
@@ -438,7 +448,7 @@ function renderToday() {
         return `<div class="line slip">${rows}</div>`;
       })
       .join("");
-    return `<section class="plat ${kind}"><h3>${s.name}<span>${kind === "is-main" ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
+    return `<section class="plat ${kind}"><h3>${esc(s.name)}<span>${kind === "is-main" ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
   };
   const platBox = document.getElementById("plats");
   // 有正文的平台（小红书、朋友圈折叠后）塞进窄栏会挤成一条，
@@ -469,19 +479,19 @@ function renderToday() {
     <div class="folio folio-3">
       <div class="folio-cell is-who">
         <p class="k">主战场</p>
-        <p>${(pack.battlefields || []).join("、")}</p>
+        <p>${esc((pack.battlefields || []).join("、"))}</p>
       </div>
       <div class="folio-cell">
         <p class="k">测试路径</p>
-        <p>${pack.testPath || ""}</p>
+        <p>${esc(pack.testPath || "")}</p>
       </div>
       <div class="folio-cell">
         <p class="k">补给节奏</p>
-        <p>${pack.supply || ""}</p>
+        <p>${esc(pack.supply || "")}</p>
       </div>
     </div>
-    <p style="margin-top:14px">${pack.honest || ""}</p>
-    <p class="meta">下一步：${(pack.next || []).join("；")}</p>
+    <p style="margin-top:14px">${esc(pack.honest || "")}</p>
+    <p class="meta">下一步：${esc((pack.next || []).join("；"))}</p>
     <p class="meta">出价和定向让代运营定，我们负责让他们有好素材可投。</p>`;
 
   renderChase(chase);
@@ -494,7 +504,7 @@ function renderChase(chase) {
     ? chase
         .map(
           (c) => `<div class="row">
-      <div><strong>${c.name}</strong><div class="meta">${c.hunt} · 已出 ${packsOf(c).length} 份 · ${c.pitch || "未写卖点"}</div></div>
+      <div><strong>${esc(c.name)}</strong><div class="meta">${esc(c.hunt)} · 已出 ${packsOf(c).length} 份 · ${esc(c.pitch || "未写卖点")}</div></div>
       <button type="button" class="go" data-using="${c.id}">先用这位</button>
     </div>`,
         )
@@ -518,8 +528,8 @@ function renderCustomers() {
           const using = c.id === state.workspace.usingId;
           return `<div class="row">
         <div>
-          <strong>${c.name}</strong>
-          <div class="meta">${c.hunt}${using ? " · 先用" : ""} · ${packs.length ? `已出 ${packs.length} 份` : "还没出档"}${latest ? ` · ${latest.deliveredAt || latest.createdAt}` : ""}</div>
+          <strong>${esc(c.name)}</strong>
+          <div class="meta">${esc(c.hunt)}${using ? " · 先用" : ""} · ${packs.length ? `已出 ${packs.length} 份` : "还没出档"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}</div>
         </div>
         ${using ? "" : `<button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这位"}</button>`}
       </div>`;
@@ -539,8 +549,8 @@ function renderPackIndex() {
         .map(
           ({ customer, pack }) => `<div class="row">
       <div>
-        <strong>${customer.name}</strong>
-        <div class="meta">${pack.deliveredAt || pack.createdAt} · ${pack.tier} · ${pack.title || ""}</div>
+        <strong>${esc(customer.name)}</strong>
+        <div class="meta">${esc(pack.deliveredAt || pack.createdAt)} · ${esc(pack.tier)} · ${esc(pack.title || "")}</div>
       </div>
       <button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>
     </div>`,
@@ -554,11 +564,29 @@ function renderLedger() {
   document.getElementById("ledger-body").innerHTML = rows.length
     ? rows.map(
     (r) => `<tr>
-      <td>${r.date}</td><td>${r.client}</td><td>${r.hunt}</td>
-      <td>${r.result}</td><td class="num">${r.quote}</td><td>${r.talk}</td>
+      <td>${esc(r.date)}</td><td>${esc(r.client)}</td><td>${esc(r.hunt)}</td>
+      <td>${esc(r.result)}</td><td class="num">${esc(r.quote)}</td><td>${esc(r.talk)}</td>
     </tr>`,
-    ).join("")
-    : `<tr><td colspan="6">还没有你自己的台账。</td></tr>`;
+  ).join("")
+  : `<tr><td colspan="6">还没有你自己的台账。</td></tr>`;
+}
+
+/* 台账没有录入入口就是死胡同：销售真去记的时候，一张永远空着的表只会让他再也不点进来 */
+function renderLedgerForm() {
+  const card = document.getElementById("ledger-form-card");
+  const sel = document.getElementById("ledger-client");
+  if (!card || !sel) return;
+  const list = state.workspace.customers || [];
+  if (!list.length) {
+    card.classList.add("hidden");
+    return;
+  }
+  card.classList.remove("hidden");
+  const current = sel.value;
+  sel.innerHTML = list
+    .map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`)
+    .join("");
+  if (list.some((c) => c.id === current)) sel.value = current;
 }
 
 function bind() {
@@ -587,30 +615,47 @@ function bind() {
       ta.className = "edit-box";
       p.replaceWith(ta);
       ta.focus();
-      const save = async () => {
-        const text = ta.value.trim();
+      const save = async (text) => {
         const res = await fetch("/api/edit", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ packId: currentPack()?.id, key, text }),
         });
         const data = await res.json();
-        if (!res.ok) return toast(data.error || "没存上");
+        if (!res.ok) {
+          toast(data.error || "没存上");
+          // 存失败不能把销售刚敲的字吞了：输回输入框，让他改完再存
+          const holder = document.querySelector(`[data-line="${encodeURIComponent(key)}"]`);
+          const target = holder?.querySelector(".line-text, p");
+          if (target && !holder.querySelector("textarea")) {
+            const again = document.createElement("textarea");
+            again.value = text;
+            again.rows = Math.min(8, Math.ceil(text.length / 28) + 1);
+            again.className = "edit-box";
+            target.replaceWith(again);
+            again.focus();
+          }
+          return;
+        }
         state.workspace = data;
         toast("改好了，复制和甲方页拿的都是这一版");
         renderToday();
       };
-      ta.addEventListener("blur", save, { once: true });
+      let cancelled = false;
+      ta.addEventListener("blur", () => { if (!cancelled) save(ta.value.trim()); }, { once: true });
       ta.addEventListener("keydown", (ev) => {
-        if (ev.key === "Escape") { ta.removeEventListener("blur", save); renderToday(); }
+        if (ev.key === "Escape") { cancelled = true; renderToday(); }
         if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) ta.blur();
       });
       return;
     }
     const copy = e.target.closest("[data-copy]");
     if (copy) {
-      navigator.clipboard.writeText(decodeURIComponent(copy.dataset.copy));
-      toast("已复制");
+      // 承诺「已复制」之前先等剪贴板真的写进去；非安全上下文里这步会失败
+      navigator.clipboard
+        .writeText(decodeURIComponent(copy.dataset.copy))
+        .then(() => toast("已复制"))
+        .catch(() => toast("没复制上，手动选中复制"));
       return;
     }
     const fb = e.target.closest("[data-fb]");
@@ -650,31 +695,32 @@ async function useCustomer(id, packId) {
   state.packId = packId || "";
   renderToday();
   renderLedger();
+  renderLedgerForm();
   nav("today");
 }
 
 function providerCard(id, p, active) {
   const opts = (p.models || [])
-    .map((m) => `<option value="${m}" ${m === p.model ? "selected" : ""}>${m}</option>`)
+    .map((m) => `<option value="${esc(m)}" ${m === p.model ? "selected" : ""}>${esc(m)}</option>`)
     .join("");
   const modelField = p.models?.length
     ? `<select data-llm-model="${id}">${opts}</select>`
-    : `<input data-llm-model="${id}" value="${p.model || ""}" placeholder="先同步模型，或手填">`;
-  return `<article class="card form" data-provider="${id}">
-    <h2>${p.name} ${active === id ? '<span class="tag">当前使用</span>' : ""}</h2>
-    <p class="meta">${p.hasKey ? p.apiKeyMasked : "还没填密钥"} · ${p.lastTestDetail || "还没测过"}</p>
+    : `<input data-llm-model="${id}" value="${esc(p.model || "")}" placeholder="先同步模型，或手填">`;
+  return `<article class="card form" data-provider="${esc(id)}">
+    <h2>${esc(p.name)} ${active === id ? '<span class="tag">当前使用</span>' : ""}</h2>
+    <p class="meta">${esc(p.hasKey ? p.apiKeyMasked : "还没填密钥")} · ${esc(p.lastTestDetail || "还没测过")}</p>
     ${
       p.builtin
         ? ""
-        : `<label for="llm-name-${id}">名字</label>
-    <input id="llm-name-${id}" data-llm-name="${id}" value="${p.name || ""}" placeholder="好认就行，比如 火山方舟">`
+        : `<label for="llm-name-${esc(id)}">名字</label>
+    <input id="llm-name-${esc(id)}" data-llm-name="${esc(id)}" value="${esc(p.name || "")}" placeholder="好认就行，比如 火山方舟">`
     }
-    <label for="llm-key-${id}">密钥</label>
-    <input id="llm-key-${id}" data-llm-key="${id}" type="password" autocomplete="off" placeholder="${p.hasKey ? "留空则不改" : ""}">
-    <label for="llm-base-${id}">接口地址</label>
-    <input id="llm-base-${id}" data-llm-base="${id}" value="${p.baseUrl || ""}">
-    <label for="llm-model-${id}">模型</label>
-    ${modelField.replace("<select ", `<select id="llm-model-${id}" `).replace("<input ", `<input id="llm-model-${id}" `)}
+    <label for="llm-key-${esc(id)}">密钥</label>
+    <input id="llm-key-${esc(id)}" data-llm-key="${esc(id)}" type="password" autocomplete="off" placeholder="${p.hasKey ? "留空则不改" : ""}">
+    <label for="llm-base-${esc(id)}">接口地址</label>
+    <input id="llm-base-${esc(id)}" data-llm-base="${esc(id)}" value="${esc(p.baseUrl || "")}">
+    <label for="llm-model-${esc(id)}">模型</label>
+    ${modelField.replace("<select ", `<select id="llm-model-${esc(id)}" `).replace("<input ", `<input id="llm-model-${esc(id)}" `)}
     <div class="acts">
       <button class="btn" data-llm-save="${id}" type="button">保存</button>
       <button class="btn gold" data-llm-use="${id}" type="button">用作当前</button>
@@ -731,12 +777,12 @@ async function loadUsers() {
         const locked = email === adminEmail;
         return `<div class="row">
         <div>
-          <strong>${email}</strong>
-          <div class="meta">${state}</div>
+          <strong>${esc(email)}</strong>
+          <div class="meta">${esc(state)}</div>
         </div>
         <div class="acts-inline">
-          ${role && !locked ? `<button type="button" class="go" data-white-reset="${email}">重设密码</button>` : ""}
-          ${locked ? "" : `<button type="button" class="go" data-white-del="${email}">移出</button>`}
+          ${role && !locked ? `<button type="button" class="go" data-white-reset="${esc(email)}">重设密码</button>` : ""}
+          ${locked ? "" : `<button type="button" class="go" data-white-del="${esc(email)}">移出</button>`}
         </div>
       </div>`;
       })
@@ -787,11 +833,20 @@ async function boot() {
   bindEyes();
   renderToday();
   renderLedger();
+  renderLedgerForm();
   bind();
   nav("today");
+  // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」
+  const busy = usingCustomer();
+  if (busy?.job) watchJob(busy.id);
   if (user.isAdmin) {
     loadLlm();
     loadUsers();
+  }
+  // 管理员第一次登录，刚输的密码就是以后的密码，得让他知道这事定下来了
+  if (new URLSearchParams(location.search).get("first") === "1") {
+    toast("首次登录完成。刚输入的密码就是以后的密码，记牢。");
+    history.replaceState(null, "", "/");
   }
 }
 
@@ -815,10 +870,11 @@ document.getElementById("add-white")?.addEventListener("click", async () => {
 document.getElementById("go-full")?.addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   const packId = btn.dataset.pack;
-  if (!packId) return;
+  const customerId = btn.dataset.customer;
+  if (!packId || !customerId) return;
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "正在出分镜…";
+  btn.textContent = "正在补分镜…";
   try {
     const res = await fetch("/api/full", {
       method: "POST",
@@ -830,9 +886,11 @@ document.getElementById("go-full")?.addEventListener("click", async (e) => {
       toast(data.error || "出分镜失败");
       return;
     }
+    // 分镜也是后台跑：请求回来只说明排上了，出好靠轮询刷新
     state.workspace = data;
-    toast("分镜已补上，这份升成全档");
     renderToday();
+    toast("正在补分镜，出好了这里会自己刷新");
+    watchJob(customerId);
   } catch {
     toast("网络不通，请再试");
   } finally {
@@ -974,12 +1032,40 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     });
     renderToday();
     renderLedger();
+    renderLedgerForm();
     nav("today");
   } catch {
     toast("网络不通，请再试");
   }
   btn.disabled = false;
   btn.textContent = old;
+});
+
+document.getElementById("add-ledger")?.addEventListener("click", async () => {
+  const customerId = document.getElementById("ledger-client")?.value || "";
+  const customer = (state.workspace.customers || []).find((c) => c.id === customerId);
+  const talk = document.getElementById("ledger-talk")?.value.trim() || "";
+  if (!customer) return toast("先选一个客户");
+  if (!talk) return toast("原话没填，这条记了也没用");
+  const res = await fetch("/api/ledger", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      client: customer.name,
+      hunt: customer.hunt,
+      result: document.getElementById("ledger-result")?.value || "",
+      quote: document.getElementById("ledger-quote")?.value.trim() || "",
+      talk,
+    }),
+  });
+  if (!res.ok) return toast("没记上，再试一次");
+  state.workspace = await res.json();
+  const talkBox = document.getElementById("ledger-talk");
+  const quoteBox = document.getElementById("ledger-quote");
+  if (talkBox) talkBox.value = "";
+  if (quoteBox) quoteBox.value = "";
+  renderLedger();
+  toast("记下了");
 });
 
 document.getElementById("change-pass")?.addEventListener("click", async () => {
@@ -992,7 +1078,13 @@ document.getElementById("change-pass")?.addEventListener("click", async () => {
     }),
   });
   const data = await res.json();
-  toast(res.ok ? "密码已改" : data.error || "改密失败");
+  if (res.ok) {
+    document.getElementById("old-pass").value = "";
+    document.getElementById("new-pass").value = "";
+    toast("密码已改");
+  } else {
+    toast(data.error || "改密失败");
+  }
 });
 
 document.body.addEventListener("click", async (e) => {

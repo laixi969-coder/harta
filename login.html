@@ -41,6 +41,7 @@
         </div>
         <p id="err" class="meta" role="alert" style="color:var(--down);min-height:1.4em;margin-top:16px"></p>
         <div class="acts"><button class="btn" type="submit">进入</button></div>
+        <p class="meta" style="margin-top:14px">管理员第一次登录：当时输入的密码就是以后的密码，想好再输。</p>
       </form>
     </main>
   </div>
@@ -72,7 +73,7 @@
           (email.value ? document.getElementById("password") : email).focus();
           return;
         }
-        location.href = "/";
+        location.href = data.bootstrapped ? "/?first=1" : "/";
       } catch {
         err.textContent = "网络不通，请再试";
         btn.disabled = false;
