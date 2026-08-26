@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>猎鹰增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260820b">
+  <link rel="stylesheet" href="css/app.css?v=20260825g">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -26,6 +26,7 @@
       <a href="#" data-nav="customers">客户</a>
       <a href="#" data-nav="pack">包裹</a>
       <a href="#" data-nav="ledger">台账</a>
+      <a href="#" data-nav="crew" id="nav-crew" class="hidden">全组</a>
       <a href="#" data-nav="settings">设置</a>
       <a href="#" id="nav-logout">退出</a>
       </nav>
@@ -48,6 +49,7 @@
         <div id="owned-today">
         <div class="hook">
           <h1 id="hook-line"></h1>
+          <p class="hook-facts" id="hook-facts"></p>
           <p class="meta" id="hook-gate"></p>
         </div>
         <div id="history" class="history"></div>
@@ -62,7 +64,10 @@
         </div>
         <div id="pack-body">
         <article class="card card-id">
-          <h2>先用 · <span id="using-name"></span> <span class="tag" id="using-hunt"></span> <span class="tag" id="using-tier"></span></h2>
+          <div class="cover-row">
+            <h2>先用 · <span class="tag" id="using-hunt"></span></h2>
+            <span class="stamp" id="using-stamp"></span>
+          </div>
           <p class="meta" id="using-meta"></p>
           <p class="meta" id="pack-title"></p>
           <div class="acts" style="margin:16px 0 0">
@@ -93,7 +98,7 @@
           <div id="questions"></div>
         </article>
         </div>
-        <div class="chapter">
+        <div class="chapter chapter-take">
           <p class="chapter-name">二 · 出活</p>
         <article class="card hidden" id="checks-card">
           <h2>发出去之前</h2>
@@ -188,6 +193,9 @@
             <option>成交</option>
             <option>没下文</option>
           </select>
+          <label for="ledger-line">哪条带来的（可选）</label>
+          <select id="ledger-line"></select>
+          <p class="meta">记问价、有兴趣或成交时选了哪条，那条自动算有回音，不用再回去点一遍。</p>
           <label for="ledger-quote">报价</label>
           <input id="ledger-quote" placeholder="没报就留空">
           <label for="ledger-talk">他原话怎么说</label>
@@ -201,6 +209,21 @@
             </thead>
             <tbody id="ledger-body"></tbody>
           </table>
+        </article>
+      </section>
+
+      <section class="hidden" data-view="crew">
+        <div class="hook">
+          <h1>全组的枪往哪边打准了。</h1>
+          <p class="meta" id="crew-line">只有你能看这一页。这里只有数，不拆到人。</p>
+        </div>
+        <article class="card">
+          <h2>按猎场</h2>
+          <div id="crew-rows" class="chase"></div>
+        </article>
+        <article class="card">
+          <h2>最近的原话</h2>
+          <div id="crew-talks" class="notes"></div>
         </article>
       </section>
 
@@ -235,6 +258,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260820b"></script>
+  <script type="module" src="js/app.js?v=20260825f"></script>
 </body>
 </html>

@@ -1,5 +1,19 @@
 [
   {
+    "at": "2026-08-25",
+    "path": "falcon/index.html（全组页 + 台账表单）",
+    "register": "product",
+    "axes": {
+      "A": "warm-stone+coral-gold",
+      "B": "700/400",
+      "C": "sidebar-desk",
+      "D": "css-feedback",
+      "E": "paper-photo"
+    },
+    "dials": { "soul": 6, "spectacle": 2, "density": 7 },
+    "notes": "同门增补，不是新方向：超管的「全组」聚合页和台账「哪条带来的」下拉，全部复用既有 card/chase/row/tag 语言，未加新色新字体。下次改这一页不要另起炉灶。"
+  },
+  {
     "at": "2026-08-17",
     "path": "falcon/index.html",
     "register": "product",

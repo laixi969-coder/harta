@@ -1,6 +1,6 @@
 import { bindEyes } from "./eyes.js";
 import { copyKey, editOf, edited, shellKey } from "./pack-edits.js";
-import { rankCopyGroups, rankShells, topRepliedLabel } from "./rank-feedback.js";
+import { lastEffective, rankCopyGroups, rankShells } from "./rank-feedback.js";
 
 const state = {
   view: "today",
@@ -91,13 +91,24 @@ function renderToday() {
   // 侦察档没有缺口，主体是提问。首行不能替它报「0 个缺口」。
   const nAsk = pack?.questions?.length || 0;
   const headCount = nGap ? `${nGap} 个缺口` : nAsk ? `${nAsk} 个要先问清的` : "";
+  // 大标题只放焦点：客户名和档的状态。日期、条数这些可抄进台账的数，降到下面的档案体事实行
   document.getElementById("hook-line").textContent = pack
-    ? `${mine.name} · ${pack.deliveredAt || pack.createdAt} 已出${pack.tier}：${headCount ? `${headCount} · ` : ""}${nCopy} 条文案 · 主战场${fields}。下面还有 ${chase.length} 个可追。`
+    ? `${mine.name} · 已出${pack.tier}`
     : mine.job
       ? `${mine.name} 正在${mine.job.kind}，一般一两分钟。出好了这一页自己会刷新，不用守着。`
       : mine.lastFail
-      ? `${mine.name} 这次没出成：${mine.lastFail}。点「重出这份档」再来一次。`
-      : `${mine.name} 还没有出过档。下面还有 ${chase.length} 个可追。`;
+        ? `${mine.name} 这次没出成：${mine.lastFail}。点「重出这份档」再来一次。`
+        : `${mine.name} 还没有出过档`;
+  const facts = [];
+  if (pack) {
+    facts.push(`${pack.deliveredAt || pack.createdAt} 出的`);
+    if (headCount) facts.push(headCount);
+    facts.push(`${nCopy} 条文案`);
+    if (fields && fields !== "尚未定主战场") facts.push(`主战场 ${fields}`);
+  }
+  if (chase.length) facts.push(`还可追 ${chase.length} 个`);
+  // 分隔点染黄铜：这行事实是档案目录，不是正文句子
+  document.getElementById("hook-facts").innerHTML = facts.map(esc).join('<i class="sep">·</i>');
   // 模板档和真出的档在界面上长得一样，不说清楚销售会拿赛道模板去谈具体客户
   const fromTemplate = pack?.origin?.engine === "template";
   document.getElementById("hook-gate").textContent = fromTemplate
@@ -121,7 +132,9 @@ function renderToday() {
 
   const rankedCopies = pack ? rankCopyGroups(pack.copies, state.workspace.feedback, pack.id) : [];
   const win = document.getElementById("win");
-  const winLine = topRepliedLabel(rankedCopies);
+  // 跨批次找：刚补的新批自己没反馈，别让他上周点过的回音凭空消失。
+  // 只翻当前这位客户的档——别人的回音不挂到这位脸上
+  const winLine = lastEffective(mine, state.workspace.feedback, pack?.id || "");
   if (winLine) {
     win.classList.remove("hidden");
     win.innerHTML = `<b>上次有效</b> · ${winLine}`;
@@ -153,10 +166,10 @@ function renderToday() {
   noPack.classList.add("hidden");
   body.classList.remove("hidden");
 
-  document.getElementById("using-name").textContent = mine.name;
+  // 客户名两行之前刚在大标题里说过，这里不重复：这行只留猎场，档位交给右边的章
   document.getElementById("using-hunt").textContent = mine.hunt;
-  document.getElementById("using-tier").textContent =
-    pack.evidence === "D" ? `${pack.tier} · 赛道判断` : `${pack.tier} · 证据${pack.evidence}`;
+  document.getElementById("using-stamp").textContent =
+    pack.evidence === "D" ? `${pack.tier}\n赛道判断` : `${pack.tier}\n证据${pack.evidence}`;
   document.getElementById("using-meta").textContent =
     `${mine.pitch} · ${mine.city || ""} · ${pack.evidenceNote || ""}`;
   document.getElementById("pack-title").textContent = `当时标题：${pack.title}`;
@@ -234,8 +247,8 @@ function renderToday() {
     boardsCard.classList.toggle("hidden", !boards.length);
     document.getElementById("boards").innerHTML = `<div class="sleeves">${boards
       .map(
-        (b) => `<article class="sleeve sleeve-across">
-        <div class="sleeve-tab"><span>${esc(b.title)}</span><span>${esc(b.platform || "")}</span></div>
+        (b, i) => `<article class="sleeve sleeve-across">
+        <div class="sleeve-tab"><span><i class="sleeve-num">${["一", "二", "三", "四", "五", "六"][i] || i + 1}</i>${esc(b.title)}</span><span>${esc(b.platform || "")}</span></div>
         <div class="sleeve-body">
           ${b.hook ? `<p class="meta">前 3 秒：${esc(b.hook)}</p>` : ""}
           ${(b.shots || [])
@@ -317,7 +330,7 @@ function renderToday() {
     .join("")}</div>`;
 
   document.getElementById("copies").innerHTML = `<div class="sleeves">${rankedCopies
-    .map((g) => {
+    .map((g, i) => {
       const items = g.rows
         .map((row) => {
           // 显示、复制、发出去的都是改后那版。原句只在底下小字里留个底
@@ -341,8 +354,13 @@ function renderToday() {
           </div>`;
         })
         .join("");
+      // 组名常自带字母编号（模型起的，台账里也这么引用），把它提成黄铜档案号；
+      // 没带的组按顺序补中文数字，让每个组头都说档案室的编号语言
+      const m = g.group.match(/^([A-H])(?:组)?\s+(.+)$/);
+      const num = m ? m[1] : ["一", "二", "三", "四", "五", "六", "七", "八", "九"][i] || i + 1;
+      const name = m ? m[2] : g.group;
       return `<article class="sleeve sleeve-across${g.replied ? " is-hot" : ""}">
-        <div class="sleeve-tab"><span>${esc(g.group)}</span><span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span></div>
+        <div class="sleeve-tab"><span><i class="sleeve-num">${esc(num)}</i>${esc(name)}</span><span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span></div>
         <div class="sleeve-body">${items}</div>
       </article>`;
     })
@@ -359,7 +377,7 @@ function renderToday() {
     if (l?.firstScreen) {
       document.getElementById("landing").innerHTML = `<div class="sleeves">
         <article class="sleeve sleeve-across">
-          <div class="sleeve-tab"><span>第一屏那句话</span><span>${esc(l.way || "")}</span></div>
+          <div class="sleeve-tab"><span><i class="sleeve-num">一</i>第一屏那句话</span><span>${esc(l.way || "")}</span></div>
           <div class="sleeve-body">
             <div class="line slip">
               <p class="line-text">${esc(l.firstScreen)}</p>
@@ -368,16 +386,16 @@ function renderToday() {
               </div></div>
             </div>
             <div class="sleeve-fields">
-              <div><p class="field-k">留了资立刻给</p><p>${esc(l.reward || "")}</p></div>
-              <div><p class="field-k">表单只问</p><p>${esc((l.form || []).join("；") || "没写")}</p></div>
-              ${l.leak ? `<div class="full"><p class="field-k">最常漏在这</p><p>${esc(l.leak)}</p></div>` : ""}
+              <div class="full"><p class="field-k">留了资立刻给</p><p>${esc(l.reward || "")}</p></div>
+              <div class="${l.leak ? "" : "full"}"><p class="field-k">表单只问</p><p>${esc((l.form || []).join("；") || "没写")}</p></div>
+              ${l.leak ? `<div><p class="field-k">最常漏在这</p><p>${esc(l.leak)}</p></div>` : ""}
             </div>
           </div>
         </article>
         ${
           l.firstTouch?.open?.length
             ? `<article class="sleeve sleeve-across">
-          <div class="sleeve-tab"><span>线索来了第一句</span><span>先兑现，不推销</span></div>
+          <div class="sleeve-tab"><span><i class="sleeve-num">二</i>线索来了第一句</span><span>先兑现，不推销</span></div>
           <div class="sleeve-body">
             ${l.firstTouch.open
               .map(
@@ -407,7 +425,7 @@ function renderToday() {
         ${
           l.rewardOutline?.length
             ? `<article class="sleeve sleeve-across">
-          <div class="sleeve-tab"><span>那份东西怎么做</span><span>${l.rewardOutline.length} 栏</span></div>
+          <div class="sleeve-tab"><span><i class="sleeve-num">三</i>那份东西怎么做</span><span>${l.rewardOutline.length} 栏</span></div>
           <div class="sleeve-body"><div class="sleeve-fields">${l.rewardOutline
             .map((x, i) => `<div class="full"><p class="field-k">第 ${i + 1} 栏</p><p>${esc(x)}</p></div>`)
             .join("")}</div></div>
@@ -564,11 +582,11 @@ function renderLedger() {
   document.getElementById("ledger-body").innerHTML = rows.length
     ? rows.map(
     (r) => `<tr>
-      <td>${esc(r.date)}</td><td>${esc(r.client)}</td><td>${esc(r.hunt)}</td>
+      <td>${esc(r.date)}</td><td>${esc(r.client)}${r.demo ? ' <span class="tag">演示</span>' : ""}</td><td>${esc(r.hunt)}</td>
       <td>${esc(r.result)}</td><td class="num">${esc(r.quote)}</td><td>${esc(r.talk)}</td>
     </tr>`,
   ).join("")
-  : `<tr><td colspan="6">还没有你自己的台账。</td></tr>`;
+    : `<tr><td colspan="6">还没有你自己的台账。</td></tr>`;
 }
 
 /* 台账没有录入入口就是死胡同：销售真去记的时候，一张永远空着的表只会让他再也不点进来 */
@@ -587,6 +605,31 @@ function renderLedgerForm() {
     .map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`)
     .join("");
   if (list.some((c) => c.id === current)) sel.value = current;
+  renderLedgerLines();
+}
+
+/* 「哪条带来的」只列这个客户最新一份档里的文案，列的还是改后的那版——
+ * 反馈要落在他真发出去的那句上，不是模型原来写的那句 */
+function renderLedgerLines() {
+  const sel = document.getElementById("ledger-line");
+  if (!sel) return;
+  const id = document.getElementById("ledger-client")?.value || "";
+  const c = (state.workspace.customers || []).find((x) => x.id === id);
+  const pack = (c?.packs || [])[0];
+  const groups = pack ? Object.entries(pack.copies || {}) : [];
+  sel.innerHTML =
+    `<option value="">这次不挂某一条</option>` +
+    groups
+      .flatMap(([group, lines]) =>
+        (lines || []).map((text, i) => {
+          // 反馈的 key 带档 id，改稿的 key 只带组名和下标，两把钥匙别串
+          const key = `${pack.id}-${group}-${i}`;
+          const shown = edited(pack, copyKey(group, i), text);
+          const brief = shown.length > 16 ? `${shown.slice(0, 16)}…` : shown;
+          return `<option value="${esc(key)}">${esc(group)} · ${esc(brief)}</option>`;
+        }),
+      )
+      .join("");
 }
 
 function bind() {
@@ -790,6 +833,44 @@ async function loadUsers() {
   }
 }
 
+async function loadCrew() {
+  const box = document.getElementById("crew-rows");
+  if (!box) return;
+  const res = await fetch("/api/overview");
+  if (res.status === 403 || res.status === 401) return;
+  if (!res.ok) return;
+  const { hunts = [], talks = [] } = await res.json();
+  const line = document.getElementById("crew-line");
+  const top = hunts.find((h) => h.replied > 0 || h.deals > 0);
+  if (line) {
+    line.textContent = top
+      ? `最响的方向：${top.hunt}——${top.replied} 条有回音${top.deals ? ` · ${top.deals} 笔成交` : ""}。全是点出来的，没有一条是编的。`
+      : "全组还没人标过一条有回音。有人点过「有回音」或记过台账，这里才有东西说。";
+  }
+  box.innerHTML = hunts.length
+    ? hunts
+        .map(
+          (h) => `<div class="row">
+      <div><strong>${esc(h.hunt)}</strong>
+      <div class="meta">${h.sales} 人在打 · ${h.customers} 个客户 · 出过 ${h.packs} 份档</div></div>
+      <div class="meta" style="text-align:right">${h.replied} 有回音<br>${h.asked} 问价/有兴趣 · ${h.deals} 成交</div>
+    </div>`,
+        )
+        .join("")
+    : `<p class="meta">还没有客户。</p>`;
+  const tbox = document.getElementById("crew-talks");
+  if (tbox) {
+    tbox.innerHTML = talks.length
+      ? talks
+          .map(
+            (t) =>
+              `<article class="note"><h3>${esc(t.client)} · ${esc(t.hunt)} · ${esc(t.result)} · ${esc(t.date)}</h3><p>${esc(t.talk)}</p></article>`,
+          )
+          .join("")
+      : `<p class="meta">还没有记过原话。</p>`;
+  }
+}
+
 async function boot() {
   applyTheme();
   document.getElementById("mast-date").textContent =
@@ -834,6 +915,7 @@ async function boot() {
   renderToday();
   renderLedger();
   renderLedgerForm();
+  document.getElementById("ledger-client")?.addEventListener("change", renderLedgerLines);
   bind();
   nav("today");
   // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」
@@ -842,6 +924,8 @@ async function boot() {
   if (user.isAdmin) {
     loadLlm();
     loadUsers();
+    document.getElementById("nav-crew")?.classList.remove("hidden");
+    loadCrew();
   }
   // 管理员第一次登录，刚输的密码就是以后的密码，得让他知道这事定下来了
   if (new URLSearchParams(location.search).get("first") === "1") {
@@ -1056,16 +1140,21 @@ document.getElementById("add-ledger")?.addEventListener("click", async () => {
       result: document.getElementById("ledger-result")?.value || "",
       quote: document.getElementById("ledger-quote")?.value.trim() || "",
       talk,
+      line: document.getElementById("ledger-line")?.value || "",
     }),
   });
   if (!res.ok) return toast("没记上，再试一次");
-  state.workspace = await res.json();
+  const data = await res.json();
+  state.workspace = data.workspace;
   const talkBox = document.getElementById("ledger-talk");
   const quoteBox = document.getElementById("ledger-quote");
   if (talkBox) talkBox.value = "";
   if (quoteBox) quoteBox.value = "";
   renderLedger();
-  toast("记下了");
+  renderLedgerLines();
+  // 刚记的这笔可能让「上次有效」冒出来，今天那一页要跟着变
+  renderToday();
+  toast(data.marked ? "记下了，那条已算有回音" : "记下了");
 });
 
 document.getElementById("change-pass")?.addEventListener("click", async () => {

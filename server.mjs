@@ -14,7 +14,7 @@ import {
   resetPassword,
 } from "./lib/auth.mjs";
 import { addCustomProvider, publicLlm, removeProvider, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
-import { addCustomer, addLedger, editLine, findShared, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, editLine, findShared, groupOverview, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
@@ -58,7 +58,7 @@ function requireAdmin(req, res) {
   const user = requireUser(req, res);
   if (!user) return null;
   if (!isAdmin(user)) {
-    json(res, 403, { error: "只有管理员能改密钥" });
+    json(res, 403, { error: "只有管理员能进这一页" });
     return null;
   }
   return user;
@@ -337,6 +337,12 @@ async function handleApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/users") {
     if (!requireAdmin(req, res)) return;
     return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist() });
+  }
+
+  // 全组一屏：只给聚合数。谁的客户是谁的，销售互相看不见的规矩不变
+  if (req.method === "GET" && url.pathname === "/api/overview") {
+    if (!requireAdmin(req, res)) return;
+    return json(res, 200, groupOverview(listUsersPublic().map((u) => u.email)));
   }
 
   if (req.method === "POST" && url.pathname === "/api/users/reset") {

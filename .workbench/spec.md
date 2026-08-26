@@ -2,11 +2,11 @@
 name: 获客工作台
 domain: system
 subject: 客户
-purpose: 让每个销售上班先看见该给正在跟的客户出什么、还能追谁，并用自己过往哪条真的有回音，让下一批打法变准
+purpose: 让每个销售上班先看见先用的客户出过什么、还能追谁，发出去的每一条能点出有没有回音，下一批顺着回音出；负责人隔一阵能看见全组哪条猎场真有回音
 surface: desktop
 structure:
   primary: pipeline
-  secondary: runbook
+  secondary: registry
 moment: 上班坐下第一件事
 dials:
   cadence: 9
@@ -16,58 +16,56 @@ dials:
 roles:
   - name: 销售
     opens_daily: true
-    does: 给先用的客户出今天的东西、看还能追谁、给发出去的东西点有没有回音、出档、记账
-  - name: 负责人
+    does: 给先用的客户出档/补货、复制改文案发出去、点有回音/没反应、记账、追下一位
+  - name: 负责人（超管）
     opens_daily: false
-    does: 看全组哪条猎场、哪个平台有回音；不能让销售看见彼此的客户
+    does: 配模型密钥、开账号名单；隔一阵看「全组」页——哪条猎场、多少条有回音，只有聚合数，不拆到人
 
 hook:
-  text: "先给恒基旧改出：信息流 3 · 朋友圈 3 · 小红书 3 · 短视频 3（按你上周朋友圈更有回音排前）· 还有 4 个可追"
-  shape: imperative
+  text: "恒基旧改 · 08-17 已出快档：3 个缺口 · 15 条文案 · 主战场巨量信息流、朋友圈。下面还有 2 个可追。"
+  shape: state
   fields:
     - name: customer.using_now
-      reads: 先给谁出
+      reads: 先看谁
       writes: user
-      when: 点一次「先用这个」，最多 1–3 个；没钉过取最近在跟的 1 个
+      when: 严格一个：建客户自动先用，或点「先用这位」；没钉过取最近建的
       day_one: 先建一个客户，建完他就是先用的
-    - name: play_item.copy
-      reads: 各平台各至少 3 条
-      writes: derived
-      when: 按先用客户的猎场生成；排序吃该销售自己的反馈（有回音的平台和钩子靠前）
-      day_one: 没有反馈时按行业包默认序，不编「上周爆了」
-    - name: play_item.platform
-      reads: 信息流 / 朋友圈 / 小红书 / 短视频
-      writes: derived
-      when: 每平台至少 3 条，少了算没出完
-      day_one: 无
-    - name: play_item.feedback
-      reads: 上周朋友圈更有回音
-      writes: user
-      when: 对已发的某一条点「有回音 / 没反应」；台账记成问价或成交时，系统自动把对应条标成有回音
-      day_one: 还没有反馈，hook 里不出现「上周更有回音」这半句
-    - name: customer.chaseable_count
-      reads: 还有 4 个可追
-      writes: derived
-      when: 数自己名下非先用且可追的
-      day_one: 人不够不报假数
-    - name: customer.last_activity_at
-      reads: 超 3 天没回
+    - name: pack.tier / pack.copies / pack.gaps / pack.battlefields
+      reads: 已出快档：3 个缺口 · 15 条文案 · 主战场…
       writes: system
-      when: 记账、已发、出档、点反馈时自动盖
-      day_one: 不显示超期数字
+      when: 出档后台跑完自动落（一两分钟）；侦察档没有缺口，行首改报「N 个要先问清的」
+      day_one: 出档中报「正在出档，出好自己刷新」；失败报原因 + 「重出这份档」；没出过报「还没有出过档」
+    - name: customer.chaseable_count
+      reads: 下面还有 2 个可追
+      writes: derived
+      when: 数自己名下非先用的客户
+      day_one: 人不够不报假数
+    - name: feedback（workspace 级字典）
+      reads: 首屏「上次有效」条
+      writes: user + system
+      when: 销售对已发的某条点「有回音 / 没反应」；台账记 问了价/有兴趣/成交 且选了「哪条带来的」时自动写成有回音
+      day_one: 没有任何回音时整块不出现，不写「暂无数据」，更不许写「效果很好」
+      note: 反馈按「哪份档的哪一行」记，但「上次有效」跨批次找——刚补的新批自己没反馈，前头批次的回音不消失
+    - name: pack.origin.engine
+      reads: 模板档提醒（这份是行业模板，不是给这家出的）
+      writes: system
+      when: 出档走的是赛道模板而非真模型时
+      day_one: 无
 
 cold_start:
-  day_1: 先建你自己的一个客户。建完四个平台各出至少 3 条。还没有「哪条有效」，发出去之后点一下有没有回音，明天才会变准。
-  day_2: 先用的是这 1 个。四平台文案已备好。有回音的那条，点一下，下次会往前排。
-  day_7: 这周你点过的有回音里，朋友圈 2 次、信息流 0 次——今天朋友圈会排在前面。
-  re_entry: 隔了几天也行。打开先看先用的客户今天出什么；下面是可追的；有回音的打法会自动提前。
+  day_1: 第一件事是管理员在设置里配模型密钥——没配好时出档会失败，报的那句话要让销售转给管理员。然后建一个客户：名字、一句话卖点、猎场，客户先落地，档在后台出一两分钟。
+  day_2: 档已出好：四类平台铺满（各 ≥3 是闸门），复制就能发。发出去后点有回音/没反应，台账记原话。
+  day_7: 点过的回音让「上次有效」出现在首屏；客户在用素材了，点「补一批」会顺着回音的方向出，没反应的方向被砍掉。
+  re_entry: 隔了几天也行。打开还是那两问：先用的客户出过什么、还能追谁。出档中断（服务重启）会明说并给重出按钮，不会一直转圈。
 
 home:
   - hook
-  - 上次有效（仅自己的：哪条、哪个平台、带来问价还是没反应；没有反馈时整块不出现，不要写「暂无数据」）
-  - 先用的客户（1–3）：四平台分组，每组 ≥3 条，有回音的平台和钩子排前
-  - 还可以追的客户
-  - 新建客户；标先用
+  - 模板档提醒（只在使用赛道模板时出现）
+  - 历史批次切换（同一客户出过多份时）
+  - 上次有效（跨批次找；没有任何回音时整块不出现）
+  - 先用客户的档全文：判断（赛道格局/该截谁/缺口或先问什么）→ 出活（交付前检查/文案/钩子拆解/分镜/承接/主战场/怎么投）；出档中、失败、没出过各有各的说法和按钮（重出/补分镜/补一批）
+  - 还可以追的客户（一人一行，点「先用这位」切换）
+  - 新建客户
 
 entities:
   - name: SalesUser
@@ -75,90 +73,87 @@ entities:
     written_by: { name: user, role: user, created_at: system }
     relations: [SalesUser 1-n Customer]
   - name: Customer
-    fields: [id, owner_id, name, hunt_field, pitch, city, website, materials, using_now, created_at, last_activity_at]
+    fields: [id, owner_id, name, hunt, pitch, city, link, material, using, packs, job, lastFail, created_at]
     written_by:
-      { name: user, hunt_field: user, pitch: user, city: user, website: user,
-        materials: user, using_now: user, owner_id: system, created_at: system, last_activity_at: system }
-    relations: [Customer n-1 SalesUser, Customer 1-n Pack, Customer 1-n LedgerEntry, Customer 1-n PlayItem]
+      { name: user, hunt: user, pitch: user, city: user, link: user, material: user,
+        using: user, owner_id: system, created_at: system, job: system, lastFail: system }
+    relations: [Customer n-1 SalesUser, Customer 1-n Pack, Customer 1-n LedgerEntry]
   - name: Pack
-    fields: [id, customer_id, tier, title, body, share_token, created_at]
-    written_by: { tier: system, title: system, body: system, share_token: system, created_at: system }
+    fields: [id, tier(侦察/快/侦察+分镜/全/补给), title, evidence, evidenceNote, gate, gaps, questions, landscape,
+             copies, shells, boards, breakdowns, landing, demand, battlefields, testPath, supply, honest, next,
+             checks, edits, origin, shareToken, deliveredAt]
+    written_by: { 全部字段: system（模型出档时落；edits/逐条改后重跑 checks 仍是 system 记录） }
     relations: [Pack n-1 Customer]
   - name: LedgerEntry
-    fields: [id, customer_id, owner_id, channel, quote, reaction, result, note, created_at]
-    written_by: { channel: user, quote: user, reaction: user, result: user, note: user, created_at: system, owner_id: system }
-    relations: [LedgerEntry n-1 Customer, LedgerEntry n-1 SalesUser]
-  - name: PlayItem
-    fields: [id, customer_id, owner_id, date, platform, copy, hook_formula, used, feedback]
-    written_by:
-      { date: system, platform: derived, copy: derived, hook_formula: derived,
-        used: user, feedback: user, customer_id: system, owner_id: system }
-    relations: [PlayItem n-1 Customer, PlayItem n-1 SalesUser]
+    fields: [date, client, hunt, result(问了价/有兴趣/成交/没下文), quote, talk, demo]
+    written_by: { date: system, client: user, hunt: user, result: user, quote: user, talk: user, demo: system }
+    relations: [LedgerEntry n-1 Customer；result 为正且挂了行时回写 feedback]
+  - name: Feedback（workspace 级字典）
+    fields: ["<packId>-<组名>-<行号>": replied/dead]
+    written_by: { 销售点按: user, 台账回写: system }
+    relations: [指向 Pack 内某一行；「上次有效」跨 Pack 读取；补给吃最近几批]
   - name: IndustryPack
     fields: [id, hooks, baits, banned, platforms]
     written_by: { hooks: user, baits: user, banned: user, platforms: user }
-    relations: []
+    relations: [策展在 vendor/hiccai-pitch/industries，自长的存 data/industries；同名策展的赢；红线词表跟包走]
 
-depends_on: []
+depends_on:
+  - name: 模型接口（OpenAI 兼容，可配多个渠道）
+    exists_today: true
+    note: 超管在设置里配密钥。没配好时出档失败，报错要说清这事归管理员管，不许把销售指到一个他打不开的页面
 
 channels:
   - name: 今天
     type: today
     weight: primary
-    does: 先看上次哪条有回音，再给先用的客户出各平台至少 3 条，再看还能追谁
+    does: 两问：先用的客户出过什么（档全文、可复制可改可点反馈）、还能追谁
     pages:
-      - { level: L1, shows: 上次有效（有才出现）+ 先用客户四平台分组每组≥3 + 可追名单, actions: [有回音, 没反应, 已发, 出档, 复制, 换一条, 标先用] }
+      - { level: L1, shows: hook → 模板提醒 → 历史批 → 上次有效 → 先用客户的档全文 → 可追名单, actions: [复制, 改, 有回音, 没反应, 出档, 重出, 补分镜, 补一批, 打开甲方页, 先用这位, 新建客户] }
   - name: 客户
     type: record
     weight: regular
-    does: 只看自己的客户，建档、出档、记账、标先用
+    does: 只看自己的客户：新建（选猎场，没有的行业现场长包）、标先用、翻每个客户的历史档
     pages:
-      - { level: L1, shows: 自己的列表，先用置顶，其余按可追排, filters: [猎场, 结果, 是否先用], actions: [新建, 标先用] }
-      - { level: L2, shows: 资料 + 四平台各≥3 + 该客户过往哪条有回音 + 档 + 台账, actions: [出档, 打开包裹, 记账, 有回音, 没反应] }
-      - { level: L3, shows: 某一份包裹, actions: [复制链接, 下载] }
+      - { level: L1, shows: 自己的列表，先用置顶，按出档数排, actions: [新建, 先用这位, 看当时给的] }
+      - { level: L2, shows: 切到该客户后今天页整份档（含历史批切换）, actions: [出档, 补货, 记账, 反馈] }
+      - { level: L3, shows: 某一份档的甲方页 /p/<token>, actions: [复制链接, 下载] }
   - name: 包裹
     type: outward
     weight: regular
-    does: 打开、复制、下载给甲方的那一页
+    does: 发给甲方的那一页：凭链接打开、不用登录，链接不对就是 404；页内无「AI」字样
     pages:
-      - { level: L1, shows: 自己出过的包裹, actions: [打开, 复制链接] }
+      - { level: L1, shows: 自己出过的所有档（按客户×日期）, actions: [打开这份] }
   - name: 台账
     type: review
     weight: regular
-    does: 记原话和报价；问价/成交会回写到对应打法的「有回音」
+    does: 记原话和报价；记 问了价/有兴趣/成交 且选了「哪条带来的」时，那条自动算有回音（只认自己客户名下真实存在的行）
     pages:
-      - { level: L1, shows: 自己的行（客户·猎场·结果·原话）, actions: [记一笔] }
-  - name: 哪些有效
+      - { level: L1, shows: 记一笔表单（客户/结果/哪条带来的/报价/原话）+ 自己的流水；演示行带「演示」标，不进任何统计, actions: [记一笔] }
+  - name: 全组
     type: review
-    weight: regular
-    does: 只看自己的：哪个平台、哪种钩子、哪类客户更有回音，好让下一批往那偏
-    pages:
-      - { level: L1, shows: 按平台/钩子汇总的有回音次数，加几条原话摘录，不是大表, actions: [] }
-  - name: 猎场
-    type: knowledge
     weight: occasional
-    does: 五个猎场的钩子、红线
+    does: 只有超管能进：哪条猎场、多少条有回音、多少问价成交，加最近几条原话；只有聚合数，不拆到人
     pages:
-      - { level: L1, shows: 五个猎场卡片 }
-      - { level: L2, shows: 钩子、红线、主战场 }
+      - { level: L1, shows: 按猎场聚合行（人数/客户/出档/有回音/问价/成交）+ 最近原话, actions: [] }
   - name: 设置
     type: tool
     weight: occasional
-    does: 密钥；负责人加人、分客
+    does: 人人能改密码；超管多出：模型密钥（多渠道）、开通名单、重设密码
     pages:
-      - { level: L1, shows: 密钥表单, actions: [保存密钥, 加人] }
+      - { level: L1, shows: 密码表单；超管加名单和模型两块, actions: [改密码, 开通, 移出, 重设密码, 保存密钥, 用作当前, 同步模型, 连接测试] }
 
 mvp:
-  - 今天
-  - 客户
-  - 包裹
-  - 台账
-  - 打法上的有回音/没反应（进步的最小闭环）
+  - 今天（含出档/重出/补分镜/补一批、就地改、反馈两点、跨批次上次有效）
+  - 客户（新建含自长猎场、历史档）
+  - 包裹（甲方页）
+  - 台账（记原话 + 回写有回音）
+  - 全组（超管聚合页）
+  - 设置（密钥多渠道、名单）
 later:
-  - 哪些有效（独立页）
-  - 猎场独立成册
-  - 设置里的成员与分客
-visual: 纸面、少颜色。有回音用一个克制记号，不要奖杯动画。四平台分组。
+  - 哪些有效（销售自己的独立汇总页）
+  - 猎场独立成册（现在选单在建档处，红线跟包走）
+  - 设置里更细的成员与分客
+visual: 纸面、少颜色。有回音一个克制记号。四平台分组。浅色暖纸 / 深色漆木，同一套制度。
 seam:
   type: none
   why: 内部工具，钱向甲方收服务费
@@ -182,37 +177,42 @@ deferred:
 
 ## 这个台子是给谁的
 
-许多销售对许多客户，彼此看不见。上班两问：给先用的客户出什么，还能追谁。各平台至少 3 条。你又加了一句：同时还要有反馈，之前哪些获客效果不错，让他进步。
-
-进步不是再做一张漂亮报表，是：发出去的东西能点有没有回音，下一次出的东西往有回音的平台和钩子偏。
+许多销售对许多客户，彼此看不见。上班两问：先用的客户出过什么，还能追谁。发出去的东西点得出有没有回音，下一批顺着回音出。负责人隔一阵看一眼全组哪条猎场真有回音——只有数，不拆到人。
 
 ## 每天怎么用
 
-打开「今天」。若上周点过有回音，先看到一句「你朋友圈更有回音」。再给先用的客户出四平台各 3 条，有回音的平台排前面。发完点已发；客户有反应就点「有回音」，没反应点「没反应」。下面是还能追的人。台账里记成问价或成交，对应那条会自动算有回音，不用点两次。
+打开「今天」。第一行说清先用的客户出过什么档、几个缺口、几条文案、主战场在哪，下面还有谁可追。往下是那份档的全文：该截谁、缺口、文案（有回音的组排前）、钩子拆解、承接怎么做、怎么投。每条文案能复制、能就地改（改后那版才是发出去的、进甲方页的），发完点有回音/没反应。
 
-第一周没有反馈，就不说上周怎样，只出默认序。
+客户有反应了才补分镜升全档；付了钱在用素材了才手动点补货，补给吃最近几批的反馈，有回音的方向多出、没反应的砍掉，但强制留四分之一试新方向。台账记 问了价/有兴趣/成交 时可以顺手选「哪条带来的」，那条自动算有回音，不用点两遍。
 
-## 为什么是这几个频道
+第一周没有反馈，就不说上次怎样；「上次有效」整块不出现。
 
-- **今天** 仍是两问，多了一块「上次有效」和每条上的有回音/没反应。
-- **台账** 会回写反馈，避免记了成交打法还显示没数据。
-- **哪些有效** 是回看，第一版可以不单独做页，但点选必须在第一版就有，否则下一批不会变。
+## 档位的规矩
+
+没看过客户的东西（没留官网、没贴材料）只出侦察档——赛道格局加精准提问，不出诊断；看过才出快档；客户有反应了手动补分镜成全档；付了钱才有补给档。档位由证据决定，不由人挑。超管本子里那三个演示客户是给人看样子的，台账里的演示行带着标记，不进任何统计。
+
+## 猎场
+
+猎场就是行业包。策展的在 vendor/hiccai-pitch/industries，遇到新行业选「其他行业」现场长一份存 data/industries，长出来的标 D 级，同名时策展的赢。红线词表跟着行业包走，交付前检查分「发不出去」（硬限制）和「会有代价」（建议）两档，软数字不许当红线。
 
 ## 已经想过但没做的
 
 - 销售互查、拿别人的效果给自己排序：不能。
 - 没反馈就写效果很好：不能。
-- 可追名单也铺 12 条、每平台 1 条、不挂客户的通用 3 条：否。
-- 独立「哪些有效」大页：第二版。
+- 可追名单铺满文案、不挂客户的通用条：否。
+- 猎场独立成册、哪些有效独立页：第二版。
+- 全组页拆到人：否——负责人看数可以，看谁的不行。
 
 ## 给实现方（不熟悉本规范的 AI 或开发，照这段做即可）
 
-- **网页。** 默认落地「今天」。hook 是第一行。
-- **home**：hook → 上次有效（无反馈则整块隐藏）→ 先用客户四平台各 ≥3 → 可追 → 新建。
-- **配额**：信息流、朋友圈、小红书、短视频各 ≥3，不重复。外壳按平台改。
-- **反馈**：PlayItem.feedback = `none` / `replied` / `dead`。只对已发的显示「有回音 / 没反应」。台账 result 为有兴趣/见面/成交时，若能对应到某条 PlayItem，自动写成 replied。
-- **进步**：生成下一批时，只读该销售自己的 feedback。有回音的 platform、hook_formula 加权靠前、同类多出；连续没反应的降权，仍须满足每平台 ≥3。没有反馈时用行业包默认序，**禁止**写「上周效果很好」或假数字。
-- **隔离**：反馈、汇总、排序都不得串销售。
+- **网页，电脑浏览器。** 默认落地「今天」。hook 是第一行，正在出档/失败/没出过各有说法，不许空白或假数。
+- **出档**：后台任务，一两分钟，界面轮询刷新；服务重启留下的死档要明说并给重出。快档文案 ≥15 条、四类平台各 ≥3 是硬闸门，铺不满作废重跑。侦察档没有缺口只出提问。
+- **反馈**：workspace 级字典，key 为 `<packId>-<组名>-<行号>`，值 replied/dead。只对已发的显示「有回音 / 没反应」。
+- **台账回写**：POST /api/ledger 带 line 字段；result ∈ {问了价, 有兴趣, 成交} 且 line 真实存在于该客户名下的档时，feedback[line] = "replied"。别的 key 一律不写。
+- **上次有效**：跨批次找——把该销售所有客户的所有档按日期倒序，第一份有 replied 的就是「上次」；当前这份才说「已往前排」，更早的说「哪天那批」。没有任何回音时整块隐藏。
+- **补给**：generateRefill 吃最近几批（最多三批历史）的反馈；有反馈时强制 ≥25% 的「试」字头新方向组，不然整份作废。没反馈时平铺并如实说没依据。
+- **就地改**：改文案存 edits 不覆盖原句（原句留给对比），复制和甲方页拿改后那版，改完立刻重跑检查。
+- **全组页**：GET /api/overview，仅超管。聚合各猎场的 有回音/问价/成交 + 最近原话；demo 台账行不进数；不返回任何销售个人明细给非管理员。
+- **隔离**：反馈、汇总、排序都不得串销售。超管也只看聚合数。
 - **不要做成打分表、星级、问卷。** 一下下就完。
-- **mvp**：今天、客户、包裹、台账、每条打法上的两点反馈。哪些有效独立页放 later。
 - **空状态 day_1。** 甲方包裹禁止 AI。纸面，有回音一个克制记号即可。
