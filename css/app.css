@@ -201,12 +201,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .logo {
   display: block;
-  width: 168px;
+  width: 172px;
   height: auto;
-  aspect-ratio: 1163 / 321;
+  object-fit: contain;
 }
-.gate-panel .logo { width: min(260px, 72%); }
-.pack .letterhead .logo { width: 148px; }
+.gate-panel .logo { width: min(220px, 64%); }
+.pack .letterhead .logo { width: 132px; }
 .brand-line {
   margin-top: 10px;
   font-size: var(--t-6);
@@ -1101,7 +1101,7 @@ td:last-child { color: var(--ink-2); }
   .mast span { font-size: var(--t-6); letter-spacing: 0.06em; }
   .gate { grid-template-columns: 1fr; }
   .gate-panel { min-height: 148px; padding: 28px 24px; }
-  .logo { width: 148px; }
+  .logo { width: 140px; }
   .brand-line { letter-spacing: 0.04em; }
   .pack { padding: 40px 20px 80px; }
   .pack .letterhead { align-items: flex-start; gap: 8px; }
