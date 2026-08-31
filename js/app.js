@@ -1043,7 +1043,7 @@ async function loadLlm() {
     .join("");
   box.innerHTML = `<article class="card">
       <h2>模型接口</h2>
-      <p class="meta">一个接口一张卡，拖卡片左上角排序，闪电亮着的那个正在出档。点模型名就用它，开关关掉的不会被选上。</p>
+      <p class="meta">一个接口一张卡，模型按新到旧排列，默认不替你选择。点模型名才会用它，开关关掉的不会被选上。</p>
     </article>
     <div class="llm-grid" id="llm-grid">${cards}
       <article class="llm-card llm-add-card">
