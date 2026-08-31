@@ -8,6 +8,7 @@ const state = {
   workspace: { customers: [], ledger: [], feedback: {}, usingId: "" },
   platformFields: {},
   packId: "",
+  materials: { files: [], links: [], batch: null, busy: false },
 };
 
 /* 客户名、文案、模型出的内容都会进 innerHTML，跟甲方页同一套转义 */
@@ -32,6 +33,98 @@ function applyTheme() {
   document.querySelectorAll("[data-theme-toggle]").forEach((b) => {
     b.setAttribute("aria-pressed", state.theme === "dark" ? "true" : "false");
   });
+}
+
+function humanBytes(bytes) {
+  const n = Number(bytes || 0);
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.ceil(n / 1024)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function invalidateMaterialBatch() {
+  state.materials.batch = null;
+  document.getElementById("material-analysis")?.classList.add("hidden");
+}
+
+function renderMaterialQueue() {
+  const box = document.getElementById("material-queue");
+  const status = document.getElementById("material-state");
+  if (!box || !status) return;
+  const rows = [
+    ...state.materials.files.map((file, index) => ({
+      name: file.name,
+      meta: humanBytes(file.size),
+      kind: "file",
+      index,
+    })),
+    ...state.materials.links.map((url, index) => ({
+      name: url,
+      meta: "网页",
+      kind: "link",
+      index,
+    })),
+  ];
+  if (!rows.length) {
+    box.innerHTML = "";
+    status.textContent = "还没有加入资料";
+    return;
+  }
+  const notes = new Map((state.materials.batch?.sources || []).map((s) => [s.name, s.note]));
+  box.innerHTML = rows
+    .map(
+      (row) => `<div class="material-row">
+        <span class="material-mark">${row.kind === "link" ? "链" : "件"}</span>
+        <span class="material-name">${esc(row.name)}<small>${esc(notes.get(row.name) || row.meta)}</small></span>
+        <button type="button" class="textish" data-remove-material="${row.kind}" data-index="${row.index}">移除</button>
+      </div>`,
+    )
+    .join("");
+  status.textContent = state.materials.batch
+    ? `已读 ${state.materials.batch.sources.length} 份资料`
+    : `待读取 ${rows.length} 份资料`;
+}
+
+function renderMaterialAnalysis(batch) {
+  const analysis = batch?.analysis || {};
+  const panel = document.getElementById("material-analysis");
+  if (!panel) return;
+  document.getElementById("analysis-overview").textContent = analysis.overview || "没有形成资料总览。";
+  const groups = [
+    ["产品 / 服务", analysis.offer],
+    ["资料明确的人群", analysis.audience],
+    ["可核验依据", analysis.proof],
+    ["待核对", analysis.risks],
+    ["还缺什么", analysis.missing],
+  ].filter(([, rows]) => rows?.length);
+  document.getElementById("analysis-columns").innerHTML = groups
+    .map(
+      ([title, rows]) => `<section><h4>${esc(title)}</h4><ul>${rows.map((row) => `<li>${esc(row)}</li>`).join("")}</ul></section>`,
+    )
+    .join("");
+  const transcripts = (batch.sources || []).filter((source) => source.transcript);
+  document.getElementById("analysis-transcripts").innerHTML = transcripts
+    .map(
+      (source) => `<details>
+        <summary>${esc(source.name)} · 语音转写</summary>
+        <p>${esc(source.transcript)}</p>
+      </details>`,
+    )
+    .join("");
+  const warning = document.getElementById("analysis-warning");
+  warning.textContent = analysis.warning || "";
+  warning.classList.toggle("hidden", !analysis.warning);
+  const use = document.getElementById("use-material-pitch");
+  use.disabled = !analysis.suggestedPitch;
+  panel.classList.remove("hidden");
+}
+
+function addMaterialFiles(files) {
+  const current = new Map(state.materials.files.map((f) => [`${f.name}:${f.size}:${f.lastModified}`, f]));
+  for (const file of files || []) current.set(`${file.name}:${file.size}:${file.lastModified}`, file);
+  state.materials.files = [...current.values()].slice(0, 8);
+  invalidateMaterialBatch();
+  renderMaterialQueue();
 }
 
 function nav(view) {
@@ -568,7 +661,7 @@ function renderCustomers() {
           return `<div class="row">
         <div>
           <strong>${esc(c.name)}</strong>
-          <div class="meta">${esc(c.hunt)}${using ? " · 先用" : ""} · ${packs.length ? `已出 ${packs.length} 份` : "还没出档"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}</div>
+          <div class="meta">${esc(c.hunt)}${using ? " · 先用" : ""} · ${c.materials?.length ? `资料 ${c.materials.length} 份 · ` : ""}${packs.length ? `已出 ${packs.length} 份` : "还没出档"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}</div>
         </div>
         ${using ? "" : `<button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这位"}</button>`}
       </div>`;
@@ -770,6 +863,15 @@ function providerCard(id, p, active) {
   const modelField = p.models?.length
     ? `<select data-llm-model="${id}">${opts}</select>`
     : `<input data-llm-model="${id}" value="${esc(p.model || "")}" placeholder="先同步模型，或手填">`;
+  const visionLine = {
+    verified: p.visionTestDetail || "已经实测能读取图片",
+    failed: p.visionTestDetail || "图片测试失败",
+    on: "已指定为视觉模型",
+    off: "只用于文本",
+    text: "按模型名判断为纯文本模型",
+    likely: "按模型名判断支持图片",
+    unknown: "模型名看不出能力；火山 endpoint 等请手动指定",
+  }[p.visionStatus || "unknown"];
   return `<article class="card form" data-provider="${esc(id)}">
     <h2>${esc(p.name)} ${active === id ? '<span class="tag">当前使用</span>' : ""}</h2>
     <p class="meta">${esc(p.hasKey ? p.apiKeyMasked : "还没填密钥")} · ${esc(p.lastTestDetail || "还没测过")}</p>
@@ -785,15 +887,28 @@ function providerCard(id, p, active) {
     <input id="llm-base-${esc(id)}" data-llm-base="${esc(id)}" value="${esc(p.baseUrl || "")}">
     <label for="llm-model-${esc(id)}">模型</label>
     ${modelField.replace("<select ", `<select id="llm-model-${esc(id)}" `).replace("<input ", `<input id="llm-model-${esc(id)}" `)}
+    <label for="llm-vision-${esc(id)}">图片能力</label>
+    <select id="llm-vision-${esc(id)}" data-llm-vision="${esc(id)}">
+      <option value="auto" ${p.vision === "auto" ? "selected" : ""}>自动判断</option>
+      <option value="on" ${p.vision === "on" ? "selected" : ""}>支持图片</option>
+      <option value="off" ${p.vision === "off" ? "selected" : ""}>仅文本</option>
+    </select>
+    <p class="meta">${esc(visionLine)}</p>
     <div class="acts">
       <button class="btn" data-llm-save="${id}" type="button">保存</button>
       <button class="btn gold" data-llm-use="${id}" type="button">用作当前</button>
     </div>
     <div class="acts-inline">
-      <button class="textish" data-llm-sync="${id}" type="button">同步最新模型</button>
       <button class="textish" data-llm-test="${id}" type="button">连接测试</button>
-      ${p.builtin ? "" : `<button class="textish" data-llm-del="${id}" type="button">删掉这个接口</button>`}
+      <button class="textish" data-llm-vision-test="${id}" type="button">图片测试</button>
     </div>
+    <details class="provider-more">
+      <summary>更多设置</summary>
+      <div class="acts-inline">
+        <button class="textish" data-llm-sync="${id}" type="button">同步最新模型</button>
+        ${p.builtin ? "" : `<button class="textish" data-llm-del="${id}" type="button">删掉这个接口</button>`}
+      </div>
+    </details>
   </article>`;
 }
 
@@ -1087,8 +1202,123 @@ document.getElementById("go-refill")?.addEventListener("click", async (e) => {
   }
 });
 
+const materialFiles = document.getElementById("material-files");
+const materialDrop = document.getElementById("material-drop");
+
+materialDrop?.addEventListener("click", () => materialFiles?.click());
+materialDrop?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    materialFiles?.click();
+  }
+});
+materialFiles?.addEventListener("change", () => {
+  addMaterialFiles(materialFiles.files);
+  materialFiles.value = "";
+});
+for (const type of ["dragenter", "dragover"]) {
+  materialDrop?.addEventListener(type, (event) => {
+    event.preventDefault();
+    materialDrop.classList.add("dragging");
+  });
+}
+for (const type of ["dragleave", "drop"]) {
+  materialDrop?.addEventListener(type, (event) => {
+    event.preventDefault();
+    materialDrop.classList.remove("dragging");
+  });
+}
+materialDrop?.addEventListener("drop", (event) => addMaterialFiles(event.dataTransfer?.files));
+
+document.getElementById("add-material-link")?.addEventListener("click", () => {
+  const input = document.getElementById("material-link");
+  const raw = input?.value.trim();
+  if (!raw) return;
+  try {
+    const url = new URL(raw);
+    if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+    const normalized = url.toString();
+    if (!state.materials.links.includes(normalized)) state.materials.links.push(normalized);
+    input.value = "";
+    invalidateMaterialBatch();
+    renderMaterialQueue();
+  } catch {
+    toast("请填完整的 http 或 https 网页链接");
+  }
+});
+
+document.getElementById("material-link")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    document.getElementById("add-material-link")?.click();
+  }
+});
+
+document.getElementById("material-queue")?.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-remove-material]");
+  if (!btn) return;
+  const index = Number(btn.dataset.index);
+  if (btn.dataset.removeMaterial === "file") state.materials.files.splice(index, 1);
+  else state.materials.links.splice(index, 1);
+  invalidateMaterialBatch();
+  renderMaterialQueue();
+});
+
+document.getElementById("analyze-materials")?.addEventListener("click", async () => {
+  if (!state.materials.files.length && !state.materials.links.length) {
+    toast("请先选择文件或加入网页链接");
+    return;
+  }
+  const btn = document.getElementById("analyze-materials");
+  const status = document.getElementById("material-state");
+  btn.disabled = true;
+  state.materials.busy = true;
+  btn.textContent = "正在读取…";
+  status.textContent = "正在抽取正文、画面和视频语音，之后会形成资料梳理";
+  try {
+    const form = new FormData();
+    state.materials.files.forEach((file) => form.append("files", file, file.name));
+    form.append("links", JSON.stringify(state.materials.links));
+    const res = await fetch("/api/materials/analyze", { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || "资料读取失败");
+      status.textContent = "读取没有完成，请检查资料后再试";
+      return;
+    }
+    state.materials.batch = data;
+    renderMaterialQueue();
+    renderMaterialAnalysis(data);
+    toast("资料已归档并梳理，可以核对后建档");
+  } catch {
+    toast("网络不通，请再试");
+    status.textContent = "读取没有完成，请再试";
+  } finally {
+    state.materials.busy = false;
+    btn.disabled = false;
+    btn.textContent = "重新读取并梳理";
+  }
+});
+
+document.getElementById("use-material-pitch")?.addEventListener("click", () => {
+  const pitch = state.materials.batch?.analysis?.suggestedPitch;
+  const input = document.getElementById("pitch");
+  if (!pitch || !input) return;
+  input.value = pitch;
+  input.focus();
+  toast("已填入一句话卖点，你可以继续修改");
+});
+
 document.getElementById("create-customer")?.addEventListener("click", async () => {
   const btn = document.getElementById("create-customer");
+  if (state.materials.busy) {
+    toast("资料还在读取，读完再建档");
+    return;
+  }
+  if ((state.materials.files.length || state.materials.links.length) && !state.materials.batch) {
+    toast("资料还没读取，请先点“读取并梳理资料”");
+    return;
+  }
   btn.disabled = true;
   const old = btn.textContent;
   btn.textContent = "正在建档…";
@@ -1104,8 +1334,9 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
         name: document.getElementById("cname").value,
         city: document.getElementById("city")?.value || "",
         pitch: document.getElementById("pitch").value,
-        link: document.getElementById("link")?.value || "",
+        link: state.materials.links[0] || "",
         material: document.getElementById("cmaterial")?.value || "",
+        materialBatchId: state.materials.batch?.id || "",
       }),
     });
     const data = await res.json();
@@ -1131,10 +1362,13 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
       document.getElementById("new-hunt-label")?.classList.add("hidden");
       document.getElementById("new-hunt")?.classList.add("hidden");
     }
-    ["link", "cmaterial", "cname", "pitch", "new-hunt"].forEach((id) => {
+    ["cmaterial", "cname", "pitch", "new-hunt"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
+    state.materials = { files: [], links: [], batch: null, busy: false };
+    document.getElementById("material-analysis")?.classList.add("hidden");
+    renderMaterialQueue();
     renderToday();
     renderLedger();
     renderLedgerForm();
@@ -1235,6 +1469,7 @@ document.body.addEventListener("click", async (e) => {
   const save = e.target.closest("[data-llm-save]");
   const sync = e.target.closest("[data-llm-sync]");
   const test = e.target.closest("[data-llm-test]");
+  const visionTest = e.target.closest("[data-llm-vision-test]");
   const use = e.target.closest("[data-llm-use]");
   const del = e.target.closest("[data-llm-del]");
   if (e.target.id === "llm-add") {
@@ -1249,9 +1484,9 @@ document.body.addEventListener("click", async (e) => {
     if (res.ok) loadLlm();
     return;
   }
-  const hit = save || sync || test || use || del;
+  const hit = save || sync || test || visionTest || use || del;
   const id = hit?.dataset.llmSave || hit?.dataset.llmSync || hit?.dataset.llmTest
-    || hit?.dataset.llmUse || hit?.dataset.llmDel;
+    || hit?.dataset.llmVisionTest || hit?.dataset.llmUse || hit?.dataset.llmDel;
   if (!id) return;
   if (del) {
     const res = await fetch("/api/llm/remove", {
@@ -1267,12 +1502,13 @@ document.body.addEventListener("click", async (e) => {
   const key = document.querySelector(`[data-llm-key="${id}"]`)?.value;
   const baseUrl = document.querySelector(`[data-llm-base="${id}"]`)?.value;
   const model = document.querySelector(`[data-llm-model="${id}"]`)?.value;
+  const vision = document.querySelector(`[data-llm-vision="${id}"]`)?.value;
   const name = document.querySelector(`[data-llm-name="${id}"]`)?.value;
   if (save) {
     const res = await fetch("/api/llm", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, apiKey: key, baseUrl, model, name }),
+      body: JSON.stringify({ id, apiKey: key, baseUrl, model, name, vision }),
     });
     const data = await res.json();
     toast(res.ok ? "已保存" : data.error || "保存失败");
@@ -1288,6 +1524,18 @@ document.body.addEventListener("click", async (e) => {
     });
     const data = await res.json();
     toast(res.ok ? "模型列表已更新" : data.error || "同步失败");
+    if (res.ok) loadLlm();
+    return;
+  }
+  if (visionTest) {
+    toast("正在让模型读取测试图片…");
+    const res = await fetch("/api/llm/test-vision", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    toast(res.ok && data.ok ? "图片读取正常" : data.detail || data.error || "图片测试失败");
     if (res.ok) loadLlm();
     return;
   }

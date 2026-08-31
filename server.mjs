@@ -13,12 +13,13 @@ import {
   removeFromWhitelist,
   resetPassword,
 } from "./lib/auth.mjs";
-import { addCustomProvider, publicLlm, removeProvider, saveProvider, setActive, syncModels, testConnection } from "./lib/llm.mjs";
+import { addCustomProvider, publicLlm, removeProvider, saveProvider, setActive, syncModels, testConnection, testVisionConnection } from "./lib/llm.mjs";
 import { addCustomer, addLedger, editLine, findShared, groupOverview, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
 import { checkPack, hasHardBlock } from "./lib/check.mjs";
+import { receiveAndAnalyzeMaterials } from "./lib/materials.mjs";
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
@@ -242,6 +243,18 @@ async function handleApi(req, res, url) {
     return json(res, 200, { fields });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/materials/analyze") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    try {
+      const batch = await receiveAndAnalyzeMaterials(req, user.email);
+      return json(res, 200, batch);
+    } catch (err) {
+      const detail = err?.code === 1009 ? "单个文件不能超过 60MB" : err.message;
+      return json(res, 400, { error: detail || "资料读取失败" });
+    }
+  }
+
   if (req.method === "GET" && url.pathname === "/api/workspace") {
     const user = requireUser(req, res);
     if (!user) return;
@@ -436,6 +449,16 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     try {
       return json(res, 200, await testConnection(body.id));
+    } catch (err) {
+      return json(res, 400, { error: err.message });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/llm/test-vision") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    try {
+      return json(res, 200, await testVisionConnection(body.id));
     } catch (err) {
       return json(res, 400, { error: err.message });
     }

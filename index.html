@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260825g">
+  <link rel="stylesheet" href="css/app.css?v=20260831a">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -162,11 +162,45 @@
           <input id="city" placeholder="广州">
           <label for="pitch">一句话卖点</label>
           <input id="pitch" placeholder="他们卖什么">
-          <label for="link">他们的官网 / 主页</label>
-          <input id="link" placeholder="留空就只出侦察档，不出诊断">
-          <label for="cmaterial">或者直接贴他们的材料</label>
-          <textarea id="cmaterial" placeholder="官网文案、在投素材、公众号文章。贴了才算看过"></textarea>
-          <p class="meta">看过他们的东西才出诊断，没看过只出侦察档。这不是设置，是规矩。</p>
+          <div class="material-desk" id="material-desk">
+            <div class="material-heading">
+              <div>
+                <h3>客户资料</h3>
+                <p class="meta">原件留档，先读后判。没有读到的内容不会写进诊断。</p>
+              </div>
+              <span class="folio-no">附件 / 01</span>
+            </div>
+            <input id="material-files" class="visually-hidden" type="file" multiple
+              accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.rtf,.txt,.md,.csv,.json,.html,.htm,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.mp4,.mov,.m4v,.webm,.avi,.mkv">
+            <div class="material-drop" id="material-drop" tabindex="0" role="button" aria-controls="material-files">
+              <strong>把资料拖到这里</strong>
+              <span>或选择图片、PDF、Word、PPT、表格、文本、视频</span>
+              <small>单个不超过 60MB，最多 8 个；视频会同时读取关键画面和语音</small>
+            </div>
+            <div class="link-line">
+              <label class="visually-hidden" for="material-link">客户网页链接</label>
+              <input id="material-link" type="url" placeholder="粘贴官网、公众号文章或公开页面链接">
+              <button class="btn ghost" id="add-material-link" type="button">加入链接</button>
+            </div>
+            <div id="material-queue" class="material-queue" aria-live="polite"></div>
+            <div class="material-actions">
+              <button class="btn ghost" id="analyze-materials" type="button">读取并梳理资料</button>
+              <span class="meta" id="material-state">还没有加入资料</span>
+            </div>
+            <div class="material-analysis hidden" id="material-analysis">
+              <div class="analysis-head">
+                <span>资料梳理</span>
+                <button class="textish" id="use-material-pitch" type="button">采用一句话卖点</button>
+              </div>
+              <p class="analysis-overview" id="analysis-overview"></p>
+              <div class="analysis-columns" id="analysis-columns"></div>
+              <div class="analysis-transcripts" id="analysis-transcripts"></div>
+              <p class="meta analysis-warning hidden" id="analysis-warning"></p>
+            </div>
+          </div>
+          <label for="cmaterial">销售补充（可选）</label>
+          <textarea id="cmaterial" placeholder="会议信息、客户原话、暂时没有文件的材料"></textarea>
+          <p class="meta">资料读取成功后才出快档；没有可读资料就只出侦察档。这不是设置，是规矩。</p>
           <div class="acts"><button class="btn" id="create-customer" type="button">建档</button></div>
         </article>
       </section>
@@ -258,6 +292,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260830a"></script>
+  <script type="module" src="js/app.js?v=20260831a"></script>
 </body>
 </html>
