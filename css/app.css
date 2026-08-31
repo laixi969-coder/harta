@@ -166,7 +166,7 @@ button, a, .do, .go, .eye, .verdict, .textish { touch-action: manipulation; }
 button, input, select, textarea { font: inherit; color: inherit; }
 
 /* 档案体统一落点：日期、编号、档位、条数、字段名。中文照旧走思源黑。 */
-.meta, .who, .tag, .brand-line, .gate-line,
+.meta, .who, .tag, .brand-line,
 .history .when, .history .meta, .hook-facts, .chapter-name, .field-k, .slip-k,
 .folio-cell .k, .sleeve-tab, .plat h3, th,
 .pack .letterhead span {
@@ -253,13 +253,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .rail #nav-logout {
   margin-top: 28px;
-}
-.rail .foot {
-  margin-top: auto;
-  padding: 16px 12px 4px;
-  font-size: var(--t-6);
-  letter-spacing: 0.08em;
-  line-height: 1.5;
 }
 
 .main {
@@ -1164,13 +1157,6 @@ td:last-child { color: var(--ink-2); }
     var(--photo) center / cover no-repeat;
   box-shadow: inset -1px 0 0 var(--photo-edge);
 }
-.gate-line {
-  font-size: var(--t-6);
-  letter-spacing: 0.18em;
-  color: var(--on-photo-2);
-  border-top: 1px solid color-mix(in oklch, var(--on-photo) 28%, transparent);
-  padding-top: 16px;
-}
 .gate-form {
   display: flex;
   flex-direction: column;
@@ -1200,7 +1186,6 @@ td:last-child { color: var(--ink-2); }
   .brand { width: 100%; margin-bottom: 8px; }
   .rail nav { flex-direction: row; flex-wrap: wrap; }
   .rail a, .rail button.linkish { width: auto; min-width: 64px; }
-  .rail .foot { display: none; }
   .rail #nav-logout { margin-top: 0; }
   .plats,
   .folio, .folio-3, .field-grid, .sleeve-fields { grid-template-columns: 1fr; }
