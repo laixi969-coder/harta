@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "falcon",
+      "name": "harta",
       "devDependencies": {
         "vitest": "^3.2.4",
       },

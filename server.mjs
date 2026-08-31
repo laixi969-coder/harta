@@ -36,7 +36,7 @@ function parseCookies(header) {
 }
 
 function currentUser(req) {
-  const sid = parseCookies(req.headers.cookie).falcon_sid;
+  const sid = parseCookies(req.headers.cookie).harta_sid;
   if (!sid) return null;
   const row = sessions.get(sid);
   if (!row || row.exp < Date.now()) {
@@ -190,7 +190,7 @@ async function handleApi(req, res, url) {
       200,
       { ...result.user, isAdmin: isAdmin(result.user), bootstrapped: result.bootstrapped },
       {
-        "set-cookie": `falcon_sid=${sid}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
+        "set-cookie": `harta_sid=${sid}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
       },
     );
   }
@@ -212,7 +212,7 @@ async function handleApi(req, res, url) {
       200,
       { ...result.user, isAdmin: false },
       {
-        "set-cookie": `falcon_sid=${sid}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
+        "set-cookie": `harta_sid=${sid}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
       },
     );
   }
@@ -330,9 +330,9 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/logout") {
-    const sid = parseCookies(req.headers.cookie).falcon_sid;
+    const sid = parseCookies(req.headers.cookie).harta_sid;
     if (sid) sessions.delete(sid);
-    return json(res, 200, { ok: true }, { "set-cookie": "falcon_sid=; HttpOnly; Path=/; Max-Age=0" });
+    return json(res, 200, { ok: true }, { "set-cookie": "harta_sid=; HttpOnly; Path=/; Max-Age=0" });
   }
 
   if (req.method === "GET" && url.pathname === "/api/users") {
@@ -517,5 +517,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Falcon http://127.0.0.1:${PORT}/`);
+  console.log(`HARTA http://127.0.0.1:${PORT}/`);
 });

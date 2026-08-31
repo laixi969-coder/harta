@@ -1,9 +1,9 @@
-# Falcon
+# 灵鹿增长 HARTA
 
 销售每天用的获客工作台。
 
 ```bash
-cd /Users/caiwenbin/FALCON
+cd /Users/caiwenbin/Harta
 node server.mjs
 ```
 

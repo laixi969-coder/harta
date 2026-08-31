@@ -1,4 +1,4 @@
-# Falcon · 获客工作台
+# 灵鹿增长 HARTA · 获客工作台
 
 销售每天打开的台子。存于本目录。界面按 `.workbench/spec.md`。
 
@@ -28,7 +28,7 @@
 ## 打开
 
 ```bash
-cd /Users/caiwenbin/FALCON
+cd /Users/caiwenbin/Harta
 node server.mjs
 ```
 

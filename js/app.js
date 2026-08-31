@@ -28,7 +28,7 @@ function toast(t) {
 
 function applyTheme() {
   document.documentElement.setAttribute("data-theme", state.theme);
-  localStorage.setItem("falcon-theme", state.theme);
+  localStorage.setItem("harta-theme", state.theme);
   document.querySelectorAll("[data-theme-toggle]").forEach((b) => {
     b.setAttribute("aria-pressed", state.theme === "dark" ? "true" : "false");
   });
