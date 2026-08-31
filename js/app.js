@@ -131,6 +131,17 @@ function renderToday() {
   }
 
   const rankedCopies = pack ? rankCopyGroups(pack.copies, state.workspace.feedback, pack.id) : [];
+  const hardRows = [
+    ...(pack.checks?.redline || []),
+    ...(pack.checks?.sensitive || []),
+    ...(pack.checks?.length || []).filter((row) => row.level === "hard"),
+  ];
+  const blockedTexts = new Set(hardRows.map((row) => String(row.text || "")).filter(Boolean));
+  const publishBlocked = hardRows.length > 0;
+  const copyButton = (text, label = "复制") =>
+    blockedTexts.has(String(text || ""))
+      ? `<button type="button" class="do" disabled title="这句命中硬边界，先改或重出">先改红线</button>`
+      : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}">${label}</button>`;
   const win = document.getElementById("win");
   // 跨批次找：刚补的新批自己没反馈，别让他上周点过的回音凭空消失。
   // 只翻当前这位客户的档——别人的回音不挂到这位脸上
@@ -208,11 +219,12 @@ function renderToday() {
   }
 
   const open = document.getElementById("pack-open");
-  if (pack.sharePath) {
+  if (pack.sharePath && !publishBlocked) {
     open.classList.remove("hidden");
     open.setAttribute("href", pack.sharePath);
   } else {
     open.classList.add("hidden");
+    open.removeAttribute("href");
   }
 
   const landscapeCard = document.getElementById("landscape-card");
@@ -285,6 +297,15 @@ function renderToday() {
   if (checksCard) {
     const c = pack.checks || {};
     const rows = [
+      ...(c.guardrails || []).map(
+        (r) => `<div class="line"><p><b>上线边界 · ${esc(r.label)}</b></p>
+          <p class="meta">${esc(r.text)}</p></div>`,
+      ),
+      ...(c.sensitive || []).map(
+        (r) => `<div class="line"><p><b>隐私红线</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
+          <p class="meta">普通获客表单不能在第一步收医疗健康敏感信息，转入合规医疗流程再最小化收集</p>
+          <p class="meta">${esc(r.text)}</p></div>`,
+      ),
       ...(c.redline || []).map(
         (r) => `<div class="line"><p><b>红线</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
           <p class="meta">${esc(r.text)}</p></div>`,
@@ -307,7 +328,7 @@ function renderToday() {
     ];
     checksCard.classList.toggle("hidden", !rows.length);
     document.getElementById("checks").innerHTML = rows.length
-      ? rows.join("") + `<p class="meta" style="margin-top:12px">${c.note || ""}</p>`
+      ? rows.join("") + `<p class="meta" style="margin-top:12px">${esc(c.note || "")}</p>`
       : "";
   }
 
@@ -342,7 +363,7 @@ function renderToday() {
             ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}
             <div class="slip-bar">
               <div class="slip-step">
-                <button type="button" class="do" data-copy="${encodeURIComponent(text)}">复制这条</button>
+                ${copyButton(text, "复制这条")}
                 <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
               </div>
               <div class="slip-step">
@@ -382,7 +403,7 @@ function renderToday() {
             <div class="line slip">
               <p class="line-text">${esc(l.firstScreen)}</p>
               <div class="slip-bar"><div class="slip-step">
-                <button type="button" class="do" data-copy="${encodeURIComponent(l.firstScreen)}">复制这句</button>
+                ${copyButton(l.firstScreen, "复制这句")}
               </div></div>
             </div>
             <div class="sleeve-fields">
@@ -403,7 +424,7 @@ function renderToday() {
               ${o.from ? `<p class="field-k">${esc(o.from)}</p>` : ""}
               <p class="line-text">${esc(o.say)}</p>
               <div class="slip-bar"><div class="slip-step">
-                <button type="button" class="do" data-copy="${encodeURIComponent(o.say)}">复制</button>
+                ${copyButton(o.say)}
               </div></div>
             </div>`,
               )
@@ -457,7 +478,7 @@ function renderToday() {
               <div>${present.length > 1 ? `<p class="field-k">${esc(f.label)}</p>` : ""}<p class="line-text${f.key === "body" ? " asis" : ""}">${esc(text)}</p>
               ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}</div>
               <div class="acts-inline">
-                <button type="button" class="do" data-copy="${encodeURIComponent(text)}">复制</button>
+                ${copyButton(text)}
                 <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
               </div>
             </div>`;

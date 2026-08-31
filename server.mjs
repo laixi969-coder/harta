@@ -18,6 +18,7 @@ import { addCustomer, addLedger, editLine, findShared, groupOverview, readWorksp
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
+import { checkPack, hasHardBlock } from "./lib/check.mjs";
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
@@ -467,6 +468,13 @@ const server = http.createServer(async (req, res) => {
       if (!found) {
         res.writeHead(404, { "content-type": "text/plain; charset=utf-8", ...securityHeaders() });
         res.end("这个链接不对");
+        return;
+      }
+      // 分享页每次都按当前行业包重跑硬检查。旧档不能因为当时还没有这条规则就绕过去。
+      found.pack.checks = checkPack(found.pack, found.customer.hunt);
+      if (hasHardBlock(found.pack.checks)) {
+        res.writeHead(409, { "content-type": "text/plain; charset=utf-8", ...securityHeaders() });
+        res.end("这份档还有红线或硬限制，先回工作台改完再分享");
         return;
       }
       res.writeHead(200, {
