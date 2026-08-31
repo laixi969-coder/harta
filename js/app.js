@@ -9,6 +9,14 @@ const state = {
   platformFields: {},
   packId: "",
   materials: { files: [], links: [], batch: null, busy: false },
+  /* 模型接口那页的界面态：选中的分类、折叠的卡、处于编辑态的密钥/地址行。
+   * 都不进后端，重画时照这些恢复现场。 */
+  llmTabs: {},
+  llmFolded: {},
+  llmKeyEdit: {},
+  llmBaseEdit: {},
+  llmAddOpen: {},
+  llmFocus: "",
 };
 
 /* 客户名、文案、模型出的内容都会进 innerHTML，跟甲方页同一套转义 */
@@ -856,13 +864,58 @@ async function useCustomer(id, packId) {
   nav("today");
 }
 
+/* ——— 模型接口：一个渠道一张卡。密钥地址一行一事，模型按能力分四栏、一行一个开关 ——— */
+
+const MODEL_CATS = [
+  { key: "text", label: "文本" },
+  { key: "image", label: "图像" },
+  { key: "video", label: "视频" },
+  { key: "audio", label: "音频" },
+];
+
+/* 只按模型名猜类别，给标签页分组用。出档能不能用，还是看开关和图片能力那套。 */
+function modelCategory(m) {
+  const n = String(m || "").toLowerCase();
+  if (/(?:seedance|cogvideo|video|veo|sora|vidu|kling|hailuo|wan2|(?:^|[-_.])(?:t2v|i2v|v2v|flf2v)(?:[-_.]|$))/.test(n))
+    return "video";
+  if (/(?:whisper|tts|asr|speech|realtime|voice|audio|podcast)/.test(n)) return "audio";
+  if (
+    /(?:^|[-_.])(?:vl|vision|omni)(?:[-_.]|$)/.test(n) ||
+    /(?:seedream|seededit|t2i|i2i|flux|dall[-_.]?e|image|3d|glm-\d+(?:\.\d+)?v(?:[-_.]|$))/.test(n)
+  )
+    return "image";
+  return "text";
+}
+
+/* 名字那行给人看：deepseek-chat → Deepseek Chat。原文在下面一行等宽字体里，一字不改。 */
+function modelPretty(id) {
+  return String(id || "")
+    .split(/[-_.]/)
+    .map((seg) => (/^[a-z]{1,3}$/.test(seg) ? seg.toUpperCase() : seg.charAt(0).toUpperCase() + seg.slice(1)))
+    .join(" ");
+}
+
+const ICON_GRIP =
+  '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>';
+const ICON_BOLT =
+  '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12l1-8Z"/></svg>';
+const ICON_PEN =
+  '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4.5-1L20 7.5a2.1 2.1 0 0 0-3-3L5.5 16 4 20Z"/></svg>';
+const ICON_EYE =
+  '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>';
+
 function providerCard(id, p, active) {
-  const opts = (p.models || [])
-    .map((m) => `<option value="${esc(m)}" ${m === p.model ? "selected" : ""}>${esc(m)}</option>`)
-    .join("");
-  const modelField = p.models?.length
-    ? `<select data-llm-model="${id}">${opts}</select>`
-    : `<input data-llm-model="${id}" value="${esc(p.model || "")}" placeholder="先同步模型，或手填">`;
+  const isActive = active === id;
+  const folded = Boolean(state.llmFolded[id]);
+  const tab = state.llmTabs[id] || "text";
+  const enabled = new Set(p.enabled || []);
+  const rows = (p.models || []).map((m) => ({ m, cat: modelCategory(m), on: enabled.has(m) }));
+  const counts = { text: 0, image: 0, video: 0, audio: 0 };
+  rows.forEach((r) => {
+    counts[r.cat] += 1;
+  });
+  const shown = rows.filter((r) => r.cat === tab);
+  const catLabel = MODEL_CATS.find((c) => c.key === tab)?.label || "";
   const visionLine = {
     verified: p.visionTestDetail || "已经实测能读取图片",
     failed: p.visionTestDetail || "图片测试失败",
@@ -872,43 +925,106 @@ function providerCard(id, p, active) {
     likely: "按模型名判断支持图片",
     unknown: "模型名看不出能力；火山 endpoint 等请手动指定",
   }[p.visionStatus || "unknown"];
-  return `<article class="card form" data-provider="${esc(id)}">
-    <h2>${esc(p.name)} ${active === id ? '<span class="tag">当前使用</span>' : ""}</h2>
-    <p class="meta">${esc(p.hasKey ? p.apiKeyMasked : "还没填密钥")} · ${esc(p.lastTestDetail || "还没测过")}</p>
-    ${
-      p.builtin
-        ? ""
-        : `<label for="llm-name-${esc(id)}">名字</label>
-    <input id="llm-name-${esc(id)}" data-llm-name="${esc(id)}" value="${esc(p.name || "")}" placeholder="好认就行，比如 火山方舟">`
-    }
-    <label for="llm-key-${esc(id)}">密钥</label>
-    <input id="llm-key-${esc(id)}" data-llm-key="${esc(id)}" type="password" autocomplete="off" placeholder="${p.hasKey ? "留空则不改" : ""}">
-    <label for="llm-base-${esc(id)}">接口地址</label>
-    <input id="llm-base-${esc(id)}" data-llm-base="${esc(id)}" value="${esc(p.baseUrl || "")}">
-    <label for="llm-model-${esc(id)}">模型</label>
-    ${modelField.replace("<select ", `<select id="llm-model-${esc(id)}" `).replace("<input ", `<input id="llm-model-${esc(id)}" `)}
-    <label for="llm-vision-${esc(id)}">图片能力</label>
-    <select id="llm-vision-${esc(id)}" data-llm-vision="${esc(id)}">
-      <option value="auto" ${p.vision === "auto" ? "selected" : ""}>自动判断</option>
-      <option value="on" ${p.vision === "on" ? "selected" : ""}>支持图片</option>
-      <option value="off" ${p.vision === "off" ? "selected" : ""}>仅文本</option>
-    </select>
-    <p class="meta">${esc(visionLine)}</p>
-    <div class="acts">
-      <button class="btn" data-llm-save="${id}" type="button">保存</button>
-      <button class="btn gold" data-llm-use="${id}" type="button">用作当前</button>
-    </div>
-    <div class="acts-inline">
-      <button class="textish" data-llm-test="${id}" type="button">连接测试</button>
-      <button class="textish" data-llm-vision-test="${id}" type="button">图片测试</button>
-    </div>
-    <details class="provider-more">
-      <summary>更多设置</summary>
-      <div class="acts-inline">
-        <button class="textish" data-llm-sync="${id}" type="button">同步最新模型</button>
-        ${p.builtin ? "" : `<button class="textish" data-llm-del="${id}" type="button">删掉这个接口</button>`}
+
+  const keyRow =
+    p.hasKey && !state.llmKeyEdit[id]
+      ? `<div class="llm-key-view">
+          <code>${esc(p.apiKeyMasked)}</code>
+          <button type="button" class="llm-key-edit" data-llm-key-edit="${esc(id)}" aria-label="修改密钥">${ICON_PEN}</button>
+        </div>`
+      : `<div class="pass-wrap">
+          <input id="llm-key-${esc(id)}" data-llm-key="${esc(id)}" type="password" autocomplete="off" placeholder="${p.hasKey ? "输入新的 API Key，留空不改" : "粘贴这个渠道的 API Key"}">
+          <button type="button" class="eye" data-eye="llm-key-${esc(id)}" aria-label="显示密钥" aria-pressed="false">${ICON_EYE}</button>
+        </div>`;
+
+  const baseRow =
+    p.baseUrl || state.llmBaseEdit[id]
+      ? `<input id="llm-base-${esc(id)}" data-llm-base="${esc(id)}" value="${esc(p.baseUrl || "")}" data-orig="${esc(p.baseUrl || "")}" placeholder="https://… OpenAI 兼容地址" spellcheck="false">`
+      : `<button type="button" class="llm-base-add" data-llm-base-edit="${esc(id)}">＋ 配置地址</button>`;
+
+  const addRow = state.llmAddOpen[id]
+    ? `<div class="llm-add-row">
+        <input data-llm-model-new="${esc(id)}" placeholder="模型名或火山 endpoint，回车加上" spellcheck="false">
+        <button class="do" type="button" data-llm-model-new-save="${esc(id)}">加上</button>
+      </div>`
+    : "";
+
+  const modelRows = shown.length
+    ? shown
+        .map(
+          ({ m, on }) => `<div class="llm-model${on ? "" : " is-off"}${m === p.model ? " is-current" : ""}" data-llm-pick="${esc(id)}" data-model="${esc(m)}" title="点一下就用这个模型出档">
+          <div class="llm-model-txt">
+            <strong>${esc(modelPretty(m))}${m === p.model ? '<span class="llm-now">当前</span>' : ""}</strong>
+            <code>${esc(m)}</code>
+          </div>
+          <button type="button" class="llm-toggle${on ? " is-on" : ""}" role="switch" aria-checked="${on}" aria-label="启用 ${esc(m)}" data-llm-toggle="${esc(id)}" data-model="${esc(m)}"><span class="llm-knob"></span></button>
+        </div>`,
+        )
+        .join("")
+    : `<div class="llm-empty"><p class="meta">${
+        (p.models || []).length
+          ? `这个渠道没有${catLabel}类模型。同步后按模型名自动分栏，也可以用「＋ 添加」手动补。`
+          : "还没有模型。填好密钥点「同步最新模型」拉清单；火山 endpoint 这类不在清单里的，用「＋ 添加」补。"
+      }</p></div>`;
+
+  const visionBlock =
+    tab === "image"
+      ? `<div class="llm-vision">
+          <label class="llm-field-k" for="llm-vision-${esc(id)}">图片能力</label>
+          <select id="llm-vision-${esc(id)}" data-llm-vision="${esc(id)}">
+            <option value="auto" ${p.vision === "auto" ? "selected" : ""}>自动判断</option>
+            <option value="on" ${p.vision === "on" ? "selected" : ""}>支持图片</option>
+            <option value="off" ${p.vision === "off" ? "selected" : ""}>仅文本</option>
+          </select>
+          <button class="do" type="button" data-llm-vision-test="${esc(id)}">图片测试</button>
+        </div>
+        <p class="meta">${esc(visionLine)}</p>`
+      : "";
+
+  const syncLine = p.lastSyncAt ? ` · 上次同步 ${new Date(p.lastSyncAt).toLocaleDateString("zh-CN")}` : "";
+
+  return `<article class="llm-card${folded ? " is-folded" : ""}${isActive ? " is-active" : ""}" data-provider="${esc(id)}">
+    <header class="llm-head">
+      <span class="llm-grip" data-llm-grip="${esc(id)}" title="拖动排序">${ICON_GRIP}</span>
+      <button type="button" class="llm-fold" data-llm-fold="${esc(id)}" aria-expanded="${folded ? "false" : "true"}" aria-label="${folded ? "展开这张卡" : "收起这张卡"}">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${folded ? '<path d="M12 5v14M5 12h14"/>' : '<path d="M5 12h14"/>'}</svg>
+      </button>
+      <h2 class="llm-name">${
+        p.builtin
+          ? esc(p.name)
+          : `<input data-llm-name="${esc(id)}" value="${esc(p.name || "")}" data-orig="${esc(p.name || "")}" placeholder="起个名字，比如 火山方舟" aria-label="渠道名字">`
+      }</h2>
+      <button type="button" class="llm-live${isActive ? " is-on" : ""}" data-llm-use="${esc(id)}" title="${isActive ? "正在用这个渠道出档" : "点闪电切到这个渠道"}" aria-label="${isActive ? "当前渠道" : "设为当前渠道"}">${ICON_BOLT}</button>
+      <span class="llm-head-acts">
+        <button class="do" type="button" data-llm-test="${esc(id)}">测试连接</button>
+        ${p.docsUrl ? `<a class="do llm-docs" href="${esc(p.docsUrl)}" target="_blank" rel="noreferrer">开通教程</a>` : ""}
+      </span>
+    </header>
+    <div class="llm-body">
+      <div class="llm-fields">
+        <label class="llm-field-k" for="llm-key-${esc(id)}">密钥</label>
+        ${keyRow}
+        <label class="llm-field-k" for="llm-base-${esc(id)}">接口地址</label>
+        ${baseRow}
+        <p class="meta">${esc(p.lastTestDetail || "还没测过连接")}${syncLine}</p>
       </div>
-    </details>
+      <nav class="llm-tabs" aria-label="模型分类">
+        ${MODEL_CATS.map(
+          (c) => `<button type="button" class="llm-tab${tab === c.key ? " is-on" : ""}" data-llm-tab="${esc(id)}" data-cat="${c.key}">${c.label}<b class="llm-count">${counts[c.key]}</b></button>`,
+        ).join("")}
+      </nav>
+      <div class="llm-model-head">
+        <strong class="llm-cat">${catLabel}模型</strong>
+        <span class="llm-model-acts">
+          <button class="textish" data-llm-sync="${esc(id)}" type="button">同步最新模型</button>
+          <button class="textish" data-llm-model-add="${esc(id)}" type="button">＋ 添加</button>
+        </span>
+      </div>
+      ${addRow}
+      ${visionBlock}
+      <div class="llm-models">${modelRows}</div>
+      ${p.builtin ? "" : `<div class="llm-foot"><button class="textish" data-llm-del="${esc(id)}" type="button">删掉这个接口</button></div>`}
+    </div>
   </article>`;
 }
 
@@ -922,17 +1038,41 @@ async function loadLlm() {
   }
   const data = await res.json();
   // 一个人可能同时挂着火山、硅基流动、一个自建中转，所以自定义接口不止一个
-  box.innerHTML =
-    Object.entries(data.providers)
-      .map(([id, p]) => providerCard(id, p, data.active))
-      .join("") +
-    `<article class="card form">
-      <h2>再加一个接口</h2>
-      <p class="meta">任何 OpenAI 兼容的地址都行。加好之后跟上面几个一样填密钥、同步模型。</p>
-      <label for="llm-new-name">名字</label>
-      <input id="llm-new-name" placeholder="好认就行，比如 火山方舟">
-      <div class="acts"><button class="btn" id="llm-add" type="button">加上</button></div>
-    </article>`;
+  const cards = Object.entries(data.providers)
+    .map(([id, p]) => providerCard(id, p, data.active))
+    .join("");
+  box.innerHTML = `<article class="card">
+      <h2>模型接口</h2>
+      <p class="meta">一个接口一张卡，拖卡片左上角排序，闪电亮着的那个正在出档。点模型名就用它，开关关掉的不会被选上。</p>
+    </article>
+    <div class="llm-grid" id="llm-grid">${cards}
+      <article class="llm-card llm-add-card">
+        <strong>再加一个接口</strong>
+        <p class="meta">任何 OpenAI 兼容的地址都行。加好之后跟上面几张一样填密钥、同步模型。</p>
+        <input id="llm-new-name" placeholder="好认就行，比如 火山方舟">
+        <div class="acts"><button class="do" id="llm-add" type="button">加上</button></div>
+      </article>
+    </div>`;
+  bindEyes(box);
+  // 刚点开的那行输入，重画完把焦点接回去，不然「改密钥」要点两回
+  const focus = state.llmFocus;
+  state.llmFocus = "";
+  if (focus) {
+    const [field, fid] = focus.split(":");
+    const sel =
+      field === "key"
+        ? `[data-llm-key="${CSS.escape(fid)}"]`
+        : field === "base"
+          ? `[data-llm-base="${CSS.escape(fid)}"]`
+          : field === "add"
+            ? `[data-llm-model-new="${CSS.escape(fid)}"]`
+            : "";
+    const el = sel ? box.querySelector(sel) : null;
+    if (el) {
+      el.focus();
+      el.setSelectionRange?.(el.value.length, el.value.length);
+    }
+  }
 }
 
 async function loadUsers() {
@@ -1466,7 +1606,73 @@ document.body.addEventListener("click", async (e) => {
     if (res.ok) loadUsers();
     return;
   }
-  const save = e.target.closest("[data-llm-save]");
+  // —— 模型接口那页：一张卡一个渠道，动作都落在卡上 ——
+  const fold = e.target.closest("[data-llm-fold]");
+  if (fold) {
+    const fid = fold.dataset.llmFold;
+    state.llmFolded[fid] = !state.llmFolded[fid];
+    loadLlm();
+    return;
+  }
+  const tabBtn = e.target.closest("[data-llm-tab]");
+  if (tabBtn) {
+    state.llmTabs[tabBtn.dataset.llmTab] = tabBtn.dataset.cat;
+    loadLlm();
+    return;
+  }
+  const keyEdit = e.target.closest("[data-llm-key-edit]");
+  if (keyEdit) {
+    state.llmKeyEdit[keyEdit.dataset.llmKeyEdit] = true;
+    state.llmFocus = `key:${keyEdit.dataset.llmKeyEdit}`;
+    loadLlm();
+    return;
+  }
+  const baseEdit = e.target.closest("[data-llm-base-edit]");
+  if (baseEdit) {
+    state.llmBaseEdit[baseEdit.dataset.llmBaseEdit] = true;
+    state.llmFocus = `base:${baseEdit.dataset.llmBaseEdit}`;
+    loadLlm();
+    return;
+  }
+  const addOpen = e.target.closest("[data-llm-model-add]");
+  if (addOpen) {
+    state.llmAddOpen[addOpen.dataset.llmModelAdd] = true;
+    state.llmFocus = `add:${addOpen.dataset.llmModelAdd}`;
+    loadLlm();
+    return;
+  }
+  // 开关在模型行里面，要先于行本身的「点选」判断
+  const toggle = e.target.closest("[data-llm-toggle]");
+  if (toggle) {
+    const wasOn = toggle.getAttribute("aria-checked") === "true";
+    const res = await fetch("/api/llm/model", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: toggle.dataset.llmToggle, model: toggle.dataset.model, action: "toggle", on: !wasOn }),
+    });
+    const data = await res.json();
+    toast(res.ok ? (wasOn ? "已关掉" : "已打开") : data.error || "没改上");
+    if (res.ok) loadLlm();
+    return;
+  }
+  const pick = e.target.closest("[data-llm-pick]");
+  if (pick) {
+    const wasOn = pick.querySelector(".llm-toggle")?.getAttribute("aria-checked") === "true";
+    const res = await fetch("/api/llm/model", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: pick.dataset.llmPick, model: pick.dataset.model, action: "use" }),
+    });
+    const data = await res.json();
+    toast(res.ok ? (wasOn ? "已选为当前模型" : "已打开并选为当前模型") : data.error || "没选上");
+    if (res.ok) loadLlm();
+    return;
+  }
+  const addSave = e.target.closest("[data-llm-model-new-save]");
+  if (addSave) {
+    await addLlmModel(addSave.dataset.llmModelNewSave);
+    return;
+  }
   const sync = e.target.closest("[data-llm-sync]");
   const test = e.target.closest("[data-llm-test]");
   const visionTest = e.target.closest("[data-llm-vision-test]");
@@ -1484,8 +1690,8 @@ document.body.addEventListener("click", async (e) => {
     if (res.ok) loadLlm();
     return;
   }
-  const hit = save || sync || test || visionTest || use || del;
-  const id = hit?.dataset.llmSave || hit?.dataset.llmSync || hit?.dataset.llmTest
+  const hit = sync || test || visionTest || use || del;
+  const id = hit?.dataset.llmSync || hit?.dataset.llmTest
     || hit?.dataset.llmVisionTest || hit?.dataset.llmUse || hit?.dataset.llmDel;
   if (!id) return;
   if (del) {
@@ -1499,22 +1705,7 @@ document.body.addEventListener("click", async (e) => {
     if (res.ok) loadLlm();
     return;
   }
-  const key = document.querySelector(`[data-llm-key="${id}"]`)?.value;
-  const baseUrl = document.querySelector(`[data-llm-base="${id}"]`)?.value;
-  const model = document.querySelector(`[data-llm-model="${id}"]`)?.value;
-  const vision = document.querySelector(`[data-llm-vision="${id}"]`)?.value;
-  const name = document.querySelector(`[data-llm-name="${id}"]`)?.value;
-  if (save) {
-    const res = await fetch("/api/llm", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, apiKey: key, baseUrl, model, name, vision }),
-    });
-    const data = await res.json();
-    toast(res.ok ? "已保存" : data.error || "保存失败");
-    if (res.ok) loadLlm();
-    return;
-  }
+  // 密钥、地址、名字都是失焦即存，这里只管按下去就跑的动作
   if (sync) {
     toast("正在同步最新模型…");
     const res = await fetch("/api/llm/sync", {
@@ -1561,6 +1752,140 @@ document.body.addEventListener("click", async (e) => {
     toast(res.ok ? "已切换当前模型渠道" : data.error || "切换失败");
     if (res.ok) loadLlm();
   }
+});
+
+async function addLlmModel(id) {
+  const input = document.querySelector(`[data-llm-model-new="${CSS.escape(id)}"]`);
+  const model = input?.value.trim() || "";
+  if (!model) {
+    toast("填一个模型名");
+    input?.focus();
+    return;
+  }
+  const res = await fetch("/api/llm/model", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id, model, action: "add" }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || "加不上");
+    return;
+  }
+  delete state.llmAddOpen[id];
+  // 切到新模型落进去的那一栏，让他看见真的加上了
+  state.llmTabs[id] = modelCategory(model);
+  toast(`已加上 ${model}`);
+  await loadLlm();
+}
+
+async function saveLlmField(id, patch, after) {
+  const res = await fetch("/api/llm", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id, ...patch }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || "没存上");
+    return false;
+  }
+  if (after) after();
+  toast("已保存");
+  await loadLlm();
+  return true;
+}
+
+/* 密钥、地址、名字不设保存键：敲完走到别处就算存。Esc 是唯一的反悔口。 */
+document.body.addEventListener("focusout", (e) => {
+  const key = e.target.closest?.("[data-llm-key]");
+  if (key) {
+    const v = key.value.trim();
+    if (!v || key.dataset.cancel) return;
+    saveLlmField(key.dataset.llmKey, { apiKey: v }, () => delete state.llmKeyEdit[key.dataset.llmKey]);
+    return;
+  }
+  const base = e.target.closest?.("[data-llm-base]");
+  if (base && !base.dataset.cancel) {
+    const v = base.value.trim().replace(/\/+$/, "");
+    if (v === (base.dataset.orig || "")) return;
+    saveLlmField(base.dataset.llmBase, { baseUrl: v }, () => delete state.llmBaseEdit[base.dataset.llmBase]);
+    return;
+  }
+  const name = e.target.closest?.("[data-llm-name]");
+  if (name && !name.dataset.cancel) {
+    const v = name.value.trim();
+    if (!v || v === (name.dataset.orig || "")) return;
+    saveLlmField(name.dataset.llmName, { name: v });
+  }
+});
+
+document.body.addEventListener("change", (e) => {
+  const vis = e.target.closest?.("[data-llm-vision]");
+  if (vis) saveLlmField(vis.dataset.llmVision, { vision: vis.value });
+});
+
+document.body.addEventListener("keydown", (e) => {
+  const t = e.target.closest?.("[data-llm-key],[data-llm-base],[data-llm-name],[data-llm-model-new]");
+  if (!t) return;
+  if (e.key === "Escape") {
+    t.dataset.cancel = "1";
+    if (t.dataset.llmModelNew) delete state.llmAddOpen[t.dataset.llmModelNew];
+    loadLlm();
+    return;
+  }
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (t.dataset.llmModelNew) addLlmModel(t.dataset.llmModelNew);
+    else t.blur();
+  }
+});
+
+/* 拖动排序：只在捏住左上角手柄时整卡可拖，免得名字输入框没法选字 */
+let llmDragCard = null;
+document.body.addEventListener("mousedown", (e) => {
+  const grip = e.target.closest?.("[data-llm-grip]");
+  if (!grip) return;
+  const card = grip.closest(".llm-card");
+  if (card) card.draggable = true;
+});
+document.body.addEventListener("dragstart", (e) => {
+  const card = e.target.closest?.(".llm-card");
+  if (!card || !card.draggable) return;
+  llmDragCard = card;
+  card.classList.add("is-dragging");
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", card.dataset.provider || "");
+});
+document.body.addEventListener("dragover", (e) => {
+  if (!llmDragCard) return;
+  const over = e.target.closest?.(".llm-card");
+  if (!over || over === llmDragCard || over.classList.contains("llm-add-card")) return;
+  e.preventDefault();
+  const rect = over.getBoundingClientRect();
+  const after = e.clientY > rect.top + rect.height / 2;
+  over.parentNode.insertBefore(llmDragCard, after ? over.nextSibling : over);
+});
+document.body.addEventListener("drop", (e) => {
+  if (llmDragCard) e.preventDefault();
+});
+document.body.addEventListener("dragend", async () => {
+  if (!llmDragCard) return;
+  const card = llmDragCard;
+  llmDragCard = null;
+  card.draggable = false;
+  card.classList.remove("is-dragging");
+  const ids = [...document.querySelectorAll("#llm-box .llm-card[data-provider]")].map((el) => el.dataset.provider);
+  const res = await fetch("/api/llm/reorder", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    toast(data.error || "顺序没存上");
+  }
+  loadLlm();
 });
 
 boot();

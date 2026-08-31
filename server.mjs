@@ -13,7 +13,20 @@ import {
   removeFromWhitelist,
   resetPassword,
 } from "./lib/auth.mjs";
-import { addCustomProvider, publicLlm, removeProvider, saveProvider, setActive, syncModels, testConnection, testVisionConnection } from "./lib/llm.mjs";
+import {
+  addCustomProvider,
+  addModel,
+  publicLlm,
+  removeProvider,
+  reorderProviders,
+  saveProvider,
+  setActive,
+  setModelEnabled,
+  syncModels,
+  testConnection,
+  testVisionConnection,
+  useModel,
+} from "./lib/llm.mjs";
 import { addCustomer, addLedger, editLine, findShared, groupOverview, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
@@ -429,6 +442,32 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     try {
       return json(res, 200, setActive(body.id));
+    } catch (err) {
+      return json(res, 400, { error: err.message });
+    }
+  }
+
+  /* 模型层的三个动作共用一个口：开关（toggle）、点选用（use）、手动补一个（add） */
+  if (req.method === "POST" && url.pathname === "/api/llm/model") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    try {
+      let config;
+      if (body.action === "toggle") config = setModelEnabled(body.id, body.model, body.on !== false);
+      else if (body.action === "use") config = useModel(body.id, body.model);
+      else if (body.action === "add") config = addModel(body.id, body.model);
+      else throw new Error("没有这个操作");
+      return json(res, 200, config);
+    } catch (err) {
+      return json(res, 400, { error: err.message });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/llm/reorder") {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    try {
+      return json(res, 200, reorderProviders(body.ids));
     } catch (err) {
       return json(res, 400, { error: err.message });
     }

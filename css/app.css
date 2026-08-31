@@ -1031,17 +1031,6 @@ td:last-child { color: var(--ink-2); }
   white-space: pre-wrap;
 }
 .analysis-warning { margin-top: 18px; color: var(--warn); }
-.provider-more { margin-top: 4px; }
-.provider-more summary {
-  width: max-content;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: var(--ink-3);
-  font-size: var(--t-5);
-}
-.provider-more[open] summary { color: var(--ink-1); }
 
 /* ——— 甲方包裹 ——— */
 .pack {
@@ -1273,4 +1262,333 @@ td:last-child { color: var(--ink-2); }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   .pack { animation: none; }
+}
+
+/* ——— 模型接口：一个渠道一张卡，密钥地址各行其是，模型按能力分栏 ——— */
+.llm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.llm-card {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--r);
+  margin-top: 0;
+}
+/* 正在出档的那张卡描一圈铜边，扫一眼就知道现在用的是谁 */
+.llm-card.is-active {
+  border-color: color-mix(in oklch, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 30%, transparent);
+}
+.llm-card.is-dragging { opacity: 0.55; }
+.llm-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.llm-card.is-folded .llm-head { border-bottom-color: transparent; }
+.llm-grip {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-3);
+  cursor: grab;
+  padding: 12px 4px;
+  line-height: 0;
+}
+.llm-grip:active { cursor: grabbing; }
+.llm-fold {
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--r);
+}
+.llm-fold:hover { color: var(--ink-1); background: var(--zone); }
+.llm-name { flex: 1; min-width: 0; font-size: var(--t-3); font-weight: 600; margin: 0; }
+/* 名字就是卡片标题，输入框藏成一根下划线，点了才现形 */
+.llm-name input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  font-size: var(--t-3);
+  font-weight: 600;
+  border-radius: 0;
+  min-height: 0;
+}
+.llm-name input:hover { box-shadow: inset 0 -1px 0 var(--border); }
+.llm-name input:focus,
+.llm-name input:focus-visible {
+  outline: none;
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
+.llm-live {
+  border: 0;
+  background: transparent;
+  color: color-mix(in oklch, var(--ink-3) 55%, transparent);
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--r);
+}
+.llm-live:hover { color: var(--ink-2); }
+.llm-live.is-on { color: var(--up); }
+.llm-head-acts { display: inline-flex; gap: 6px; flex: none; }
+.llm-docs { text-decoration: none; display: inline-flex; align-items: center; }
+.llm-body { padding: 2px 14px 14px; }
+.llm-card.is-folded .llm-body { display: none; }
+.llm-field-k {
+  display: block;
+  font-size: var(--t-6);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--ink-2);
+  margin: 12px 0 6px;
+}
+.llm-fields > .llm-field-k:first-child { margin-top: 12px; }
+.llm-fields > .meta { margin: 8px 0 0; }
+.llm-fields input,
+.llm-fields select,
+.llm-add-row input,
+.llm-add-card input,
+.llm-vision select {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1px solid transparent;
+  background: var(--panel-2);
+  border-radius: var(--r);
+  font-size: var(--t-4);
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+/* .pass-wrap 的右侧眼睛位在通用内边距之后补回来，两套规则同一优先级，靠后声明赢 */
+.llm-fields .pass-wrap input { padding-right: 48px; }
+.llm-fields input:hover,
+.llm-fields select:hover,
+.llm-add-row input:hover,
+.llm-add-card input:hover,
+.llm-vision select:hover {
+  border-color: var(--border);
+}
+.llm-fields input:focus,
+.llm-fields input:focus-visible,
+.llm-fields select:focus,
+.llm-add-row input:focus,
+.llm-add-row input:focus-visible,
+.llm-add-card input:focus,
+.llm-vision select:focus {
+  outline: none;
+  background: var(--bg);
+  border-color: var(--accent);
+}
+/* 已存的密钥只露掩码，一根横放的等宽字条加一支改笔 */
+.llm-key-view {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--panel-2);
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  padding: 0 4px 0 14px;
+  min-height: 44px;
+}
+.llm-key-view:hover { border-color: var(--border); }
+.llm-key-view code {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-meta);
+  font-size: var(--t-5);
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.llm-key-edit {
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--r);
+}
+.llm-key-edit:hover { color: var(--accent); }
+.llm-base-add {
+  width: 100%;
+  min-height: 44px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--ink-2);
+  border-radius: var(--r);
+  cursor: pointer;
+  font-size: var(--t-5);
+  letter-spacing: 0.04em;
+}
+.llm-base-add:hover { border-color: var(--accent); color: var(--ink-1); }
+.llm-tabs {
+  display: flex;
+  gap: 2px 18px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 14px;
+}
+.llm-tab {
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  padding: 8px 2px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: var(--t-5);
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 0;
+  box-shadow: inset 0 -2px 0 transparent;
+  transition: box-shadow 160ms var(--ease), color 160ms var(--ease);
+}
+.llm-tab:hover { color: var(--ink-1); }
+.llm-tab.is-on {
+  color: var(--ink-1);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.llm-count {
+  font-family: var(--font-meta);
+  font-weight: 400;
+  font-size: var(--t-6);
+  color: var(--ink-3);
+  background: var(--zone);
+  padding: 1px 6px;
+  border-radius: var(--r);
+}
+.llm-tab.is-on .llm-count { color: var(--accent); background: var(--accent-soft); }
+.llm-model-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.llm-cat { font-size: var(--t-6); letter-spacing: 0.14em; color: var(--ink-2); font-weight: 500; }
+.llm-model-acts { display: inline-flex; gap: 16px; }
+.llm-model-acts .textish { padding: 4px 0; min-height: 36px; }
+.llm-add-row { display: flex; gap: 8px; margin-top: 8px; }
+.llm-add-row input { flex: 1; }
+.llm-vision { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.llm-vision .llm-field-k { margin: 0; }
+.llm-vision select { width: auto; min-width: 9em; min-height: 36px; padding: 6px 10px; }
+.llm-vision .do { min-height: 36px; }
+.llm-models {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  max-height: 340px;
+  overflow: auto;
+  background: var(--bg);
+}
+.llm-models::-webkit-scrollbar { width: 8px; }
+.llm-models::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.llm-model {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.llm-model:last-child { border-bottom: 0; }
+.llm-model:hover { background: var(--zone); }
+.llm-model-txt { min-width: 0; }
+.llm-model strong {
+  display: block;
+  font-size: var(--t-4);
+  font-weight: 500;
+  color: var(--ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.llm-model code {
+  display: block;
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 关着的模型整个降一档，扫过去就知道哪些现在算数 */
+.llm-model.is-off strong,
+.llm-model.is-off code { opacity: 0.5; }
+.llm-model.is-current {
+  background: color-mix(in oklch, var(--accent-soft) 55%, var(--bg));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.llm-model.is-current:hover { background: color-mix(in oklch, var(--accent-soft) 80%, var(--bg)); }
+.llm-now {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: var(--t-6);
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  border: 1px solid color-mix(in oklch, var(--accent) 45%, transparent);
+  padding: 0 6px;
+  border-radius: var(--r);
+  vertical-align: 0.14em;
+  font-weight: 500;
+}
+.llm-toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  border-radius: var(--r);
+  cursor: pointer;
+  padding: 0;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.llm-toggle .llm-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--ink-3);
+  border-radius: var(--r);
+  transition: transform 180ms var(--ease), background 160ms var(--ease);
+}
+.llm-toggle.is-on { background: var(--up); border-color: var(--up); }
+.llm-toggle.is-on .llm-knob { transform: translateX(18px); background: oklch(97% 0.01 88); }
+.llm-toggle:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in oklch, var(--accent) 45%, transparent); }
+.llm-empty { padding: 16px 14px; }
+.llm-empty .meta { margin: 0; }
+.llm-foot { margin-top: 8px; }
+.llm-foot .textish:hover { color: var(--down); }
+.llm-add-card { border-style: dashed; background: transparent; padding: 16px 14px; }
+.llm-add-card strong { display: block; font-size: var(--t-3); font-weight: 600; }
+.llm-add-card .meta { margin-top: 4px; }
+.llm-add-card input { margin-top: 10px; }
+@media (max-width: 980px) {
+  .llm-grid { grid-template-columns: 1fr; }
 }
