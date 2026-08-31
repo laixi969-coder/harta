@@ -53,6 +53,21 @@
         </div>
         <div id="history" class="history"></div>
         <div class="win hidden" id="win"></div>
+        <article class="card material-record hidden" id="material-record-card">
+          <div class="material-record-head">
+            <div>
+              <p class="record-k">资料底稿</p>
+              <h2>上传资料梳理</h2>
+            </div>
+            <span class="folio-no" id="material-record-count"></span>
+          </div>
+          <p class="material-record-pitch hidden" id="material-record-pitch"></p>
+          <p class="analysis-overview" id="material-record-overview"></p>
+          <div class="analysis-columns" id="material-record-columns"></div>
+          <div class="analysis-sources" id="material-record-sources"></div>
+          <div class="analysis-transcripts" id="material-record-transcripts"></div>
+          <p class="meta analysis-warning hidden" id="material-record-warning"></p>
+        </article>
         <article class="card hidden" id="no-pack">
           <h2>还没给这位出过档</h2>
         </article>
@@ -191,8 +206,10 @@
                 <span>资料梳理</span>
                 <button class="textish" id="use-material-pitch" type="button">采用一句话卖点</button>
               </div>
+              <p class="material-record-pitch hidden" id="analysis-pitch"></p>
               <p class="analysis-overview" id="analysis-overview"></p>
               <div class="analysis-columns" id="analysis-columns"></div>
+              <div class="analysis-sources" id="analysis-sources"></div>
               <div class="analysis-transcripts" id="analysis-transcripts"></div>
               <p class="meta analysis-warning hidden" id="analysis-warning"></p>
             </div>
@@ -291,6 +308,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260831c"></script>
+  <script type="module" src="js/app.js?v=20260831d"></script>
 </body>
 </html>

@@ -93,25 +93,41 @@ function renderMaterialQueue() {
     : `待读取 ${rows.length} 份资料`;
 }
 
-function renderMaterialAnalysis(batch) {
-  const analysis = batch?.analysis || {};
-  const panel = document.getElementById("material-analysis");
-  if (!panel) return;
-  document.getElementById("analysis-overview").textContent = analysis.overview || "没有形成资料总览。";
-  const groups = [
+function materialAnalysisGroups(analysis) {
+  return [
     ["产品 / 服务", analysis.offer],
     ["资料明确的人群", analysis.audience],
     ["可核验依据", analysis.proof],
     ["待核对", analysis.risks],
     ["还缺什么", analysis.missing],
   ].filter(([, rows]) => rows?.length);
-  document.getElementById("analysis-columns").innerHTML = groups
+}
+
+function materialGroupsHtml(analysis) {
+  return materialAnalysisGroups(analysis)
     .map(
       ([title, rows]) => `<section><h4>${esc(title)}</h4><ul>${rows.map((row) => `<li>${esc(row)}</li>`).join("")}</ul></section>`,
     )
     .join("");
-  const transcripts = (batch.sources || []).filter((source) => source.transcript);
-  document.getElementById("analysis-transcripts").innerHTML = transcripts
+}
+
+function materialSourcesHtml(analysis, sources) {
+  const notes = new Map((analysis.sourceNotes || []).map((note) => [note.id, note.summary]));
+  if (!sources?.length) return "";
+  return `<div class="analysis-source-head"><span>逐份资料</span><span>${sources.length} 份</span></div>${sources
+    .map(
+      (source, index) => `<div class="analysis-source-row">
+        <span class="analysis-source-no">${String(index + 1).padStart(2, "0")}</span>
+        <span><strong>${esc(source.name)}</strong><small>${esc(notes.get(source.id) || source.note || "已归档")}</small></span>
+        <em>${esc(source.kind || "资料")}</em>
+      </div>`,
+    )
+    .join("")}`;
+}
+
+function materialTranscriptsHtml(sources) {
+  return (sources || [])
+    .filter((source) => source.transcript)
     .map(
       (source) => `<details>
         <summary>${esc(source.name)} · 语音转写</summary>
@@ -119,12 +135,46 @@ function renderMaterialAnalysis(batch) {
       </details>`,
     )
     .join("");
+}
+
+function renderMaterialAnalysis(batch) {
+  const analysis = batch?.analysis || {};
+  const panel = document.getElementById("material-analysis");
+  if (!panel) return;
+  document.getElementById("analysis-overview").textContent = analysis.overview || "没有形成资料总览。";
+  const pitch = document.getElementById("analysis-pitch");
+  pitch.textContent = analysis.suggestedPitch ? `档案卖点：${analysis.suggestedPitch}` : "";
+  pitch.classList.toggle("hidden", !analysis.suggestedPitch);
+  document.getElementById("analysis-columns").innerHTML = materialGroupsHtml(analysis);
+  document.getElementById("analysis-sources").innerHTML = materialSourcesHtml(analysis, batch.sources);
+  document.getElementById("analysis-transcripts").innerHTML = materialTranscriptsHtml(batch.sources);
   const warning = document.getElementById("analysis-warning");
   warning.textContent = analysis.warning || "";
   warning.classList.toggle("hidden", !analysis.warning);
   const use = document.getElementById("use-material-pitch");
   use.disabled = !analysis.suggestedPitch;
   panel.classList.remove("hidden");
+}
+
+function renderCustomerMaterialRecord(customer) {
+  const panel = document.getElementById("material-record-card");
+  if (!panel) return;
+  const analysis = customer?.materialAnalysis;
+  const sources = customer?.materials || [];
+  const hasRecord = Boolean(analysis && (analysis.overview || sources.length));
+  panel.classList.toggle("hidden", !hasRecord);
+  if (!hasRecord) return;
+  document.getElementById("material-record-count").textContent = `附件 / ${String(sources.length).padStart(2, "0")}`;
+  document.getElementById("material-record-overview").textContent = analysis.overview || "资料已归档，尚未形成总览。";
+  const pitch = document.getElementById("material-record-pitch");
+  pitch.textContent = analysis.suggestedPitch ? `档案卖点：${analysis.suggestedPitch}` : "";
+  pitch.classList.toggle("hidden", !analysis.suggestedPitch);
+  document.getElementById("material-record-columns").innerHTML = materialGroupsHtml(analysis);
+  document.getElementById("material-record-sources").innerHTML = materialSourcesHtml(analysis, sources);
+  document.getElementById("material-record-transcripts").innerHTML = materialTranscriptsHtml(sources);
+  const warning = document.getElementById("material-record-warning");
+  warning.textContent = analysis.warning || "";
+  warning.classList.toggle("hidden", !analysis.warning);
 }
 
 function addMaterialFiles(files) {
@@ -233,9 +283,9 @@ function renderToday() {
 
   const rankedCopies = pack ? rankCopyGroups(pack.copies, state.workspace.feedback, pack.id) : [];
   const hardRows = [
-    ...(pack.checks?.redline || []),
-    ...(pack.checks?.sensitive || []),
-    ...(pack.checks?.length || []).filter((row) => row.level === "hard"),
+    ...(pack?.checks?.redline || []),
+    ...(pack?.checks?.sensitive || []),
+    ...(pack?.checks?.length || []).filter((row) => row.level === "hard"),
   ];
   const blockedTexts = new Set(hardRows.map((row) => String(row.text || "")).filter(Boolean));
   const publishBlocked = hardRows.length > 0;
@@ -254,6 +304,7 @@ function renderToday() {
     win.classList.add("hidden");
     win.textContent = "";
   }
+  renderCustomerMaterialRecord(mine);
 
   /* 重出按钮必须画在「没有档」这条早返回之前：没出成的时候正是最需要它的时候。 */
   const busy = Boolean(mine.job);
