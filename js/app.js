@@ -589,22 +589,22 @@ function renderToday() {
       const lines = (items) =>
         (items || []).map((t) => `<p>${esc(t)}</p>`).join("");
       demandBox.innerHTML = `
-        <div class="folio">
-          <div class="folio-cell is-who">
-            <p class="k">要截的这个人</p>
+        <div class="folio folio-demand">
+          <div class="folio-cell is-who demand-who">
+            <p class="k">目标人群（要截住）</p>
             <p>${esc(demand.who)}</p>
           </div>
-          <div class="folio-cell is-skip">
-            <p class="k">不该打的人</p>
-            ${lines(demand.skip)}
-          </div>
-          <div class="folio-cell">
-            <p class="k">这个人会这么说</p>
+          <div class="folio-cell demand-say">
+            <p class="k">目标人群会这样问</p>
             ${lines(demand.say)}
           </div>
-          <div class="folio-cell">
-            <p class="k">这个人在搜</p>
+          <div class="folio-cell demand-search">
+            <p class="k">目标人群会搜索这些</p>
             ${lines(demand.search)}
+          </div>
+          <div class="folio-cell is-skip demand-skip">
+            <p class="k">排除人群（不投）</p>
+            ${lines(demand.skip)}
           </div>
         </div>`;
     } else {
