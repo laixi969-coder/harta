@@ -30,6 +30,7 @@ import {
 import { addCustomer, addLedger, dropToday, editLine, findShared, groupOverview, publicWorkspace, readWorkspace, refillPack, repack, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
+import { exportReport } from "./lib/report-export.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
 import { checkPack, hasHardBlock } from "./lib/check.mjs";
 import { receiveAndAnalyzeMaterials, updateMaterialAnalysis } from "./lib/materials.mjs";
@@ -114,6 +115,22 @@ function json(res, code, body, extra = {}) {
     ...extra,
   });
   res.end(JSON.stringify(body));
+}
+
+function attachmentName(filename) {
+  const fallback = String(filename || "report")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "report";
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
+function reportForUser(email, packId) {
+  const space = readWorkspace(email);
+  for (const customer of space.customers || []) {
+    const pack = (customer.packs || []).find((row) => row.id === packId);
+    if (pack) return { customer, pack };
+  }
+  return null;
 }
 
 function readBody(req) {
@@ -290,6 +307,31 @@ async function handleApi(req, res, url) {
     if (!user) return;
     // 界面靠轮询这个口等出档结果，顺手把服务重启留下的僵死任务清掉
     return json(res, 200, publicWorkspace(sweepStaleJobs(user.email)));
+  }
+
+  const exportMatch = url.pathname.match(/^\/api\/reports\/([^/]+)\/export\/(pdf|docx)$/);
+  if (req.method === "GET" && exportMatch) {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const found = reportForUser(user.email, decodeURIComponent(exportMatch[1]));
+    if (!found || found.pack.tier === "今日") return json(res, 404, { error: "找不到这份判断报告" });
+    found.pack.checks = checkPack(found.pack, found.customer.hunt);
+    if (hasHardBlock(found.pack.checks)) {
+      return json(res, 409, { error: "这份报告还有红线或硬限制，先改完再导出" });
+    }
+    try {
+      const file = await exportReport(found.pack, found.customer, exportMatch[2]);
+      res.writeHead(200, {
+        "content-type": file.mime,
+        "content-length": file.contents.length,
+        "content-disposition": attachmentName(file.filename),
+        ...securityHeaders({ cache: "no-store" }),
+      });
+      res.end(file.contents);
+    } catch (err) {
+      json(res, 500, { error: err.message || "报告导出失败" });
+    }
+    return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {

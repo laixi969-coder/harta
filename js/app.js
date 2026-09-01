@@ -614,12 +614,23 @@ function renderToday() {
   }
 
   const open = document.getElementById("pack-open");
+  const exportPdf = document.getElementById("pack-export-pdf");
+  const exportDocx = document.getElementById("pack-export-docx");
   if (pack.sharePath && !publishBlocked && pack.tier !== "今日") {
     open.classList.remove("hidden");
     open.setAttribute("href", pack.sharePath);
+    const exportBase = `/api/reports/${encodeURIComponent(pack.id)}/export`;
+    exportPdf?.classList.remove("hidden");
+    exportPdf?.setAttribute("href", `${exportBase}/pdf`);
+    exportDocx?.classList.remove("hidden");
+    exportDocx?.setAttribute("href", `${exportBase}/docx`);
   } else {
     open.classList.add("hidden");
     open.removeAttribute("href");
+    exportPdf?.classList.add("hidden");
+    exportPdf?.removeAttribute("href");
+    exportDocx?.classList.add("hidden");
+    exportDocx?.removeAttribute("href");
   }
 
   const landscapeCard = document.getElementById("landscape-card");
