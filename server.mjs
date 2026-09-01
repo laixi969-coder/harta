@@ -27,7 +27,7 @@ import {
   testVisionConnection,
   useModel,
 } from "./lib/llm.mjs";
-import { addCustomer, addLedger, editLine, findShared, groupOverview, readWorkspace, refillPack, repack, setFeedback, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, dropToday, editLine, findShared, groupOverview, publicWorkspace, readWorkspace, refillPack, repack, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
@@ -272,7 +272,7 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     // 界面靠轮询这个口等出档结果，顺手把服务重启留下的僵死任务清掉
-    return json(res, 200, sweepStaleJobs(user.email));
+    return json(res, 200, publicWorkspace(sweepStaleJobs(user.email)));
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {
@@ -281,7 +281,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = addCustomer(user.email, body);
     if (result.error) return json(res, 400, { error: result.error });
-    return json(res, 200, result.workspace);
+    return json(res, 200, publicWorkspace(result.workspace));
   }
 
   if (req.method === "POST" && url.pathname === "/api/repack") {
@@ -291,7 +291,7 @@ async function handleApi(req, res, url) {
     try {
       const result = repack(user.email, body.customerId, { material: body.material });
       if (result.error) return json(res, 400, { error: result.error });
-      return json(res, 200, result.workspace);
+      return json(res, 200, publicWorkspace(result.workspace));
     } catch (err) {
       return json(res, 400, { error: err.message || "重出失败" });
     }
@@ -304,10 +304,32 @@ async function handleApi(req, res, url) {
     try {
       const result = refillPack(user.email, body.customerId);
       if (result.error) return json(res, 400, { error: result.error });
-      return json(res, 200, result.workspace);
+      return json(res, 200, publicWorkspace(result.workspace));
     } catch (err) {
       return json(res, 400, { error: err.message || "补货失败" });
     }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/today") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    try {
+      const result = dropToday(user.email, body.customerId);
+      if (result.error) return json(res, 400, { error: result.error });
+      return json(res, 200, publicWorkspace(result.workspace));
+    } catch (err) {
+      return json(res, 400, { error: err.message || "出今日失败" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/track") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const result = setTrack(user.email, body.id, body.track);
+    if (result.error) return json(res, 400, { error: result.error });
+    return json(res, 200, publicWorkspace(result.workspace));
   }
 
   if (req.method === "POST" && url.pathname === "/api/full") {
@@ -317,7 +339,7 @@ async function handleApi(req, res, url) {
     try {
       const result = await upgradeToFull(user.email, body.packId);
       if (result.error) return json(res, 400, { error: result.error });
-      return json(res, 200, result.workspace);
+      return json(res, 200, publicWorkspace(result.workspace));
     } catch (err) {
       return json(res, 400, { error: err.message || "出全档失败" });
     }
@@ -329,14 +351,14 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = editLine(user.email, body.packId, body.key, body.text);
     if (result.error) return json(res, 400, { error: result.error });
-    return json(res, 200, result.workspace);
+    return json(res, 200, publicWorkspace(result.workspace));
   }
 
   if (req.method === "POST" && url.pathname === "/api/feedback") {
     const user = requireUser(req, res);
     if (!user) return;
     const body = await readBody(req);
-    return json(res, 200, setFeedback(user.email, body.key, body.value));
+    return json(res, 200, publicWorkspace(setFeedback(user.email, body.key, body.value)));
   }
 
   if (req.method === "POST" && url.pathname === "/api/using") {
@@ -345,14 +367,15 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = setUsing(user.email, body.id);
     if (result.error) return json(res, 400, { error: result.error });
-    return json(res, 200, result.workspace);
+    return json(res, 200, publicWorkspace(result.workspace));
   }
 
   if (req.method === "POST" && url.pathname === "/api/ledger") {
     const user = requireUser(req, res);
     if (!user) return;
     const body = await readBody(req);
-    return json(res, 200, addLedger(user.email, body));
+    const out = addLedger(user.email, body);
+    return json(res, 200, { ...out, workspace: publicWorkspace(out.workspace) });
   }
 
   if (req.method === "POST" && url.pathname === "/api/logout") {

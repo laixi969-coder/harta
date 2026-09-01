@@ -40,7 +40,7 @@ export function topRepliedLabel(ranked) {
  * 第一份有回音的就是「上次」——别的客户再有回音，也不挂到这位脸上。
  * 当前这份有回音才说「已往前排」，更早的那份说的是哪天哪组，不说排——排序只对当前这份生效。 */
 export function lastEffective(customer, feedback = {}, currentPackId = "") {
-  const packs = [...(customer?.packs || [])];
+  const packs = [...(customer?.drops || []), ...(customer?.packs || [])];
   packs.sort((a, b) =>
     String(b.deliveredAt || b.createdAt || "").localeCompare(
       String(a.deliveredAt || a.createdAt || ""),

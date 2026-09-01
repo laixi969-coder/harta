@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260831b">
+  <link rel="stylesheet" href="css/app.css?v=20260831z">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -45,12 +45,33 @@
       </div>
 
       <section data-view="today">
-        <div id="owned-today">
         <div class="hook">
+          <p class="kicker">今天</p>
           <h1 id="hook-line"></h1>
           <p class="hook-facts" id="hook-facts"></p>
           <p class="meta" id="hook-gate"></p>
         </div>
+        <article class="card hidden" id="empty-today">
+          <h2>还没有你的客户</h2>
+          <p class="meta">建档时说清是拓新还是存量。已经在合作的直接选存量，不必先判断。</p>
+          <div class="acts"><button class="btn" data-nav="customers">去建档</button></div>
+        </article>
+        <article class="card" id="desk-card">
+          <div class="desk-board">
+            <div>
+              <h2>今日该发</h2>
+              <p class="meta">存量。已经在合作的，今天出内容。</p>
+              <div id="desk-send" class="chase"></div>
+            </div>
+            <div>
+              <h2>该判断</h2>
+              <p class="meta">拓新。根据资料出建议报告。</p>
+              <div id="desk-judge" class="chase"></div>
+            </div>
+          </div>
+          <div id="desk-unmarked" class="chase"></div>
+        </article>
+        <div id="owned-today">
         <div id="history" class="history"></div>
         <div class="win hidden" id="win"></div>
         <article class="card material-record hidden" id="material-record-card">
@@ -74,12 +95,13 @@
         <!-- 重出放在 pack-body 外面：没出成的时候 pack-body 整块是藏起来的，
              按钮跟着藏了，正好在最需要它的时候点不到 -->
         <div class="acts" style="margin:0 0 20px">
+          <button class="btn hidden" id="go-today" type="button">出今日一批（50 条）</button>
           <button class="btn ghost hidden" id="go-repack" type="button">重出这份档</button>
         </div>
         <div id="pack-body">
         <article class="card card-id">
           <div class="cover-row">
-            <h2>先用 · <span class="tag" id="using-hunt"></span></h2>
+            <h2><span id="using-track">客户</span> · <span class="tag" id="using-hunt"></span></h2>
             <span class="stamp" id="using-stamp"></span>
           </div>
           <p class="meta" id="using-meta"></p>
@@ -87,10 +109,10 @@
           <div class="acts" style="margin:16px 0 0">
             <a class="btn hidden" id="pack-open" href="pack.html" target="_blank" rel="noreferrer">打开甲方包裹</a>
             <button class="btn ghost hidden" id="go-full" type="button">客户有反应了，补分镜</button>
-            <button class="btn ghost hidden" id="go-refill" type="button">补一批新素材</button>
+            <button class="btn ghost hidden" id="go-refill" type="button">再出一批</button>
           </div>
         </article>
-        <div class="chapter">
+        <div class="chapter" id="judge-chapter">
           <p class="chapter-name">一 · 判断</p>
         <article class="card hidden" id="landscape-card">
           <h2>赛道格局</h2>
@@ -149,19 +171,12 @@
         </div>
         </div>
         </div>
-        <article class="card hidden" id="empty-today">
-          <h2>还没有你的客户</h2>
-          <div class="acts"><button class="btn" data-nav="customers">去建档</button></div>
-        </article>
-        <article class="card">
-          <h2>还可以追</h2>
-          <div id="chase" class="chase"></div>
-        </article>
       </section>
 
       <section class="hidden" data-view="customers">
         <div class="hook">
-          <h1>只看你自己的书。先用的置顶。</h1>
+          <p class="kicker">客户</p>
+          <h1>自己的客户。未标明种类的先选一次。</h1>
         </div>
         <div id="customer-list" class="chase"></div>
         <article class="card form">
@@ -170,6 +185,19 @@
           <select id="hunt"></select>
           <label for="new-hunt" id="new-hunt-label" class="hidden">新行业叫什么</label>
           <input id="new-hunt" class="hidden" placeholder="例如 月子中心。第一次会先给这个行业长一份行业包">
+          <p class="k">这份活是</p>
+          <div class="track-pick" role="radiogroup" aria-label="客户种类">
+            <label class="choice">
+              <input type="radio" name="track" value="存量">
+              <span class="choice-title">存量</span>
+              <span class="choice-note">已经在合作，直接出每日内容</span>
+            </label>
+            <label class="choice">
+              <input type="radio" name="track" value="拓新">
+              <span class="choice-title">拓新</span>
+              <span class="choice-note">根据资料出判断报告</span>
+            </label>
+          </div>
           <label for="cname">客户名</label>
           <input id="cname" required placeholder="公司 / 机构 / 诊所">
           <label for="city">城市</label>
@@ -216,13 +244,14 @@
           </div>
           <label for="cmaterial">销售补充（可选）</label>
           <textarea id="cmaterial" placeholder="会议信息、客户原话、暂时没有文件的材料"></textarea>
-          <p class="meta">资料读取成功后才出快档；没有可读资料就只出侦察档。这不是设置，是规矩。</p>
+          <p class="meta">拓新：资料读取成功后才出判断，没读到只出侦察。存量：不经过判断，建完就出今日内容。</p>
           <div class="acts"><button class="btn" id="create-customer" type="button">建档</button></div>
         </article>
       </section>
 
       <section class="hidden" data-view="pack">
         <div class="hook">
+          <p class="kicker">包裹</p>
           <h1>发给甲方的那一页。他们不进后台。</h1>
         </div>
         <div id="pack-list" class="chase"></div>
@@ -230,6 +259,7 @@
 
       <section class="hidden" data-view="ledger">
         <div class="hook">
+          <p class="kicker">台账</p>
           <h1>对方原话原样记。问价和成交，回头翻得出来。</h1>
         </div>
         <article class="card form hidden" id="ledger-form-card">
@@ -264,6 +294,7 @@
 
       <section class="hidden" data-view="crew">
         <div class="hook">
+          <p class="kicker">全组</p>
           <h1>全组的枪往哪边打准了。</h1>
           <p class="meta" id="crew-line">只有你能看这一页。这里只有数，不拆到人。</p>
         </div>
@@ -279,6 +310,7 @@
 
       <section class="hidden" data-view="settings">
         <div class="hook">
+          <p class="kicker">设置</p>
           <h1 id="settings-line"></h1>
         </div>
         <article class="card form">
@@ -308,6 +340,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260831d"></script>
+  <script type="module" src="js/app.js?v=20260831q"></script>
 </body>
 </html>

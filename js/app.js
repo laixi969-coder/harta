@@ -8,6 +8,7 @@ const state = {
   workspace: { customers: [], ledger: [], feedback: {}, usingId: "" },
   platformFields: {},
   packId: "",
+  openedId: "",
   materials: { files: [], links: [], batch: null, busy: false },
   /* 模型接口那页的界面态：选中的分类、折叠的卡、处于编辑态的密钥/地址行。
    * 都不进后端，重画时照这些恢复现场。 */
@@ -202,15 +203,28 @@ function nav(view) {
 
 function usingCustomer() {
   const list = state.workspace.customers || [];
-  return list.find((c) => c.id === state.workspace.usingId) || list[0] || null;
+  const named = state.workspace.desk?.namedId;
+  return (
+    list.find((c) => c.id === state.openedId) ||
+    list.find((c) => c.id === named) ||
+    list.find((c) => c.track) ||
+    list[0] ||
+    null
+  );
 }
 
 function packsOf(customer) {
-  return customer?.packs || [];
+  if (!customer) return [];
+  if (customer.track === "存量") return [...(customer.drops || []), ...(customer.packs || [])];
+  return customer.packs || [];
 }
 
 function currentPack() {
-  const packs = packsOf(usingCustomer());
+  const mine = usingCustomer();
+  const packs = packsOf(mine);
+  if (mine?.track === "存量" && !state.packId) {
+    return (mine.drops || [])[0] || null;
+  }
   return packs.find((p) => p.id === state.packId) || packs[0] || null;
 }
 
@@ -218,15 +232,73 @@ function copyCount(pack) {
   return Object.values(pack?.copies || {}).flat().length;
 }
 
+function chip(text, tone = "") {
+  return `<span class="chip${tone ? ` ${tone}` : ""}">${esc(text)}</span>`;
+}
+
+function rowCard({ title, meta, chips = "", actions = "" }) {
+  return `<div class="row">
+      <div class="row-main">
+        <div class="row-head"><strong>${esc(title)}</strong>${chips}</div>
+        ${meta ? `<div class="meta">${meta}</div>` : ""}
+      </div>
+      <div class="row-acts">${actions}</div>
+    </div>`;
+}
+
+function renderDesk() {
+  const desk = state.workspace.desk || { send: [], judge: [], unmarked: [] };
+  const sendBox = document.getElementById("desk-send");
+  const judgeBox = document.getElementById("desk-judge");
+  const unmarkedBox = document.getElementById("desk-unmarked");
+  const row = (c, action, act, extraChip) =>
+    rowCard({
+      title: c.name,
+      chips: `${c.hunt ? chip(c.hunt) : ""}${extraChip || ""}`,
+      meta: esc(c.reason || ""),
+      actions: `<button type="button" class="go" data-using="${c.id}" data-act="${act || ""}">${action}</button>`,
+    });
+  if (sendBox) {
+    sendBox.innerHTML = desk.send?.length
+      ? desk.send.map((c) => row(c, c.hasToday ? "打开" : "出今日", c.hasToday ? "" : "today", chip("存量", "chip-stock"))).join("")
+      : `<p class="empty-line">今天没有待发的存量客户。</p>`;
+  }
+  if (judgeBox) {
+    judgeBox.innerHTML = desk.judge?.length
+      ? desk.judge.map((c) => row(c, c.ready ? "出判断" : "打开", c.ready ? "judge" : "", chip("拓新", "chip-new"))).join("")
+      : `<p class="empty-line">没有待判断的拓新客户。</p>`;
+  }
+  if (unmarkedBox) {
+    unmarkedBox.innerHTML = desk.unmarked?.length
+      ? `<p class="empty-line">这几家还没说是拓新还是存量，选一次才能出活。</p>` +
+        desk.unmarked
+          .map((c) =>
+            rowCard({
+              title: c.name,
+              chips: `${c.hunt ? chip(c.hunt) : ""}${chip("未标明", "chip-warn")}`,
+              actions: `<button type="button" class="go" data-track="${c.id}|存量">标为存量</button>
+          <button type="button" class="go" data-track="${c.id}|拓新">标为拓新</button>`,
+            }),
+          )
+          .join("")
+      : "";
+  }
+}
+
 function renderToday() {
   const mine = usingCustomer();
-  const chase = (state.workspace.customers || []).filter((c) => !mine || c.id !== mine.id);
   const empty = document.getElementById("empty-today");
   const owned = document.getElementById("owned-today");
+  const deskCard = document.getElementById("desk-card");
+  const hasCustomers = (state.workspace.customers || []).length > 0;
+  renderDesk();
+  deskCard?.classList.toggle("hidden", !hasCustomers);
   if (!mine) {
     empty.classList.remove("hidden");
     owned.classList.add("hidden");
-    document.getElementById("chase").innerHTML = `<p class="meta">还没有可追的客户。</p>`;
+    document.getElementById("hook-line").textContent = "先建一个客户。已经在合作的选存量，还没合作的选拓新。";
+    document.getElementById("hook-facts").innerHTML = "";
+    document.getElementById("hook-gate").textContent = "";
     return;
   }
   empty.classList.add("hidden");
@@ -242,24 +314,25 @@ function renderToday() {
   // 侦察档没有缺口，主体是提问。首行不能替它报「0 个缺口」。
   const nAsk = pack?.questions?.length || 0;
   const headCount = nGap ? `${nGap} 个缺口` : nAsk ? `${nAsk} 个要先问清的` : "";
-  // 大标题只放焦点：客户名和档的状态。日期、条数这些可抄进台账的数，降到下面的档案体事实行
-  document.getElementById("hook-line").textContent = pack
-    ? `${mine.name} · 已出${pack.tier}`
-    : mine.job
-      ? `${mine.name} 正在${mine.job.kind}，一般一两分钟。出好了这一页自己会刷新，不用守着。`
-      : mine.lastFail
-        ? `${mine.name} 这次没出成：${mine.lastFail}。点「重出这份档」再来一次。`
-        : `${mine.name} 还没有出过档`;
-  const facts = [];
+  const deskHook = state.workspace.desk?.hook;
+  document.getElementById("hook-line").textContent = deskHook?.line
+    ? deskHook.line
+    : pack
+      ? `${mine.name} · 已出${pack.tier}`
+      : mine.job
+        ? `${mine.name} 正在${mine.job.kind}，一般一两分钟。出好了这一页自己会刷新，不用守着。`
+        : mine.lastFail
+          ? `${mine.name} 这次没出成：${mine.lastFail}。点「重出」再来一次。`
+          : `${mine.name} 还没有出过${mine.track === "存量" ? "今日内容" : "判断"}`;
+  const facts = [...(deskHook?.facts || [])];
   if (pack) {
     facts.push(`${pack.deliveredAt || pack.createdAt} 出的`);
     if (headCount) facts.push(headCount);
-    facts.push(`${nCopy} 条文案`);
+    facts.push(`${nCopy} 条`);
     if (fields && fields !== "尚未定主战场") facts.push(`主战场 ${fields}`);
   }
-  if (chase.length) facts.push(`还可追 ${chase.length} 个`);
-  // 分隔点染黄铜：这行事实是档案目录，不是正文句子
-  document.getElementById("hook-facts").innerHTML = facts.map(esc).join('<i class="sep">·</i>');
+  // 这行事实是日期/条数目录，不是正文句子
+  document.getElementById("hook-facts").innerHTML = facts.map((f) => chip(f)).join("");
   // 模板档和真出的档在界面上长得一样，不说清楚销售会拿赛道模板去谈具体客户
   const fromTemplate = pack?.origin?.engine === "template";
   document.getElementById("hook-gate").textContent = fromTemplate
@@ -286,18 +359,20 @@ function renderToday() {
     ...(pack?.checks?.redline || []),
     ...(pack?.checks?.sensitive || []),
     ...(pack?.checks?.length || []).filter((row) => row.level === "hard"),
+    ...(pack?.checks?.quality || []).filter((row) => row.level === "hard"),
   ];
   const blockedTexts = new Set(hardRows.map((row) => String(row.text || "")).filter(Boolean));
-  const publishBlocked = hardRows.length > 0;
+  const batchQualityFail = (pack?.checks?.quality || []).some((row) => row.level === "hard" && row.scope === "batch");
   const copyButton = (text, label = "复制") =>
-    blockedTexts.has(String(text || ""))
-      ? `<button type="button" class="do" disabled title="这句命中硬边界，先改或重出">先改红线</button>`
+    batchQualityFail || blockedTexts.has(String(text || ""))
+      ? `<button type="button" class="do" disabled title="这句质量或红线过不了，先改或重出">先改再复制</button>`
       : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}">${label}</button>`;
   const win = document.getElementById("win");
   // 跨批次找：刚补的新批自己没反馈，别让他上周点过的回音凭空消失。
   // 只翻当前这位客户的档——别人的回音不挂到这位脸上
   const winLine = lastEffective(mine, state.workspace.feedback, pack?.id || "");
-  if (winLine) {
+  const stillTodo = Boolean(state.workspace.desk?.send?.length || state.workspace.desk?.judge?.some((c) => c.ready));
+  if (winLine && !stillTodo) {
     win.classList.remove("hidden");
     win.innerHTML = `<b>上次有效</b> · ${winLine}`;
   } else {
@@ -313,23 +388,44 @@ function renderToday() {
     repack.classList.toggle("hidden", !mine.id);
     repack.dataset.customer = mine.id || "";
     repack.disabled = busy;
-    repack.textContent = busy ? `正在${mine.job.kind}…` : pack ? "重出这份档" : "重出";
+    repack.textContent = busy
+      ? `正在${mine.job.kind}…`
+      : mine.track === "存量"
+        ? "重出今日"
+        : pack
+          ? "重出这份判断"
+          : "重出";
+  }
+
+  const goToday = document.getElementById("go-today");
+  if (goToday) {
+    goToday.classList.toggle("hidden", mine.track !== "存量");
+    goToday.dataset.customer = mine.id || "";
+    goToday.disabled = busy;
+    goToday.textContent = busy ? `正在${mine.job?.kind}…` : pack?.tier === "今日" ? "再出一批（50 条）" : "出今日一批（50 条）";
   }
 
   const noPack = document.getElementById("no-pack");
   const body = document.getElementById("pack-body");
   if (!pack) {
     noPack.classList.remove("hidden");
+    const noPackTitle = noPack.querySelector("h2");
+    if (noPackTitle) {
+      noPackTitle.textContent =
+        mine.track === "存量" ? "今天还没出内容" : mine.track === "拓新" ? "还没给这位出过判断" : "先标明这家是拓新还是存量";
+    }
     body.classList.add("hidden");
-    renderChase(chase);
     renderCustomers();
     renderPackIndex();
     return;
   }
   noPack.classList.add("hidden");
   body.classList.remove("hidden");
+  document.getElementById("judge-chapter")?.classList.toggle("hidden", pack.tier === "今日");
 
   // 客户名两行之前刚在大标题里说过，这里不重复：这行只留猎场，档位交给右边的章
+  const trackEl = document.getElementById("using-track");
+  if (trackEl) trackEl.textContent = mine.track || "未标明种类";
   document.getElementById("using-hunt").textContent = mine.hunt;
   document.getElementById("using-stamp").textContent =
     pack.evidence === "D" ? `${pack.tier}\n赛道判断` : `${pack.tier}\n证据${pack.evidence}`;
@@ -341,7 +437,7 @@ function renderToday() {
   const demandCard = document.getElementById("demand-card");
   const demand = pack.demand;
   if (demandBox && demandCard) {
-    if (demand && demand.who) {
+    if (demand && demand.who && pack.tier !== "今日") {
       demandCard.classList.remove("hidden");
       const lines = (items) =>
         (items || []).map((t) => `<p>${esc(t)}</p>`).join("");
@@ -371,7 +467,7 @@ function renderToday() {
   }
 
   const open = document.getElementById("pack-open");
-  if (pack.sharePath && !publishBlocked) {
+  if (pack.sharePath && !publishBlocked && pack.tier !== "今日") {
     open.classList.remove("hidden");
     open.setAttribute("href", pack.sharePath);
   } else {
@@ -381,7 +477,7 @@ function renderToday() {
 
   const landscapeCard = document.getElementById("landscape-card");
   if (landscapeCard) {
-    const has = Boolean(pack.landscape);
+    const has = pack.tier !== "今日" && Boolean(pack.landscape);
     landscapeCard.classList.toggle("hidden", !has);
     if (has) document.getElementById("landscape").textContent = pack.landscape;
   }
@@ -429,20 +525,12 @@ function renderToday() {
 
   const full = document.getElementById("go-full");
   if (full) {
-    // 没反应的客户不跑全档，所以这个按钮只在已经有档、还没补分镜时出现
-    full.classList.toggle("hidden", !pack.id || boards.length > 0);
-    full.dataset.pack = pack.id || "";
-    full.dataset.customer = mine.id || "";
-    full.disabled = Boolean(mine.job);
+    full.classList.add("hidden");
   }
 
   const refill = document.getElementById("go-refill");
   if (refill) {
-    // 补货是给已经在用素材的客户的。手动点：没在发的时候补等于对着空气烧钱
-    refill.classList.toggle("hidden", !pack.id);
-    refill.dataset.customer = mine.id || "";
-    refill.disabled = busy;
-    refill.textContent = winLine ? "顺着有回音的方向补一批" : "补一批新素材";
+    refill.classList.add("hidden");
   }
 
   const checksCard = document.getElementById("checks-card");
@@ -476,6 +564,11 @@ function renderToday() {
         (r) => `<div class="line"><p><b>${r.level === "hard" ? "发不出去" : "会有代价"}</b> ${esc(r.platform)} · ${esc(r.field)} 约 ${r.max} 字，这条 ${r.n} 字</p>
           <p class="meta">${esc(r.why || "")}</p>
           <p class="meta">${esc(r.text)}</p></div>`,
+      ),
+      ...(c.quality || []).map(
+        (r) => `<div class="line"><p><b>${r.level === "hard" ? "质量过不了" : "不像这个平台"}</b> ${esc(r.where)}</p>
+          <p class="meta">${esc(r.why || "")}</p>
+          ${r.text ? `<p class="meta">${esc(r.text)}</p>` : ""}</div>`,
       ),
     ];
     checksCard.classList.toggle("hidden", !rows.length);
@@ -527,8 +620,8 @@ function renderToday() {
           </div>`;
         })
         .join("");
-      // 组名常自带字母编号（模型起的，台账里也这么引用），把它提成黄铜档案号；
-      // 没带的组按顺序补中文数字，让每个组头都说档案室的编号语言
+      // 组名常自带字母编号（模型起的，台账里也这么引用），把它提成组号；
+      // 没带的组按顺序补中文数字，让每个组头都能被「用组二那条」点名
       const m = g.group.match(/^([A-H])(?:组)?\s+(.+)$/);
       const num = m ? m[1] : ["一", "二", "三", "四", "五", "六", "七", "八", "九"][i] || i + 1;
       const name = m ? m[2] : g.group;
@@ -685,28 +778,17 @@ function renderToday() {
     <p class="meta">下一步：${esc((pack.next || []).join("；"))}</p>
     <p class="meta">出价和定向让代运营定，我们负责让他们有好素材可投。</p>`;
 
-  renderChase(chase);
   renderCustomers();
   renderPackIndex();
-}
-
-function renderChase(chase) {
-  document.getElementById("chase").innerHTML = chase.length
-    ? chase
-        .map(
-          (c) => `<div class="row">
-      <div><strong>${esc(c.name)}</strong><div class="meta">${esc(c.hunt)} · 已出 ${packsOf(c).length} 份 · ${esc(c.pitch || "未写卖点")}</div></div>
-      <button type="button" class="go" data-using="${c.id}">先用这位</button>
-    </div>`,
-        )
-        .join("")
-    : `<p class="meta">还没有其他可追的客户。</p>`;
 }
 
 function renderCustomers() {
   const box = document.getElementById("customer-list");
   if (!box) return;
   const list = [...(state.workspace.customers || [])].sort((a, b) => {
+    const au = a.track ? 1 : 0;
+    const bu = b.track ? 1 : 0;
+    if (au !== bu) return au - bu;
     if (a.id === state.workspace.usingId) return -1;
     if (b.id === state.workspace.usingId) return 1;
     return packsOf(b).length - packsOf(a).length;
@@ -717,13 +799,20 @@ function renderCustomers() {
           const packs = packsOf(c);
           const latest = packs[0];
           const using = c.id === state.workspace.usingId;
-          return `<div class="row">
-        <div>
-          <strong>${esc(c.name)}</strong>
-          <div class="meta">${esc(c.hunt)}${using ? " · 先用" : ""} · ${c.materials?.length ? `资料 ${c.materials.length} 份 · ` : ""}${packs.length ? `已出 ${packs.length} 份` : "还没出档"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}</div>
-        </div>
-        ${using ? "" : `<button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "先用这位"}</button>`}
-      </div>`;
+          const kind = c.track || "未标明";
+          const kindChip = c.track === "存量" ? chip("存量", "chip-stock") : c.track === "拓新" ? chip("拓新", "chip-new") : chip("未标明", "chip-warn");
+          const actions = c.track
+            ? using
+              ? ""
+              : `<button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "打开"}</button>`
+            : `<button type="button" class="go" data-track="${c.id}|存量">标为存量</button>
+                <button type="button" class="go" data-track="${c.id}|拓新">标为拓新</button>`;
+          return rowCard({
+            title: c.name,
+            chips: `${kindChip}${c.hunt ? chip(c.hunt) : ""}${using && c.track ? chip("当前", "chip-hot") : ""}`,
+            meta: `${c.materials?.length ? `资料 ${c.materials.length} 份 · ` : ""}${packs.length ? `已出 ${packs.length} 份` : c.track === "存量" ? "还没出今日" : c.track === "拓新" ? "还没出判断" : "先标明种类"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}`,
+            actions,
+          });
         })
         .join("")
     : `<p class="meta">本子还是空的。</p>`;
@@ -738,13 +827,13 @@ function renderPackIndex() {
   box.innerHTML = rows.length
     ? rows
         .map(
-          ({ customer, pack }) => `<div class="row">
-      <div>
-        <strong>${esc(customer.name)}</strong>
-        <div class="meta">${esc(pack.deliveredAt || pack.createdAt)} · ${esc(pack.tier)} · ${esc(pack.title || "")}</div>
-      </div>
-      <button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>
-    </div>`,
+          ({ customer, pack }) =>
+            rowCard({
+              title: customer.name,
+              chips: `${chip(pack.tier || "档")}${pack.deliveredAt || pack.createdAt ? chip(pack.deliveredAt || pack.createdAt) : ""}`,
+              meta: esc(pack.title || ""),
+              actions: `<button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>`,
+            }),
         )
         .join("")
     : `<p class="meta">还没有发给甲方的包裹。</p>`;
@@ -897,6 +986,7 @@ function bind() {
 }
 
 async function useCustomer(id, packId) {
+  state.openedId = id;
   const res = await fetch("/api/using", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -1145,16 +1235,12 @@ async function loadUsers() {
             : "已注册 · 在用"
           : "已开通，还没注册";
         const locked = email === adminEmail;
-        return `<div class="row">
-        <div>
-          <strong>${esc(email)}</strong>
-          <div class="meta">${esc(state)}</div>
-        </div>
-        <div class="acts-inline">
-          ${role && !locked ? `<button type="button" class="go" data-white-reset="${esc(email)}">重设密码</button>` : ""}
-          ${locked ? "" : `<button type="button" class="go" data-white-del="${esc(email)}">移出</button>`}
-        </div>
-      </div>`;
+        return rowCard({
+          title: email,
+          chips: chip(state, role ? "chip-hot" : ""),
+          actions: `${role && !locked ? `<button type="button" class="go" data-white-reset="${esc(email)}">重设密码</button>` : ""}
+          ${locked ? "" : `<button type="button" class="go" data-white-del="${esc(email)}">移出</button>`}`,
+        });
       })
       .join("");
   }
@@ -1177,10 +1263,16 @@ async function loadCrew() {
   box.innerHTML = hunts.length
     ? hunts
         .map(
-          (h) => `<div class="row">
-      <div><strong>${esc(h.hunt)}</strong>
-      <div class="meta">${h.sales} 人在打 · ${h.customers} 个客户 · 出过 ${h.packs} 份档</div></div>
-      <div class="meta" style="text-align:right">${h.replied} 有回音<br>${h.asked} 问价/有兴趣 · ${h.deals} 成交</div>
+          (h) => `<div class="row hunt-stat">
+      <div class="row-main">
+        <div class="row-head"><strong>${esc(h.hunt)}</strong></div>
+        <div class="meta">${h.sales} 人在打 · ${h.customers} 个客户 · 出过 ${h.packs} 份档</div>
+      </div>
+      <div class="stat-pills">
+        <span><b>${h.replied}</b> 回音</span>
+        <span><b>${h.asked}</b> 问价</span>
+        <span><b>${h.deals}</b> 成交</span>
+      </div>
     </div>`,
         )
         .join("")
@@ -1363,6 +1455,37 @@ document.getElementById("go-repack")?.addEventListener("click", async (e) => {
   }
 });
 
+document.getElementById("go-today")?.addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const customerId = btn.dataset.customer;
+  if (!customerId) return;
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "正在出今日…";
+  try {
+    const res = await fetch("/api/today", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ customerId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || "出今日失败");
+      return;
+    }
+    state.workspace = data;
+    state.packId = "";
+    renderToday();
+    toast("正在出今日内容，出好了这里会自己刷新");
+    watchJob(customerId);
+  } catch {
+    toast("网络不通，请再试");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+});
+
 document.getElementById("go-refill")?.addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   const customerId = btn.dataset.customer;
@@ -1514,6 +1637,13 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
   const old = btn.textContent;
   btn.textContent = "正在建档…";
   try {
+    const track = document.querySelector('input[name="track"]:checked')?.value || "";
+    if (!track) {
+      toast("先选：这是存量还是拓新");
+      btn.disabled = false;
+      btn.textContent = old;
+      return;
+    }
     const res = await fetch("/api/customers", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1528,6 +1658,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
         link: state.materials.links[0] || "",
         material: document.getElementById("cmaterial")?.value || "",
         materialBatchId: state.materials.batch?.id || "",
+        track,
       }),
     });
     const data = await res.json();
@@ -1539,7 +1670,8 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     }
     state.workspace = data;
     state.packId = "";
-    toast("客户已建好，正在出档。出好了这里会自己刷新，你可以先去忙别的");
+    state.openedId = data.usingId || "";
+    toast(track === "存量" ? "客户已建好，正在出今日内容" : "客户已建好，正在出判断");
     watchJob(data.usingId);
     const sel = document.getElementById("hunt");
     if (sel && sel.value === "__new__") {
@@ -1623,10 +1755,32 @@ document.getElementById("change-pass")?.addEventListener("click", async () => {
 });
 
 document.body.addEventListener("click", async (e) => {
+  const trackBtn = e.target.closest("[data-track]");
+  if (trackBtn) {
+    e.preventDefault();
+    const [id, track] = String(trackBtn.dataset.track || "").split("|");
+    const res = await fetch("/api/track", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, track }),
+    });
+    const data = await res.json();
+    if (!res.ok) return toast(data.error || "没标上");
+    state.workspace = data;
+    renderToday();
+    renderCustomers();
+    toast(track === "存量" ? "已标为存量，可以出今日内容" : "已标为拓新，有资料再出判断");
+    return;
+  }
   const using = e.target.closest("[data-using]");
   if (using) {
     e.preventDefault();
     await useCustomer(using.dataset.using, using.dataset.pack || "");
+    if (using.dataset.act === "today") {
+      document.getElementById("go-today")?.click();
+    } else if (using.dataset.act === "judge") {
+      document.getElementById("go-repack")?.click();
+    }
     return;
   }
   const del = e.target.closest("[data-white-del]");

@@ -1,5 +1,33 @@
 [
   {
+    "at": "2026-08-31",
+    "path": "harta/index.html + css/app.css",
+    "register": "product",
+    "axes": {
+      "A": "teal+clay",
+      "B": "600/400",
+      "C": "sidebar-desk",
+      "D": "css-only",
+      "E": "cool-stone"
+    },
+    "dials": { "soul": 7, "spectacle": 2, "density": 8 },
+    "notes": "从长文排版改成工作台：今天待办置顶，列表行卡+签，种类单选卡，章节横排，文案成卡。不是换色。"
+  },
+  {
+    "at": "2026-08-31",
+    "path": "harta/css/app.css",
+    "register": "product",
+    "axes": {
+      "A": "teal+clay",
+      "B": "600/400",
+      "C": "sidebar-split",
+      "D": "css-only",
+      "E": "cool-stone"
+    },
+    "dials": { "soul": 7, "spectacle": 2, "density": 7 },
+    "notes": "换掉档案室暖象牙+黄铜。冷青石灰纸面、青绿主色、朱红印、12px 圆角、有投影卡片。今天双列靠色温差分开。"
+  },
+  {
     "at": "2026-08-25",
     "path": "harta/index.html（全组页 + 台账表单）",
     "register": "product",
