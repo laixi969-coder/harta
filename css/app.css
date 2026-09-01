@@ -42,11 +42,11 @@
   --rail: oklch(16% 0.022 195);
   --rail-ink: oklch(74% 0.024 185);
   --rail-ink-active: oklch(97% 0.01 185);
-  --photo: url("../images/bg-light-paper.jpg");
+  --photo: url("../images/bg-fluid-light.png");
   --photo-darken: oklch(18% 0.03 195 / 0.42);
   --on-photo: oklch(97% 0.01 185);
   --on-photo-2: oklch(88% 0.02 185);
-  --photo-scrim: linear-gradient(165deg, oklch(16% 0.04 195 / 0.72) 0%, oklch(20% 0.03 185 / 0.4) 46%, oklch(14% 0.04 195 / 0.78) 100%);
+  --photo-scrim: linear-gradient(165deg, oklch(20% 0.04 165 / 0.5) 0%, oklch(28% 0.035 175 / 0.22) 46%, oklch(17% 0.04 165 / 0.56) 100%);
   --photo-edge: oklch(96% 0.01 185 / 0.12);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --space: 8px;
@@ -76,11 +76,11 @@
   --rail: oklch(11% 0.016 200);
   --rail-ink: oklch(70% 0.022 185);
   --rail-ink-active: oklch(96% 0.01 185);
-  --photo: url("../images/bg-dark-city.jpg");
+  --photo: url("../images/bg-fluid-dark.png");
   --photo-darken: oklch(12% 0.02 200 / 0.4);
   --on-photo: oklch(96% 0.01 185);
   --on-photo-2: oklch(86% 0.02 185);
-  --photo-scrim: linear-gradient(165deg, oklch(10% 0.03 200 / 0.62) 0%, oklch(14% 0.025 200 / 0.32) 46%, oklch(8% 0.03 200 / 0.72) 100%);
+  --photo-scrim: linear-gradient(165deg, oklch(10% 0.03 200 / 0.42) 0%, oklch(14% 0.025 200 / 0.16) 46%, oklch(8% 0.03 200 / 0.5) 100%);
   --photo-edge: oklch(96% 0.01 185 / 0.1);
   --paper-shadow: 0 1px 0 oklch(100% 0.01 185 / 0.05), 0 24px 48px -32px oklch(0% 0 0 / 0.55);
   --shadow: 0 1px 2px oklch(0% 0 0 / 0.28), 0 12px 32px -18px oklch(0% 0 0 / 0.5);
