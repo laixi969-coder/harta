@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260901a">
+  <link rel="stylesheet" href="css/app.css?v=20260901b">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -79,6 +79,7 @@
             <div>
               <p class="record-k">资料底稿</p>
               <h2>上传资料梳理</h2>
+              <p class="meta material-record-engine" id="material-record-engine"></p>
             </div>
             <span class="folio-no" id="material-record-count"></span>
           </div>
@@ -184,7 +185,7 @@
           <label for="hunt">猎场</label>
           <select id="hunt"></select>
           <label for="new-hunt" id="new-hunt-label" class="hidden">新行业叫什么</label>
-          <input id="new-hunt" class="hidden" placeholder="例如 月子中心。第一次会先给这个行业长一份行业包">
+          <input id="new-hunt" class="hidden" maxlength="24" placeholder="例如 月子中心。最多 24 字">
           <p class="k">这份活是</p>
           <div class="track-pick" role="radiogroup" aria-label="客户种类">
             <label class="choice">
@@ -199,11 +200,12 @@
             </label>
           </div>
           <label for="cname">客户名</label>
-          <input id="cname" required placeholder="公司 / 机构 / 诊所">
+          <input id="cname" required maxlength="80" placeholder="公司 / 机构 / 诊所（最多 80 字）">
           <label for="city">城市</label>
-          <input id="city" placeholder="广州">
+          <input id="city" maxlength="40" placeholder="广州（最多 40 字）">
           <label for="pitch">一句话卖点</label>
-          <input id="pitch" placeholder="他们卖什么">
+          <textarea id="pitch" class="short-textarea" rows="3" maxlength="300" aria-describedby="pitch-count" placeholder="他们卖什么；可直接粘贴，框会自动换行"></textarea>
+          <p class="field-meta"><span>最多 300 字，内容会完整保存</span><span id="pitch-count" data-char-count="pitch">0 / 300</span></p>
           <div class="material-desk" id="material-desk">
             <div class="material-heading">
               <div>
@@ -217,11 +219,11 @@
             <div class="material-drop" id="material-drop" tabindex="0" role="button" aria-controls="material-files">
               <strong>把资料拖到这里</strong>
               <span>或选择图片、PDF、Word、PPT、表格、文本、视频</span>
-              <small>单个不超过 60MB，最多 8 个；视频会同时读取关键画面和语音</small>
+              <small>最多 8 个文件，单个 60MB、合计 120MB；另可加 8 条链接。视频会读取关键画面和语音</small>
             </div>
             <div class="link-line">
               <label class="visually-hidden" for="material-link">客户网页链接</label>
-              <input id="material-link" type="url" placeholder="粘贴官网、公众号文章或公开页面链接">
+              <input id="material-link" type="url" maxlength="2048" title="单条链接最多 2048 个字符" placeholder="粘贴官网、公众号文章或公开页面链接">
               <button class="btn ghost" id="add-material-link" type="button">加入链接</button>
             </div>
             <div id="material-queue" class="material-queue" aria-live="polite"></div>
@@ -231,19 +233,26 @@
             </div>
             <div class="material-analysis hidden" id="material-analysis">
               <div class="analysis-head">
-                <span>资料梳理</span>
-                <button class="textish" id="use-material-pitch" type="button">采用一句话卖点</button>
+                <span>资料梳理 <small id="analysis-engine"></small></span>
+                <span class="analysis-head-actions">
+                  <button class="textish" id="edit-material-analysis" type="button">编辑梳理</button>
+                  <button class="textish" id="use-material-pitch" type="button">采用一句话卖点</button>
+                </span>
               </div>
-              <p class="material-record-pitch hidden" id="analysis-pitch"></p>
-              <p class="analysis-overview" id="analysis-overview"></p>
-              <div class="analysis-columns" id="analysis-columns"></div>
-              <div class="analysis-sources" id="analysis-sources"></div>
-              <div class="analysis-transcripts" id="analysis-transcripts"></div>
+              <div id="analysis-readonly">
+                <p class="material-record-pitch hidden" id="analysis-pitch"></p>
+                <p class="analysis-overview" id="analysis-overview"></p>
+                <div class="analysis-columns" id="analysis-columns"></div>
+                <div class="analysis-sources" id="analysis-sources"></div>
+                <div class="analysis-transcripts" id="analysis-transcripts"></div>
+              </div>
+              <div class="analysis-editor hidden" id="analysis-editor"></div>
               <p class="meta analysis-warning hidden" id="analysis-warning"></p>
             </div>
           </div>
           <label for="cmaterial">销售补充（可选）</label>
-          <textarea id="cmaterial" placeholder="会议信息、客户原话、暂时没有文件的材料"></textarea>
+          <textarea id="cmaterial" class="long-textarea" rows="8" maxlength="12000" aria-describedby="cmaterial-count" placeholder="会议信息、客户原话、暂时没有文件的材料；可粘贴长文"></textarea>
+          <p class="field-meta"><span>最多 12,000 字；全部保存，出判断时优先读取这段</span><span id="cmaterial-count" data-char-count="cmaterial">0 / 12,000</span></p>
           <p class="meta">拓新：资料读取成功后才出判断，没读到只出侦察。存量：不经过判断，建完就出一批；每次 50 条，同一天可以再出。</p>
           <div class="acts"><button class="btn" id="create-customer" type="button">建档</button></div>
         </article>
@@ -277,18 +286,21 @@
           <select id="ledger-line"></select>
           <p class="meta">记问价、有兴趣或成交时选了哪条，那条自动算有回音，不用再回去点一遍。</p>
           <label for="ledger-quote">报价</label>
-          <input id="ledger-quote" placeholder="没报就留空">
+          <input id="ledger-quote" maxlength="120" placeholder="没报就留空（最多 120 字）">
           <label for="ledger-talk">他原话怎么说</label>
-          <textarea id="ledger-talk" placeholder="贴原话，不改写，不总结"></textarea>
+          <textarea id="ledger-talk" class="ledger-textarea" rows="6" maxlength="4000" aria-describedby="ledger-talk-count" placeholder="贴原话，不改写，不总结；长内容会自动换行"></textarea>
+          <p class="field-meta"><span>最多 4,000 字，框可向下拉高</span><span id="ledger-talk-count" data-char-count="ledger-talk">0 / 4,000</span></p>
           <div class="acts"><button class="btn" id="add-ledger" type="button">记下</button></div>
         </article>
         <article class="card">
+          <div class="table-scroll" tabindex="0" aria-label="台账表格，可横向滚动">
           <table>
             <thead>
               <tr><th>日期</th><th>客户</th><th>猎场</th><th>结果</th><th>报价</th><th>原话</th></tr>
             </thead>
             <tbody id="ledger-body"></tbody>
           </table>
+          </div>
         </article>
       </section>
 
@@ -317,12 +329,12 @@
           <h2>密码</h2>
           <label for="old-pass">旧密码</label>
           <div class="pass-wrap">
-            <input id="old-pass" type="password" autocomplete="current-password">
+            <input id="old-pass" type="password" maxlength="128" autocomplete="current-password">
             <button type="button" class="eye" data-eye="old-pass" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
           </div>
           <label for="new-pass">新密码</label>
           <div class="pass-wrap">
-            <input id="new-pass" type="password" autocomplete="new-password" placeholder="至少 6 位">
+            <input id="new-pass" type="password" minlength="6" maxlength="128" autocomplete="new-password" placeholder="6–128 位">
             <button type="button" class="eye" data-eye="new-pass" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
           </div>
           <div class="acts"><button class="btn" id="change-pass" type="button">更改密码</button></div>
@@ -331,7 +343,7 @@
           <h2>开通账号</h2>
           <p class="meta">开通之后让他自己去注册页设密码。密码你也看不到。</p>
           <label for="white-email">他的邮箱</label>
-          <input id="white-email" type="email" placeholder="name@company.com">
+          <input id="white-email" type="email" maxlength="254" placeholder="name@company.com">
           <div class="acts"><button class="btn" id="add-white" type="button">开通</button></div>
           <div id="white-list" class="chase" style="margin-top:14px"></div>
         </article>
@@ -340,6 +352,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260901b"></script>
+  <script type="module" src="js/app.js?v=20260901c"></script>
 </body>
 </html>

@@ -33,15 +33,15 @@
       </div>
       <form class="form" id="form">
         <label for="email">邮箱</label>
-        <input id="email" name="email" type="email" autocomplete="username" required>
+        <input id="email" name="email" type="email" autocomplete="username" maxlength="254" required>
         <label for="password">密码</label>
         <div class="pass-wrap">
-          <input id="password" name="password" type="password" autocomplete="new-password" required minlength="6" placeholder="至少 6 位">
+          <input id="password" name="password" type="password" autocomplete="new-password" required minlength="6" maxlength="128" placeholder="6–128 位">
           <button type="button" class="eye" data-eye="password" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
         </div>
         <label for="password2">再输入一次</label>
         <div class="pass-wrap">
-          <input id="password2" name="password2" type="password" autocomplete="new-password" required minlength="6">
+          <input id="password2" name="password2" type="password" autocomplete="new-password" required minlength="6" maxlength="128">
           <button type="button" class="eye" data-eye="password2" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
         </div>
         <p id="err" class="meta" role="alert" style="color:var(--down);min-height:1.4em;margin-top:16px"></p>

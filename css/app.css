@@ -1009,6 +1009,15 @@ section[data-view] { padding: 0 56px; }
 .go:disabled { opacity: 0.4; cursor: not-allowed; }
 
 table { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+.table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.table-scroll table { min-width: 720px; }
+.table-scroll td:last-child { min-width: 18rem; max-width: 32rem; white-space: normal; overflow-wrap: anywhere; }
 th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); }
 th {
   color: var(--ink-3);
@@ -1052,7 +1061,29 @@ td:last-child { color: var(--ink-2); }
   background: var(--bg);
   border-color: var(--accent);
 }
-.form textarea { min-height: 90px; }
+.form textarea {
+  min-height: 90px;
+  line-height: 1.65;
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+.form textarea.short-textarea { min-height: 96px; }
+.form textarea.long-textarea { min-height: 190px; }
+.form textarea.ledger-textarea { min-height: 150px; }
+.field-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 5px;
+  color: var(--ink-3);
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+}
+.field-meta [data-char-count] {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.field-meta [data-char-count].near-limit { color: var(--warn); }
 .form input:-webkit-autofill,
 .form input:-webkit-autofill:hover,
 .form input:-webkit-autofill:focus {
@@ -1174,6 +1205,7 @@ td:last-child { color: var(--ink-2); }
   gap: 24px;
 }
 .material-record-head h2 { margin-top: 2px; }
+.material-record-engine { margin-top: 4px; font-family: var(--font-meta); }
 .record-k {
   color: var(--accent);
   font-family: var(--font-meta);
@@ -1190,6 +1222,7 @@ td:last-child { color: var(--ink-2); }
 }
 .analysis-head { align-items: center; }
 .analysis-head .textish { color: var(--accent); }
+.analysis-head-actions { display: inline-flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .analysis-overview { margin-top: 12px; font-size: var(--t-4); color: var(--ink-1); }
 .analysis-columns {
   display: grid;
@@ -1274,6 +1307,30 @@ td:last-child { color: var(--ink-2); }
   white-space: pre-wrap;
 }
 .analysis-warning { margin-top: 18px; color: var(--warn); }
+.analysis-editor { margin-top: 14px; }
+.analysis-editor > label,
+.analysis-edit-groups label,
+.analysis-edit-sources label { letter-spacing: 0.06em; }
+.analysis-edit-note {
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent);
+  background: var(--accent-soft);
+}
+.analysis-edit-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+}
+.analysis-edit-sources {
+  margin-top: 26px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+.analysis-edit-sources h4 {
+  color: var(--ink-2);
+  font-size: var(--t-5);
+  font-weight: 600;
+}
 
 /* ——— 甲方包裹 ——— */
 .pack {
@@ -1484,12 +1541,16 @@ td:last-child { color: var(--ink-2); }
   .pack .letterhead { align-items: flex-start; gap: 8px; }
   .pack .brand-line { white-space: normal; }
   .analysis-columns { grid-template-columns: 1fr; }
+  .analysis-edit-groups { grid-template-columns: 1fr; }
+  .analysis-head { align-items: flex-start; flex-direction: column; }
+  .analysis-head-actions { gap: 14px; }
   .analysis-source-row { grid-template-columns: 28px minmax(0, 1fr); padding: 8px 0; }
   .analysis-source-row em { grid-column: 2; }
   .link-line { grid-template-columns: 1fr; }
   .link-line .btn { justify-self: start; }
   .material-actions { align-items: flex-start; flex-direction: column; }
   .material-actions .meta { text-align: left; }
+  .field-meta { align-items: flex-start; flex-direction: column; gap: 2px; }
 }
 
 @keyframes rise {
@@ -1512,6 +1573,28 @@ td:last-child { color: var(--ink-2); }
   gap: 20px;
   align-items: start;
 }
+.llm-current {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 18px;
+  align-items: baseline;
+  margin: 12px 0 20px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in oklch, var(--accent) 50%, var(--border));
+  background: color-mix(in oklch, var(--accent-soft) 48%, var(--bg));
+  border-radius: var(--r);
+}
+.llm-current-k {
+  grid-column: 1 / -1;
+  color: var(--accent);
+  font-size: var(--t-6);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+.llm-current strong { font-size: var(--t-2); font-weight: 600; }
+.llm-current code { color: var(--ink-2); font-family: var(--font-meta); font-size: var(--t-5); overflow-wrap: anywhere; }
+.llm-current p { grid-column: 1 / -1; margin: 4px 0 0; color: var(--ink-2); font-size: var(--t-5); line-height: 1.65; }
+.llm-current.is-missing { border-color: color-mix(in oklch, var(--down) 50%, var(--border)); }
 .llm-card {
   border: 1px solid var(--border);
   background: var(--bg);
@@ -1535,12 +1618,17 @@ td:last-child { color: var(--ink-2); }
 .llm-grip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   color: var(--ink-3);
   cursor: grab;
   padding: 12px 4px;
   line-height: 0;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r);
 }
 .llm-grip:active { cursor: grabbing; }
+.llm-grip:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in oklch, var(--accent) 45%, transparent); }
 .llm-fold {
   border: 0;
   background: transparent;
@@ -1556,6 +1644,14 @@ td:last-child { color: var(--ink-2); }
 }
 .llm-fold:hover { color: var(--ink-1); background: var(--zone); }
 .llm-name { flex: 1; min-width: 0; font-size: var(--t-3); font-weight: 600; margin: 0; }
+.llm-provider-live {
+  display: block;
+  margin-top: 1px;
+  color: var(--up);
+  font-size: var(--t-6);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
 /* 名字就是卡片标题，输入框藏成一根下划线，点了才现形 */
 .llm-name input {
   width: 100%;
@@ -1577,17 +1673,21 @@ td:last-child { color: var(--ink-2); }
   border: 0;
   background: transparent;
   color: color-mix(in oklch, var(--ink-3) 55%, transparent);
-  width: 30px;
-  height: 30px;
+  width: auto;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: 0;
+  padding: 0 8px;
+  gap: 4px;
   border-radius: var(--r);
+  font-size: var(--t-6);
+  white-space: nowrap;
 }
 .llm-live:hover { color: var(--ink-2); }
 .llm-live.is-on { color: var(--up); }
+.llm-live:disabled { cursor: default; }
 .llm-head-acts { display: inline-flex; gap: 6px; flex: none; }
 .llm-docs { text-decoration: none; display: inline-flex; align-items: center; }
 .llm-body { padding: 2px 14px 14px; }
@@ -1689,6 +1789,7 @@ td:last-child { color: var(--ink-2); }
   gap: 2px 18px;
   border-bottom: 1px solid var(--border);
   margin-top: 14px;
+  overflow-x: auto;
 }
 .llm-tab {
   border: 0;
@@ -1754,11 +1855,25 @@ td:last-child { color: var(--ink-2); }
   align-items: center;
   padding: 7px 12px;
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
+  cursor: default;
 }
 .llm-model:last-child { border-bottom: 0; }
 .llm-model:hover { background: var(--zone); }
-.llm-model-txt { min-width: 0; }
+.llm-model-pick {
+  min-width: 0;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--r);
+}
+.llm-model-pick:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--accent) 45%, transparent);
+}
 .llm-model strong {
   display: block;
   font-size: var(--t-4);
@@ -1797,6 +1912,17 @@ td:last-child { color: var(--ink-2); }
   vertical-align: 0.14em;
   font-weight: 500;
 }
+.llm-now.is-live { color: var(--up); border-color: color-mix(in oklch, var(--up) 48%, transparent); }
+.analysis-head small {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-3);
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.analysis-head > span { white-space: normal; }
 .llm-toggle {
   position: relative;
   width: 40px;
@@ -1832,4 +1958,9 @@ td:last-child { color: var(--ink-2); }
 .llm-add-card input { margin-top: 10px; }
 @media (max-width: 980px) {
   .llm-grid { grid-template-columns: 1fr; }
+  .llm-current { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .llm-head { flex-wrap: wrap; }
+  .llm-head-acts { width: 100%; padding-left: 76px; }
 }

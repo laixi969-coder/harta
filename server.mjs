@@ -32,7 +32,7 @@ import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
 import { checkPack, hasHardBlock } from "./lib/check.mjs";
-import { receiveAndAnalyzeMaterials } from "./lib/materials.mjs";
+import { receiveAndAnalyzeMaterials, updateMaterialAnalysis } from "./lib/materials.mjs";
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
@@ -118,14 +118,14 @@ function json(res, code, body, extra = {}) {
 
 function readBody(req) {
   const declared = Number(req.headers["content-length"] || 0);
-  if (declared > MAX_BODY) return Promise.reject(new Error("请求太大"));
+  if (declared > MAX_BODY) return Promise.reject(Object.assign(new Error("一次粘贴的内容太多，请按输入框标注的上限缩短"), { statusCode: 413 }));
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
     req.on("data", (c) => {
       size += c.length;
       if (size > MAX_BODY) {
-        reject(new Error("请求太大"));
+        reject(Object.assign(new Error("一次粘贴的内容太多，请按输入框标注的上限缩短"), { statusCode: 413 }));
         req.destroy();
         return;
       }
@@ -263,8 +263,25 @@ async function handleApi(req, res, url) {
       const batch = await receiveAndAnalyzeMaterials(req, user.email);
       return json(res, 200, batch);
     } catch (err) {
-      const detail = err?.code === 1009 ? "单个文件不能超过 60MB" : err.message;
+      const detail = err?.code === 1009
+        ? "文件合计不能超过 120MB"
+        : err?.code === 1016
+          ? "单个文件不能超过 60MB"
+          : err?.code === 1015
+            ? "文件最多 8 个"
+            : err.message;
       return json(res, 400, { error: detail || "资料读取失败" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/materials/analysis") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    try {
+      return json(res, 200, updateMaterialAnalysis(user.email, body.batchId, body.analysis));
+    } catch (err) {
+      return json(res, 400, { error: err.message || "资料梳理没有保存" });
     }
   }
 
@@ -375,6 +392,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const out = addLedger(user.email, body);
+    if (out.error) return json(res, 400, { error: out.error });
     return json(res, 200, { ...out, workspace: publicWorkspace(out.workspace) });
   }
 
@@ -597,7 +615,7 @@ const server = http.createServer(async (req, res) => {
     });
     fs.createReadStream(file).pipe(res);
   } catch (err) {
-    json(res, 500, { error: err.message || "服务器出错" });
+    json(res, err.statusCode || 500, { error: err.message || "服务器出错" });
   }
 });
 

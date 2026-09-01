@@ -15,7 +15,7 @@ const state = {
   platformFields: {},
   packId: "",
   openedId: "",
-  materials: { files: [], links: [], batch: null, busy: false },
+  materials: { files: [], links: [], batch: null, busy: false, editing: false },
   /* 模型接口那页的界面态：选中的分类、折叠的卡、处于编辑态的密钥/地址行。
    * 都不进后端，重画时照这些恢复现场。 */
   llmTabs: {},
@@ -25,6 +25,18 @@ const state = {
   llmAddOpen: {},
   llmFocus: "",
 };
+
+const MATERIAL_MAX_FILE = 60 * 1024 * 1024;
+const MATERIAL_MAX_TOTAL = 120 * 1024 * 1024;
+const MATERIAL_MAX_FILES = 8;
+const MATERIAL_MAX_LINKS = 8;
+const LINE_EDIT_MAX = 2000;
+const MATERIAL_EXTS = new Set([
+  "pdf", "docx", "doc", "pptx", "ppt", "xlsx", "xls", "odt", "rtf",
+  "txt", "md", "csv", "json", "html", "htm",
+  "jpg", "jpeg", "png", "webp", "gif", "heic", "heif",
+  "mp4", "mov", "m4v", "webm", "avi", "mkv",
+]);
 
 /* 客户名、文案、模型出的内容都会进 innerHTML，跟甲方页同一套转义 */
 const esc = (v) =>
@@ -41,6 +53,31 @@ function toast(t) {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => el.classList.add("hidden"), 3200);
 }
+
+function updateCharCount(input) {
+  if (!input?.id || !input.maxLength || input.maxLength < 0) return;
+  const counter = document.querySelector(`[data-char-count="${CSS.escape(input.id)}"]`);
+  if (!counter) return;
+  counter.textContent = `${input.value.length.toLocaleString("zh-CN")} / ${input.maxLength.toLocaleString("zh-CN")}`;
+  counter.classList.toggle("near-limit", input.value.length >= input.maxLength * 0.9);
+}
+
+function refreshCharCounts() {
+  document.querySelectorAll("[data-char-count]").forEach((counter) => {
+    updateCharCount(document.getElementById(counter.dataset.charCount));
+  });
+}
+
+document.addEventListener("input", (event) => updateCharCount(event.target));
+document.addEventListener("paste", (event) => {
+  const input = event.target.closest?.("input[maxlength], textarea[maxlength]");
+  if (!input || input.maxLength < 0) return;
+  const pasted = event.clipboardData?.getData("text") || "";
+  const selected = Math.max(0, (input.selectionEnd ?? 0) - (input.selectionStart ?? 0));
+  if (input.value.length - selected + pasted.length > input.maxLength) {
+    toast(`超过上限，只会粘贴到 ${input.maxLength.toLocaleString("zh-CN")} 字；其余内容不会保存`);
+  }
+});
 
 function applyTheme() {
   document.documentElement.setAttribute("data-theme", state.theme);
@@ -59,6 +96,7 @@ function humanBytes(bytes) {
 
 function invalidateMaterialBatch() {
   state.materials.batch = null;
+  state.materials.editing = false;
   document.getElementById("material-analysis")?.classList.add("hidden");
 }
 
@@ -121,7 +159,7 @@ function materialGroupsHtml(analysis) {
 function materialSourcesHtml(analysis, sources) {
   const notes = new Map((analysis.sourceNotes || []).map((note) => [note.id, note.summary]));
   if (!sources?.length) return "";
-  return `<div class="analysis-source-head"><span>逐份资料</span><span>${sources.length} 份</span></div>${sources
+  return `<div class="analysis-source-head"><span>逐份资料摘要</span><span>${sources.length} 份</span></div>${sources
     .map(
       (source, index) => `<div class="analysis-source-row">
         <span class="analysis-source-no">${String(index + 1).padStart(2, "0")}</span>
@@ -130,6 +168,20 @@ function materialSourcesHtml(analysis, sources) {
       </div>`,
     )
     .join("")}`;
+}
+
+function materialEngineText(analysis) {
+  const engine = analysis?.engine;
+  if (!engine?.model) return analysis?.editedAt ? "人工核对已保存" : "";
+  const provider = engine.providerName ? `${engine.providerName} · ` : "";
+  const mode = engine.mode ? ` · ${engine.mode}` : "";
+  const available = Number(engine.visualsAvailable || 0);
+  const sent = Number(engine.visualsSent || 0);
+  const visuals = available
+    ? ` · ${available > sent ? `均衡选取 ${sent}/${available}` : sent} 个画面`
+    : "";
+  const edited = analysis.editedAt ? " · 人工核对已保存" : "";
+  return `本次：${provider}${engine.model}${mode}${visuals}${edited}`;
 }
 
 function materialTranscriptsHtml(sources) {
@@ -144,23 +196,79 @@ function materialTranscriptsHtml(sources) {
     .join("");
 }
 
+const ANALYSIS_EDIT_FIELDS = [
+  ["offer", "产品 / 服务"],
+  ["audience", "资料明确的人群"],
+  ["proof", "可核验依据"],
+  ["risks", "待核对"],
+  ["missing", "还缺什么"],
+];
+
+function analysisEditTextarea({ id, label, value, max, rows = 4, attrs = "", hint = "" }) {
+  return `<label for="${id}">${esc(label)}</label>
+    <textarea id="${id}" rows="${rows}" maxlength="${max}" ${attrs}>${esc(value || "")}</textarea>
+    <p class="field-meta"><span>${esc(hint || `${max.toLocaleString("zh-CN")} 字以内`)}</span><span data-char-count="${id}">0 / ${max.toLocaleString("zh-CN")}</span></p>`;
+}
+
+function materialAnalysisEditorHtml(analysis, sources) {
+  const notes = new Map((analysis.sourceNotes || []).map((note) => [note.id, note.summary]));
+  const groups = ANALYSIS_EDIT_FIELDS.map(([key, label]) =>
+    analysisEditTextarea({
+      id: `analysis-edit-${key}`,
+      label: `${label}（一行一条）`,
+      value: (analysis[key] || []).join("\n"),
+      max: 4000,
+      rows: 5,
+      attrs: `data-analysis-list="${key}"`,
+      hint: "最多 12 条，每条 500 字，合计 4,000 字",
+    }),
+  ).join("");
+  const sourceRows = (sources || []).map((source, index) =>
+    analysisEditTextarea({
+      id: `analysis-edit-source-${index}`,
+      label: `${String(index + 1).padStart(2, "0")} · ${source.name}`,
+      value: notes.get(source.id) || source.note || "",
+      max: 1000,
+      rows: 3,
+      attrs: `data-analysis-source="${esc(source.id)}"`,
+    }),
+  ).join("");
+  return `<p class="meta analysis-edit-note">这里改的是梳理结果；原文件、抽取正文和语音转写保持原样，便于回查证据。</p>
+    ${analysisEditTextarea({ id: "analysis-edit-overview", label: "资料总览", value: analysis.overview, max: 3000, rows: 6 })}
+    ${analysisEditTextarea({ id: "analysis-edit-pitch", label: "档案卖点", value: analysis.suggestedPitch, max: 300, rows: 3 })}
+    <div class="analysis-edit-groups">${groups}</div>
+    <div class="analysis-edit-sources"><h4>逐份资料摘要</h4>${sourceRows}</div>
+    <div class="acts"><button class="btn" id="save-material-analysis" type="button">保存梳理</button><button class="btn ghost" id="cancel-material-analysis" type="button">取消</button></div>`;
+}
+
 function renderMaterialAnalysis(batch) {
   const analysis = batch?.analysis || {};
   const panel = document.getElementById("material-analysis");
   if (!panel) return;
   document.getElementById("analysis-overview").textContent = analysis.overview || "没有形成资料总览。";
+  document.getElementById("analysis-engine").textContent = materialEngineText(analysis);
   const pitch = document.getElementById("analysis-pitch");
   pitch.textContent = analysis.suggestedPitch ? `档案卖点：${analysis.suggestedPitch}` : "";
   pitch.classList.toggle("hidden", !analysis.suggestedPitch);
   document.getElementById("analysis-columns").innerHTML = materialGroupsHtml(analysis);
   document.getElementById("analysis-sources").innerHTML = materialSourcesHtml(analysis, batch.sources);
   document.getElementById("analysis-transcripts").innerHTML = materialTranscriptsHtml(batch.sources);
+  const readonly = document.getElementById("analysis-readonly");
+  const editor = document.getElementById("analysis-editor");
+  const editing = Boolean(state.materials.editing);
+  readonly?.classList.toggle("hidden", editing);
+  editor?.classList.toggle("hidden", !editing);
+  if (editor) editor.innerHTML = editing ? materialAnalysisEditorHtml(analysis, batch.sources) : "";
   const warning = document.getElementById("analysis-warning");
   warning.textContent = analysis.warning || "";
   warning.classList.toggle("hidden", !analysis.warning);
   const use = document.getElementById("use-material-pitch");
   use.disabled = !analysis.suggestedPitch;
+  const edit = document.getElementById("edit-material-analysis");
+  edit.disabled = editing;
+  edit.textContent = editing ? "正在编辑" : "编辑梳理";
   panel.classList.remove("hidden");
+  refreshCharCounts();
 }
 
 function renderCustomerMaterialRecord(customer) {
@@ -172,6 +280,7 @@ function renderCustomerMaterialRecord(customer) {
   panel.classList.toggle("hidden", !hasRecord);
   if (!hasRecord) return;
   document.getElementById("material-record-count").textContent = `附件 / ${String(sources.length).padStart(2, "0")}`;
+  document.getElementById("material-record-engine").textContent = materialEngineText(analysis);
   document.getElementById("material-record-overview").textContent = analysis.overview || "资料已归档，尚未形成总览。";
   const pitch = document.getElementById("material-record-pitch");
   pitch.textContent = analysis.suggestedPitch ? `档案卖点：${analysis.suggestedPitch}` : "";
@@ -186,10 +295,37 @@ function renderCustomerMaterialRecord(customer) {
 
 function addMaterialFiles(files) {
   const current = new Map(state.materials.files.map((f) => [`${f.name}:${f.size}:${f.lastModified}`, f]));
-  for (const file of files || []) current.set(`${file.name}:${file.size}:${file.lastModified}`, file);
-  state.materials.files = [...current.values()].slice(0, 8);
+  const rejected = [];
+  for (const file of files || []) {
+    const ext = String(file.name || "").split(".").pop()?.toLowerCase() || "";
+    if (!MATERIAL_EXTS.has(ext)) {
+      rejected.push(`${file.name} 格式不支持`);
+      continue;
+    }
+    if (file.size > MATERIAL_MAX_FILE) {
+      rejected.push(`${file.name} 超过 60MB`);
+      continue;
+    }
+    current.set(`${file.name}:${file.size}:${file.lastModified}`, file);
+  }
+  const kept = [];
+  let total = 0;
+  for (const file of current.values()) {
+    if (kept.length >= MATERIAL_MAX_FILES) {
+      rejected.push("文件最多 8 个");
+      break;
+    }
+    if (total + file.size > MATERIAL_MAX_TOTAL) {
+      rejected.push("文件合计不能超过 120MB");
+      continue;
+    }
+    kept.push(file);
+    total += file.size;
+  }
+  state.materials.files = kept;
   invalidateMaterialBatch();
   renderMaterialQueue();
+  if (rejected.length) toast([...new Set(rejected)].join("；"));
 }
 
 function nav(view) {
@@ -933,6 +1069,8 @@ function bind() {
       ta.value = p.textContent;
       ta.rows = Math.min(8, Math.ceil(p.textContent.length / 28) + 1);
       ta.className = "edit-box";
+      ta.maxLength = LINE_EDIT_MAX;
+      ta.title = `最多 ${LINE_EDIT_MAX.toLocaleString("zh-CN")} 字`;
       p.replaceWith(ta);
       ta.focus();
       const save = async (text) => {
@@ -952,6 +1090,8 @@ function bind() {
             again.value = text;
             again.rows = Math.min(8, Math.ceil(text.length / 28) + 1);
             again.className = "edit-box";
+            again.maxLength = LINE_EDIT_MAX;
+            again.title = `最多 ${LINE_EDIT_MAX.toLocaleString("zh-CN")} 字`;
             target.replaceWith(again);
             again.focus();
           }
@@ -1024,7 +1164,7 @@ async function useCustomer(id, packId) {
 
 const MODEL_CATS = [
   { key: "text", label: "文本" },
-  { key: "image", label: "图像" },
+  { key: "image", label: "图像 / 视觉" },
   { key: "video", label: "视频" },
   { key: "audio", label: "音频" },
 ];
@@ -1089,18 +1229,18 @@ function providerCard(id, p, active) {
           <button type="button" class="llm-key-edit" data-llm-key-edit="${esc(id)}" aria-label="修改密钥">${ICON_PEN}</button>
         </div>`
       : `<div class="pass-wrap">
-          <input id="llm-key-${esc(id)}" data-llm-key="${esc(id)}" type="password" autocomplete="off" placeholder="${p.hasKey ? "输入新的 API Key，留空不改" : "粘贴这个渠道的 API Key"}">
+          <input id="llm-key-${esc(id)}" data-llm-key="${esc(id)}" type="password" autocomplete="off" maxlength="4096" title="API Key 最多 4096 个字符" placeholder="${p.hasKey ? "输入新的 API Key，留空不改" : "粘贴这个渠道的 API Key"}">
           <button type="button" class="eye" data-eye="llm-key-${esc(id)}" aria-label="显示密钥" aria-pressed="false">${ICON_EYE}</button>
         </div>`;
 
   const baseRow =
     p.baseUrl || state.llmBaseEdit[id]
-      ? `<input id="llm-base-${esc(id)}" data-llm-base="${esc(id)}" value="${esc(p.baseUrl || "")}" data-orig="${esc(p.baseUrl || "")}" placeholder="https://… OpenAI 兼容地址" spellcheck="false">`
+      ? `<input id="llm-base-${esc(id)}" data-llm-base="${esc(id)}" value="${esc(p.baseUrl || "")}" data-orig="${esc(p.baseUrl || "")}" maxlength="2048" title="接口地址最多 2048 个字符" placeholder="https://… OpenAI 兼容地址" spellcheck="false">`
       : `<button type="button" class="llm-base-add" data-llm-base-edit="${esc(id)}">＋ 配置地址</button>`;
 
   const addRow = state.llmAddOpen[id]
     ? `<div class="llm-add-row">
-        <input data-llm-model-new="${esc(id)}" placeholder="模型名或火山 endpoint，回车加上" spellcheck="false">
+        <input data-llm-model-new="${esc(id)}" maxlength="256" title="模型名最多 256 个字符" placeholder="模型名或火山 endpoint，回车加上" spellcheck="false">
         <button class="do" type="button" data-llm-model-new-save="${esc(id)}">加上</button>
       </div>`
     : "";
@@ -1108,11 +1248,11 @@ function providerCard(id, p, active) {
   const modelRows = shown.length
     ? shown
         .map(
-          ({ m, on }) => `<div class="llm-model${on ? "" : " is-off"}${m === p.model ? " is-current" : ""}" data-llm-pick="${esc(id)}" data-model="${esc(m)}" title="点一下就用这个模型出档">
-          <div class="llm-model-txt">
-            <strong>${esc(modelPretty(m))}${m === p.model ? '<span class="llm-now">当前</span>' : ""}</strong>
+          ({ m, on }) => `<div class="llm-model${on ? "" : " is-off"}${m === p.model ? " is-current" : ""}">
+          <button type="button" class="llm-model-pick" data-llm-pick="${esc(id)}" data-model="${esc(m)}" data-active="${isActive}" aria-pressed="${m === p.model}" title="${isActive ? "点一下就用这个模型出档" : "先为这个渠道选模型；点卡片顶部闪电后才会实际使用"}">
+            <strong>${esc(modelPretty(m))}${m === p.model ? `<span class="llm-now${isActive ? " is-live" : ""}">${isActive ? "正在使用" : "渠道预选"}</span>` : ""}</strong>
             <code>${esc(m)}</code>
-          </div>
+          </button>
           <button type="button" class="llm-toggle${on ? " is-on" : ""}" role="switch" aria-checked="${on}" aria-label="启用 ${esc(m)}" data-llm-toggle="${esc(id)}" data-model="${esc(m)}"><span class="llm-knob"></span></button>
         </div>`,
         )
@@ -1123,34 +1263,31 @@ function providerCard(id, p, active) {
           : "还没有模型。填好密钥点「同步最新模型」拉清单；火山 endpoint 这类不在清单里的，用「＋ 添加」补。"
       }</p></div>`;
 
-  const visionBlock =
-    tab === "image"
-      ? `<div class="llm-vision">
-          <label class="llm-field-k" for="llm-vision-${esc(id)}">图片能力</label>
+  const visionBlock = `<div class="llm-vision">
+          <label class="llm-field-k" for="llm-vision-${esc(id)}">所选模型的图片读取</label>
           <select id="llm-vision-${esc(id)}" data-llm-vision="${esc(id)}">
             <option value="auto" ${p.vision === "auto" ? "selected" : ""}>自动判断</option>
             <option value="on" ${p.vision === "on" ? "selected" : ""}>支持图片</option>
             <option value="off" ${p.vision === "off" ? "selected" : ""}>仅文本</option>
           </select>
-          <button class="do" type="button" data-llm-vision-test="${esc(id)}">图片测试</button>
+          <button class="do" type="button" data-llm-vision-test="${esc(id)}" ${p.model ? "" : "disabled"}>图片测试</button>
         </div>
-        <p class="meta">${esc(visionLine)}</p>`
-      : "";
+        <p class="meta">${p.model ? esc(visionLine) : "先选一个模型，再确认它能不能读取图片"}</p>`;
 
   const syncLine = p.lastSyncAt ? ` · 上次同步 ${new Date(p.lastSyncAt).toLocaleDateString("zh-CN")}` : "";
 
   return `<article class="llm-card${folded ? " is-folded" : ""}${isActive ? " is-active" : ""}" data-provider="${esc(id)}">
     <header class="llm-head">
-      <span class="llm-grip" data-llm-grip="${esc(id)}" title="拖动排序">${ICON_GRIP}</span>
+      <button type="button" class="llm-grip" data-llm-grip="${esc(id)}" title="拖动排序；也可用上下方向键移动" aria-label="调整 ${esc(p.name)} 的顺序">${ICON_GRIP}</button>
       <button type="button" class="llm-fold" data-llm-fold="${esc(id)}" aria-expanded="${folded ? "false" : "true"}" aria-label="${folded ? "展开这张卡" : "收起这张卡"}">
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${folded ? '<path d="M12 5v14M5 12h14"/>' : '<path d="M5 12h14"/>'}</svg>
       </button>
       <h2 class="llm-name">${
         p.builtin
           ? esc(p.name)
-          : `<input data-llm-name="${esc(id)}" value="${esc(p.name || "")}" data-orig="${esc(p.name || "")}" placeholder="起个名字，比如 火山方舟" aria-label="渠道名字">`
-      }</h2>
-      <button type="button" class="llm-live${isActive ? " is-on" : ""}" data-llm-use="${esc(id)}" title="${isActive ? "正在用这个渠道出档" : "点闪电切到这个渠道"}" aria-label="${isActive ? "当前渠道" : "设为当前渠道"}">${ICON_BOLT}</button>
+          : `<input data-llm-name="${esc(id)}" value="${esc(p.name || "")}" data-orig="${esc(p.name || "")}" maxlength="20" placeholder="起个名字，比如 火山方舟" aria-label="渠道名字，最多 20 字">`
+      }${isActive ? '<small class="llm-provider-live">当前出档渠道</small>' : ""}</h2>
+      <button type="button" class="llm-live${isActive ? " is-on" : ""}" data-llm-use="${esc(id)}" title="${isActive ? "正在用这个渠道出档" : "切换后，该渠道预选的模型会用于常规出档"}" aria-label="${isActive ? "当前渠道" : "设为当前渠道"}" ${isActive ? "disabled" : ""}>${ICON_BOLT}<span>${isActive ? "当前渠道" : "设为当前"}</span></button>
       <span class="llm-head-acts">
         <button class="do" type="button" data-llm-test="${esc(id)}">测试连接</button>
         ${p.docsUrl ? `<a class="do llm-docs" href="${esc(p.docsUrl)}" target="_blank" rel="noreferrer">开通教程</a>` : ""}
@@ -1193,19 +1330,39 @@ async function loadLlm() {
     return;
   }
   const data = await res.json();
+  const activeProvider = data.providers[data.active];
+  const activeReady = Boolean(activeProvider?.hasKey && activeProvider?.baseUrl && activeProvider?.model);
+  const activeVision = {
+    verified: "图片能力已实测通过",
+    on: "已指定支持图片",
+    likely: "按模型名判断可读图片，建议做一次图片测试",
+    failed: "图片测试未通过",
+    off: "已指定仅文本",
+    text: "按模型名判断为仅文本",
+    unknown: "图片能力尚未确认",
+  }[activeProvider?.visionStatus || "unknown"];
+  const activeSummary = activeProvider
+    ? `<article class="llm-current ${activeReady ? "is-ready" : "is-missing"}">
+        <span class="llm-current-k">实际使用中的模型</span>
+        <strong>${esc(activeProvider.name)} · ${activeProvider.model ? esc(modelPretty(activeProvider.model)) : "尚未选择模型"}</strong>
+        ${activeProvider.model ? `<code>${esc(activeProvider.model)}</code>` : ""}
+        <p>${esc(activeVision)}。普通出档和纯文字资料只用这一组。其他渠道里的「渠道预选」不参与常规任务。资料含图片或视频画面时，先试当前渠道，再按卡片顺序尝试其他视觉模型；梳理结果会注明本次实际使用者。</p>
+      </article>`
+    : "";
   // 一个人可能同时挂着火山、硅基流动、一个自建中转，所以自定义接口不止一个
   const cards = Object.entries(data.providers)
     .map(([id, p]) => providerCard(id, p, data.active))
     .join("");
   box.innerHTML = `<article class="card">
       <h2>模型接口</h2>
-      <p class="meta">一个接口一张卡，模型按新到旧排列，默认不替你选择。点模型名才会用它，开关关掉的不会被选上。</p>
+      <p class="meta">先在渠道内选择模型，再点卡片顶部的闪电切换实际渠道。常规出档始终只有一个「正在使用」的模型。</p>
     </article>
+    ${activeSummary}
     <div class="llm-grid" id="llm-grid">${cards}
       <article class="llm-card llm-add-card">
         <strong>再加一个接口</strong>
         <p class="meta">任何 OpenAI 兼容的地址都行。加好之后跟上面几张一样填密钥、同步模型。</p>
-        <input id="llm-new-name" placeholder="好认就行，比如 火山方舟">
+        <input id="llm-new-name" maxlength="20" placeholder="好认就行，比如 火山方舟（最多 20 字）">
         <div class="acts"><button class="do" id="llm-add" type="button">加上</button></div>
       </article>
     </div>`;
@@ -1222,7 +1379,9 @@ async function loadLlm() {
           ? `[data-llm-base="${CSS.escape(fid)}"]`
           : field === "add"
             ? `[data-llm-model-new="${CSS.escape(fid)}"]`
-            : "";
+            : field === "grip"
+              ? `[data-llm-grip="${CSS.escape(fid)}"]`
+              : "";
     const el = sel ? box.querySelector(sel) : null;
     if (el) {
       el.focus();
@@ -1351,6 +1510,7 @@ async function boot() {
   renderLedgerForm();
   document.getElementById("ledger-client")?.addEventListener("change", renderLedgerLines);
   bind();
+  refreshCharCounts();
   nav("today");
   // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」
   const busy = usingCustomer();
@@ -1567,7 +1727,15 @@ document.getElementById("add-material-link")?.addEventListener("click", () => {
     const url = new URL(raw);
     if (!["http:", "https:"].includes(url.protocol)) throw new Error();
     const normalized = url.toString();
-    if (!state.materials.links.includes(normalized)) state.materials.links.push(normalized);
+    if (state.materials.links.includes(normalized)) {
+      toast("这个链接已经加入");
+      return;
+    }
+    if (state.materials.links.length >= MATERIAL_MAX_LINKS) {
+      toast("网页链接最多 8 条");
+      return;
+    }
+    state.materials.links.push(normalized);
     input.value = "";
     invalidateMaterialBatch();
     renderMaterialQueue();
@@ -1616,9 +1784,10 @@ document.getElementById("analyze-materials")?.addEventListener("click", async ()
       return;
     }
     state.materials.batch = data;
+    state.materials.editing = false;
     renderMaterialQueue();
     renderMaterialAnalysis(data);
-    toast("资料已归档并梳理，可以核对后建档");
+    toast(data.analysis?.warning ? "资料已归档，但有内容未读到，请核对下方提示" : "资料已归档并梳理，可以核对后建档");
   } catch {
     toast("网络不通，请再试");
     status.textContent = "读取没有完成，请再试";
@@ -1629,19 +1798,87 @@ document.getElementById("analyze-materials")?.addEventListener("click", async ()
   }
 });
 
+document.getElementById("edit-material-analysis")?.addEventListener("click", () => {
+  if (!state.materials.batch || state.materials.busy) return;
+  state.materials.editing = true;
+  renderMaterialAnalysis(state.materials.batch);
+  document.getElementById("analysis-edit-overview")?.focus();
+});
+
+document.getElementById("analysis-editor")?.addEventListener("click", async (event) => {
+  if (event.target.closest("#cancel-material-analysis")) {
+    state.materials.editing = false;
+    renderMaterialAnalysis(state.materials.batch);
+    toast("已取消，梳理内容没有改动");
+    return;
+  }
+  const save = event.target.closest("#save-material-analysis");
+  if (!save || !state.materials.batch || state.materials.busy) return;
+  const editor = document.getElementById("analysis-editor");
+  const list = (key) => (editor.querySelector(`[data-analysis-list="${key}"]`)?.value || "")
+    .split(/\n+/)
+    .map((row) => row.trim())
+    .filter(Boolean);
+  const analysis = {
+    overview: editor.querySelector("#analysis-edit-overview")?.value || "",
+    suggestedPitch: editor.querySelector("#analysis-edit-pitch")?.value || "",
+    offer: list("offer"),
+    audience: list("audience"),
+    proof: list("proof"),
+    risks: list("risks"),
+    missing: list("missing"),
+    sourceNotes: [...editor.querySelectorAll("[data-analysis-source]")].map((input) => ({
+      id: input.dataset.analysisSource,
+      summary: input.value,
+    })),
+  };
+  state.materials.busy = true;
+  save.disabled = true;
+  save.textContent = "正在保存…";
+  try {
+    const res = await fetch("/api/materials/analysis", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ batchId: state.materials.batch.id, analysis }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || "资料梳理没有保存");
+      save.disabled = false;
+      save.textContent = "保存梳理";
+      return;
+    }
+    state.materials.batch = data;
+    state.materials.editing = false;
+    renderMaterialAnalysis(data);
+    toast("梳理已保存，建档和后续重出都会使用这一版");
+  } catch {
+    toast("网络不通，梳理还没有保存");
+    save.disabled = false;
+    save.textContent = "保存梳理";
+  } finally {
+    state.materials.busy = false;
+  }
+});
+
 document.getElementById("use-material-pitch")?.addEventListener("click", () => {
   const pitch = state.materials.batch?.analysis?.suggestedPitch;
   const input = document.getElementById("pitch");
   if (!pitch || !input) return;
-  input.value = pitch;
+  input.value = pitch.slice(0, input.maxLength || pitch.length);
+  updateCharCount(input);
   input.focus();
-  toast("已填入一句话卖点，你可以继续修改");
+  toast(pitch.length > input.maxLength ? `建议超过 ${input.maxLength} 字，已保留前 ${input.maxLength} 字` : "已填入一句话卖点，你可以继续修改");
 });
 
 document.getElementById("create-customer")?.addEventListener("click", async () => {
   const btn = document.getElementById("create-customer");
   if (state.materials.busy) {
     toast("资料还在读取，读完再建档");
+    return;
+  }
+  if (state.materials.editing) {
+    toast("先保存或取消资料梳理的修改，再建档");
     return;
   }
   if ((state.materials.files.length || state.materials.links.length) && !state.materials.batch) {
@@ -1704,7 +1941,8 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
-    state.materials = { files: [], links: [], batch: null, busy: false };
+    refreshCharCounts();
+    state.materials = { files: [], links: [], batch: null, busy: false, editing: false };
     document.getElementById("material-analysis")?.classList.add("hidden");
     renderMaterialQueue();
     renderToday();
@@ -1736,13 +1974,14 @@ document.getElementById("add-ledger")?.addEventListener("click", async () => {
       line: document.getElementById("ledger-line")?.value || "",
     }),
   });
-  if (!res.ok) return toast("没记上，再试一次");
   const data = await res.json();
+  if (!res.ok) return toast(data.error || "没记上，再试一次");
   state.workspace = data.workspace;
   const talkBox = document.getElementById("ledger-talk");
   const quoteBox = document.getElementById("ledger-quote");
   if (talkBox) talkBox.value = "";
   if (quoteBox) quoteBox.value = "";
+  refreshCharCounts();
   renderLedger();
   renderLedgerLines();
   // 刚记的这笔可能让「上次有效」冒出来，今天那一页要跟着变
@@ -1877,14 +2116,16 @@ document.body.addEventListener("click", async (e) => {
   }
   const pick = e.target.closest("[data-llm-pick]");
   if (pick) {
-    const wasOn = pick.querySelector(".llm-toggle")?.getAttribute("aria-checked") === "true";
+    const wasOn = pick.closest(".llm-model")?.querySelector(".llm-toggle")?.getAttribute("aria-checked") === "true";
     const res = await fetch("/api/llm/model", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: pick.dataset.llmPick, model: pick.dataset.model, action: "use" }),
     });
     const data = await res.json();
-    toast(res.ok ? (wasOn ? "已选为当前模型" : "已打开并选为当前模型") : data.error || "没选上");
+    const live = pick.dataset.active === "true";
+    const picked = live ? "已设为正在使用的模型" : "已设为该渠道预选模型";
+    toast(res.ok ? (wasOn ? picked : `已打开，${picked}`) : data.error || "没选上");
     if (res.ok) loadLlm();
     return;
   }
@@ -1915,6 +2156,9 @@ document.body.addEventListener("click", async (e) => {
     || hit?.dataset.llmVisionTest || hit?.dataset.llmUse || hit?.dataset.llmDel;
   if (!id) return;
   if (del) {
+    const card = del.closest(".llm-card");
+    const name = card?.querySelector("[data-llm-name]")?.value || card?.querySelector(".llm-name")?.childNodes?.[0]?.textContent?.trim() || "这个接口";
+    if (!confirm(`删掉「${name}」？密钥、地址和模型选择都会一起删除，不能撤销。`)) return;
     const res = await fetch("/api/llm/remove", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -2063,6 +2307,36 @@ document.body.addEventListener("keydown", (e) => {
 
 /* 拖动排序：只在捏住左上角手柄时整卡可拖，免得名字输入框没法选字 */
 let llmDragCard = null;
+async function saveLlmOrder() {
+  const ids = [...document.querySelectorAll("#llm-box .llm-card[data-provider]")].map((el) => el.dataset.provider);
+  const res = await fetch("/api/llm/reorder", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    toast(data.error || "顺序没存上");
+  }
+  await loadLlm();
+}
+
+document.body.addEventListener("keydown", async (e) => {
+  const grip = e.target.closest?.("[data-llm-grip]");
+  if (!grip || !["ArrowUp", "ArrowDown"].includes(e.key)) return;
+  const card = grip.closest(".llm-card[data-provider]");
+  const cards = [...document.querySelectorAll("#llm-box .llm-card[data-provider]")];
+  const index = cards.indexOf(card);
+  const nextIndex = e.key === "ArrowUp" ? index - 1 : index + 1;
+  const target = cards[nextIndex];
+  if (!card || !target) return;
+  e.preventDefault();
+  if (e.key === "ArrowUp") card.parentNode.insertBefore(card, target);
+  else card.parentNode.insertBefore(card, target.nextSibling);
+  state.llmFocus = `grip:${card.dataset.provider}`;
+  await saveLlmOrder();
+});
+
 document.body.addEventListener("mousedown", (e) => {
   const grip = e.target.closest?.("[data-llm-grip]");
   if (!grip) return;
@@ -2095,17 +2369,7 @@ document.body.addEventListener("dragend", async () => {
   llmDragCard = null;
   card.draggable = false;
   card.classList.remove("is-dragging");
-  const ids = [...document.querySelectorAll("#llm-box .llm-card[data-provider]")].map((el) => el.dataset.provider);
-  const res = await fetch("/api/llm/reorder", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ids }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    toast(data.error || "顺序没存上");
-  }
-  loadLlm();
+  await saveLlmOrder();
 });
 
 boot();
