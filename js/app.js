@@ -1,6 +1,11 @@
 import { bindEyes } from "./eyes.js";
 import { copyKey, editOf, edited, shellKey } from "./pack-edits.js";
 import { lastEffective, rankCopyGroups, rankShells } from "./rank-feedback.js";
+import {
+  artifactsForCustomer,
+  clientPacksForCustomer,
+  latestAttributablePack,
+} from "./customer-view.js";
 
 const state = {
   view: "today",
@@ -214,9 +219,7 @@ function usingCustomer() {
 }
 
 function packsOf(customer) {
-  if (!customer) return [];
-  if (customer.track === "存量") return [...(customer.drops || []), ...(customer.packs || [])];
-  return customer.packs || [];
+  return artifactsForCustomer(customer);
 }
 
 function currentPack() {
@@ -363,6 +366,7 @@ function renderToday() {
   ];
   const blockedTexts = new Set(hardRows.map((row) => String(row.text || "")).filter(Boolean));
   const batchQualityFail = (pack?.checks?.quality || []).some((row) => row.level === "hard" && row.scope === "batch");
+  const publishBlocked = hardRows.length > 0;
   const copyButton = (text, label = "复制") =>
     batchQualityFail || blockedTexts.has(String(text || ""))
       ? `<button type="button" class="do" disabled title="这句质量或红线过不了，先改或重出">先改再复制</button>`
@@ -428,7 +432,11 @@ function renderToday() {
   if (trackEl) trackEl.textContent = mine.track || "未标明种类";
   document.getElementById("using-hunt").textContent = mine.hunt;
   document.getElementById("using-stamp").textContent =
-    pack.evidence === "D" ? `${pack.tier}\n赛道判断` : `${pack.tier}\n证据${pack.evidence}`;
+    pack.tier === "今日"
+      ? "今日\n内容"
+      : pack.evidence === "D"
+        ? `${pack.tier}\n赛道判断`
+        : `${pack.tier}\n证据${pack.evidence}`;
   document.getElementById("using-meta").textContent =
     `${mine.pitch} · ${mine.city || ""} · ${pack.evidenceNote || ""}`;
   document.getElementById("pack-title").textContent = `当时标题：${pack.title}`;
@@ -632,6 +640,8 @@ function renderToday() {
     })
     .join("")}</div>`;
 
+  const breaksCard = document.getElementById("breaks-card");
+  breaksCard?.classList.toggle("hidden", !(pack.breakdowns || []).length);
   document.getElementById("breaks").innerHTML = `<div class="notes">${(pack.breakdowns || [])
     .map((b) => `<article class="note"><h3>${esc(b.copy)}</h3><p>${esc(b.why)}</p></article>`)
     .join("")}</div>`;
@@ -759,6 +769,8 @@ function renderToday() {
     platBox.innerHTML = `<div class="field-col">${only.map((s) => platBlock(s, kind)).join("")}</div>`;
   }
 
+  const hasDelivery = Boolean(pack.testPath || pack.supply || pack.honest || (pack.next || []).length);
+  document.getElementById("delivery-card")?.classList.toggle("hidden", !hasDelivery);
   document.getElementById("delivery").innerHTML = `
     <div class="folio folio-3">
       <div class="folio-cell is-who">
@@ -822,7 +834,7 @@ function renderPackIndex() {
   const box = document.getElementById("pack-list");
   if (!box) return;
   const rows = (state.workspace.customers || []).flatMap((c) =>
-    packsOf(c).map((p) => ({ customer: c, pack: p })),
+    clientPacksForCustomer(c).map((p) => ({ customer: c, pack: p })),
   );
   box.innerHTML = rows.length
     ? rows
@@ -877,7 +889,7 @@ function renderLedgerLines() {
   if (!sel) return;
   const id = document.getElementById("ledger-client")?.value || "";
   const c = (state.workspace.customers || []).find((x) => x.id === id);
-  const pack = (c?.packs || [])[0];
+  const pack = latestAttributablePack(c);
   const groups = pack ? Object.entries(pack.copies || {}) : [];
   sel.innerHTML =
     `<option value="">这次不挂某一条</option>` +
