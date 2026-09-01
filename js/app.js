@@ -3,6 +3,7 @@ import { copyKey, editOf, edited, shellKey } from "./pack-edits.js";
 import { lastEffective, rankCopyGroups, rankShells } from "./rank-feedback.js";
 import {
   artifactsForCustomer,
+  canRepackCustomer,
   clientPacksForCustomer,
   latestAttributablePack,
 } from "./customer-view.js";
@@ -389,16 +390,14 @@ function renderToday() {
   const busy = Boolean(mine.job);
   const repack = document.getElementById("go-repack");
   if (repack) {
-    repack.classList.toggle("hidden", !mine.id);
+    repack.classList.toggle("hidden", !canRepackCustomer(mine));
     repack.dataset.customer = mine.id || "";
     repack.disabled = busy;
     repack.textContent = busy
       ? `正在${mine.job.kind}…`
-      : mine.track === "存量"
-        ? "重出今日"
-        : pack
-          ? "重出这份判断"
-          : "重出";
+      : pack
+        ? "重出这份判断"
+        : "重出";
   }
 
   const goToday = document.getElementById("go-today");
@@ -406,7 +405,11 @@ function renderToday() {
     goToday.classList.toggle("hidden", mine.track !== "存量");
     goToday.dataset.customer = mine.id || "";
     goToday.disabled = busy;
-    goToday.textContent = busy ? `正在${mine.job?.kind}…` : pack?.tier === "今日" ? "再出一批（50 条）" : "出今日一批（50 条）";
+    goToday.textContent = busy
+      ? `正在${mine.job?.kind}…`
+      : pack?.tier === "今日"
+        ? "再出一批（每次 50 条）"
+        : "出一批（每次 50 条）";
   }
 
   const noPack = document.getElementById("no-pack");
@@ -1473,7 +1476,7 @@ document.getElementById("go-today")?.addEventListener("click", async (e) => {
   if (!customerId) return;
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "正在出今日…";
+  btn.textContent = "正在出一批…";
   try {
     const res = await fetch("/api/today", {
       method: "POST",
@@ -1482,13 +1485,13 @@ document.getElementById("go-today")?.addEventListener("click", async (e) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      toast(data.error || "出今日失败");
+      toast(data.error || "出这一批失败");
       return;
     }
     state.workspace = data;
     state.packId = "";
     renderToday();
-    toast("正在出今日内容，出好了这里会自己刷新");
+    toast("正在出一批 50 条内容，出好了这里会自己刷新");
     watchJob(customerId);
   } catch {
     toast("网络不通，请再试");
@@ -1683,7 +1686,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     state.workspace = data;
     state.packId = "";
     state.openedId = data.usingId || "";
-    toast(track === "存量" ? "客户已建好，正在出今日内容" : "客户已建好，正在出判断");
+    toast(track === "存量" ? "客户已建好，正在出第一批 50 条内容" : "客户已建好，正在出判断");
     watchJob(data.usingId);
     const sel = document.getElementById("hunt");
     if (sel && sel.value === "__new__") {
@@ -1781,7 +1784,7 @@ document.body.addEventListener("click", async (e) => {
     state.workspace = data;
     renderToday();
     renderCustomers();
-    toast(track === "存量" ? "已标为存量，可以出今日内容" : "已标为拓新，有资料再出判断");
+    toast(track === "存量" ? "已标为存量，每次可出一批 50 条内容" : "已标为拓新，有资料再出判断");
     return;
   }
   const using = e.target.closest("[data-using]");

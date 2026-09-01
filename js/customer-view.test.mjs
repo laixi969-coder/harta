@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   artifactsForCustomer,
+  canRepackCustomer,
   clientPacksForCustomer,
   latestAttributablePack,
 } from "./customer-view.js";
@@ -24,5 +25,11 @@ describe("客户档案在不同用户路径里的边界", () => {
   it("拓新客户仍只使用判断档", () => {
     const prospect = { track: "拓新", drops: [{ id: "legacy" }], packs: [{ id: "judgment" }] };
     expect(artifactsForCustomer(prospect).map((p) => p.id)).toEqual(["judgment"]);
+  });
+
+  it("存量只显示一个出批入口，不再同时显示等价的重出按钮", () => {
+    expect(canRepackCustomer({ id: "retained", track: "存量" })).toBe(false);
+    expect(canRepackCustomer({ id: "prospect", track: "拓新" })).toBe(true);
+    expect(canRepackCustomer({ id: "legacy-without-track" })).toBe(false);
   });
 });

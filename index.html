@@ -95,7 +95,7 @@
         <!-- 重出放在 pack-body 外面：没出成的时候 pack-body 整块是藏起来的，
              按钮跟着藏了，正好在最需要它的时候点不到 -->
         <div class="acts" style="margin:0 0 20px">
-          <button class="btn hidden" id="go-today" type="button">出今日一批（50 条）</button>
+          <button class="btn hidden" id="go-today" type="button">出一批（每次 50 条）</button>
           <button class="btn ghost hidden" id="go-repack" type="button">重出这份档</button>
         </div>
         <div id="pack-body">
@@ -190,7 +190,7 @@
             <label class="choice">
               <input type="radio" name="track" value="存量">
               <span class="choice-title">存量</span>
-              <span class="choice-note">已经在合作，直接出每日内容</span>
+              <span class="choice-note">已经在合作，直接出一批内容，每次 50 条</span>
             </label>
             <label class="choice">
               <input type="radio" name="track" value="拓新">
@@ -244,7 +244,7 @@
           </div>
           <label for="cmaterial">销售补充（可选）</label>
           <textarea id="cmaterial" placeholder="会议信息、客户原话、暂时没有文件的材料"></textarea>
-          <p class="meta">拓新：资料读取成功后才出判断，没读到只出侦察。存量：不经过判断，建完就出今日内容。</p>
+          <p class="meta">拓新：资料读取成功后才出判断，没读到只出侦察。存量：不经过判断，建完就出一批；每次 50 条，同一天可以再出。</p>
           <div class="acts"><button class="btn" id="create-customer" type="button">建档</button></div>
         </article>
       </section>
@@ -340,6 +340,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260901a"></script>
+  <script type="module" src="js/app.js?v=20260901b"></script>
 </body>
 </html>

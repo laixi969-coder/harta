@@ -14,3 +14,8 @@ export function clientPacksForCustomer(customer) {
 export function latestAttributablePack(customer) {
   return artifactsForCustomer(customer)[0] || null;
 }
+
+/** 存量只有一个“出一批”入口；重出按钮只属于拓新的判断报告。 */
+export function canRepackCustomer(customer) {
+  return Boolean(customer?.id && customer.track === "拓新");
+}
