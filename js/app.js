@@ -484,7 +484,9 @@ function renderDesk() {
       title: c.name,
       chips: `${c.hunt ? chip(c.hunt) : ""}${extraChip || ""}`,
       meta: esc(c.reason || ""),
-      actions: `<button type="button" class="go" data-using="${c.id}" data-act="${act || ""}">${action}</button>`,
+      actions: c.busy
+        ? `<button type="button" class="go" disabled>正在出档…</button>`
+        : `<button type="button" class="go" data-using="${c.id}" data-act="${act || ""}">${action}</button>`,
     });
   if (sendBox) {
     sendBox.innerHTML = desk.send?.length
@@ -1616,9 +1618,11 @@ async function boot() {
   bind();
   refreshCharCounts();
   nav("today");
-  // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」
-  const busy = usingCustomer();
-  if (busy?.job) watchJob(busy.id);
+  // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」。
+  // 可能不止一个在跑，全都盯上。
+  for (const c of state.workspace.customers || []) {
+    if (c.job) watchJob(c.id);
+  }
   if (user.isAdmin) {
     loadLlm();
     loadUsers();
@@ -1681,23 +1685,37 @@ document.getElementById("go-full")?.addEventListener("click", async (e) => {
   }
 });
 
-/* 出档要一两分钟。点完立刻返回，这里每 4 秒问一次，客户身上的 job 清了就重画。
- * 不用 WebSocket：一个销售同时最多等一份档，轮询足够，也不怕断线。 */
-let watching = 0;
+/* 出档要一两分钟，而且几个客户可以同时各出各的。
+ * 每个在跑的客户都进 watching，一条轮询看所有：谁的 job 清了就报谁，
+ * 全部出完才停。切去别的客户出内容不会掐掉这里——并行是本来就支持的。
+ * 不用 WebSocket：轮询足够，也不怕断线。 */
+const watching = new Map();
+let watchingTimer = 0;
 function watchJob(customerId) {
-  clearInterval(watching);
-  watching = setInterval(async () => {
+  watching.set(customerId, true);
+  if (watchingTimer) return;
+  watchingTimer = setInterval(async () => {
     try {
       const res = await fetch("/api/workspace");
       if (!res.ok) return;
       const data = await res.json();
-      const c = data.customers?.find((x) => x.id === customerId);
-      if (c?.job) return;
-      clearInterval(watching);
-      state.workspace = data;
-      state.packId = "";
-      renderToday();
-      toast(c?.lastFail ? `没出成：${c.lastFail}` : "出好了");
+      let settled = false;
+      for (const id of [...watching.keys()]) {
+        const c = data.customers?.find((x) => x.id === id);
+        if (c?.job) continue;
+        watching.delete(id);
+        settled = true;
+        toast(c?.lastFail ? `${c.name || "客户"}没出成：${c.lastFail}` : `${c?.name || "客户"}出好了`);
+      }
+      if (settled) {
+        state.workspace = data;
+        state.packId = "";
+        renderToday();
+      }
+      if (!watching.size) {
+        clearInterval(watchingTimer);
+        watchingTimer = 0;
+      }
     } catch {
       /* 网络抖一下不算数，下一轮再问 */
     }
