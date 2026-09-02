@@ -30,6 +30,9 @@ const MATERIAL_MAX_FILE = 60 * 1024 * 1024;
 const MATERIAL_MAX_TOTAL = 120 * 1024 * 1024;
 const MATERIAL_MAX_FILES = 20;
 const MATERIAL_MAX_LINKS = 20;
+
+/* 图标统一从 index.html 顶部的 sprite 取，跟随文字颜色。只在导航、关键动作、回音状态用。 */
+const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 const LINE_EDIT_MAX = 2000;
 const MATERIAL_EXTS = new Set([
   "pdf", "docx", "doc", "pptx", "ppt", "xlsx", "xls", "odt", "rtf",
@@ -259,17 +262,13 @@ function materialSourcesHtml(analysis, sources) {
 }
 
 function materialEngineText(analysis) {
-  const engine = analysis?.engine;
-  if (!engine?.model) return analysis?.editedAt ? "人工核对已保存" : "";
-  const provider = engine.providerName ? `${engine.providerName} · ` : "";
-  const mode = engine.mode ? ` · ${engine.mode}` : "";
-  const available = Number(engine.visualsAvailable || 0);
-  const sent = Number(engine.visualsSent || 0);
-  const visuals = available
-    ? ` · ${available > sent ? `均衡选取 ${sent}/${available}` : sent} 个画面`
-    : "";
-  const edited = analysis.editedAt ? " · 人工核对已保存" : "";
-  return `本次：${provider}${engine.model}${mode}${visuals}${edited}`;
+  // 渠道名和模型号是机房的事，销售不需要看；只留对用资料有用的两条事实。
+  const parts = [];
+  const available = Number(analysis?.engine?.visualsAvailable || 0);
+  const sent = Number(analysis?.engine?.visualsSent || 0);
+  if (available) parts.push(available > sent ? `均衡选取 ${sent}/${available} 个画面` : `抽取 ${sent} 个画面`);
+  if (analysis?.editedAt) parts.push("人工核对已保存");
+  return parts.join(" · ");
 }
 
 function materialTranscriptsHtml(sources) {
@@ -597,7 +596,7 @@ function renderToday() {
   const copyButton = (text, label = "复制") =>
     batchQualityFail || blockedTexts.has(String(text || ""))
       ? `<button type="button" class="do" disabled title="这句质量或红线过不了，先改或重出">先改再复制</button>`
-      : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}">${label}</button>`;
+      : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}">${icon("copy")}${label}</button>`;
   const win = document.getElementById("win");
   // 跨批次找：刚补的新批自己没反馈，别让他上周点过的回音凭空消失。
   // 只翻当前这位客户的档——别人的回音不挂到这位脸上
@@ -619,11 +618,9 @@ function renderToday() {
     repack.classList.toggle("hidden", !canRepackCustomer(mine));
     repack.dataset.customer = mine.id || "";
     repack.disabled = busy;
-    repack.textContent = busy
-      ? `正在${mine.job.kind}…`
-      : pack
-        ? "重出这份判断"
-        : "重出";
+    repack.innerHTML = busy
+      ? `${icon("refresh")}正在${mine.job.kind}…`
+      : `${icon("refresh")}${pack ? "重出这份判断" : "重出"}`;
   }
 
   const goToday = document.getElementById("go-today");
@@ -631,11 +628,9 @@ function renderToday() {
     goToday.classList.toggle("hidden", mine.track !== "存量");
     goToday.dataset.customer = mine.id || "";
     goToday.disabled = busy;
-    goToday.textContent = busy
-      ? `正在${mine.job?.kind}…`
-      : pack?.tier === "今日"
-        ? "再出一批（每次 50 条）"
-        : "出一批（每次 50 条）";
+    goToday.innerHTML = busy
+      ? `${icon("bolt")}正在${mine.job?.kind}…`
+      : `${icon("bolt")}${pack?.tier === "今日" ? "再出一批（每次 50 条）" : "出一批（每次 50 条）"}`;
   }
 
   const noPack = document.getElementById("no-pack");
@@ -865,8 +860,8 @@ function renderToday() {
               </div>
               <div class="slip-step">
                 <span class="slip-k">用过之后</span>
-                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${esc(row.key)}" data-val="replied" aria-pressed="${row.fb === "replied" ? "true" : "false"}">${row.fb === "replied" ? "已记有回音" : "有回音"}</button>
-                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${esc(row.key)}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${row.fb === "dead" ? "已记没反应" : "没反应"}</button>
+                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${esc(row.key)}" data-val="replied" aria-pressed="${row.fb === "replied" ? "true" : "false"}">${icon("reply")}${row.fb === "replied" ? "已记有回音" : "有回音"}</button>
+                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${esc(row.key)}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${icon("mute")}${row.fb === "dead" ? "已记没反应" : "没反应"}</button>
               </div>
             </div>
           </div>`;
@@ -1089,12 +1084,42 @@ function renderPackIndex() {
               title: customer.name,
               chips: `${chip(pack.tier || "档")}${pack.deliveredAt || pack.createdAt ? chip(pack.deliveredAt || pack.createdAt) : ""}`,
               meta: esc(pack.title || ""),
-              actions: `<button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>`,
+              actions:
+                `<button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>` +
+                `<button type="button" class="do do-quiet" data-del-pack="${pack.id}" data-customer="${customer.id}" title="删除这份出档">${icon("trash")}删除</button>`,
             }),
         )
         .join("")
     : `<p class="meta">还没有发给甲方的包裹。</p>`;
 }
+
+document.getElementById("pack-list")?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-del-pack]");
+  if (!btn || btn.disabled) return;
+  const packId = btn.dataset.delPack;
+  const customerId = btn.dataset.customer;
+  if (!packId || !customerId) return;
+  if (!confirm("删掉这份出档？删除后不可恢复，它的甲方分享链接会立刻失效；台账和已记的回音不受影响。")) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/pack/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ customerId, packId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return toast(data.error || "没删掉");
+    state.workspace = data;
+    if (state.packId === packId) state.packId = "";
+    renderToday();
+    renderPackIndex();
+    renderCustomers();
+    toast("出档已删除");
+  } catch {
+    toast("网络不通，请再试");
+    btn.disabled = false;
+  }
+});
 
 function renderLedger() {
   const rows = state.workspace.ledger || [];
@@ -1659,8 +1684,8 @@ document.getElementById("go-full")?.addEventListener("click", async (e) => {
   const customerId = btn.dataset.customer;
   if (!packId || !customerId) return;
   btn.disabled = true;
-  const old = btn.textContent;
-  btn.textContent = "正在补分镜…";
+  const old = btn.innerHTML;
+  btn.innerHTML = `${icon("film")}正在补分镜…`;
   try {
     const res = await fetch("/api/full", {
       method: "POST",
@@ -1681,7 +1706,7 @@ document.getElementById("go-full")?.addEventListener("click", async (e) => {
     toast("网络不通，请再试");
   } finally {
     btn.disabled = false;
-    btn.textContent = old;
+    btn.innerHTML = old;
   }
 });
 
@@ -1727,8 +1752,8 @@ document.getElementById("go-repack")?.addEventListener("click", async (e) => {
   const customerId = btn.dataset.customer;
   if (!customerId) return;
   btn.disabled = true;
-  const old = btn.textContent;
-  btn.textContent = "正在重出…";
+  const old = btn.innerHTML;
+  btn.innerHTML = `${icon("refresh")}正在重出…`;
   try {
     const res = await fetch("/api/repack", {
       method: "POST",
@@ -1748,7 +1773,7 @@ document.getElementById("go-repack")?.addEventListener("click", async (e) => {
     toast("网络不通，请再试");
   } finally {
     btn.disabled = false;
-    btn.textContent = old;
+    btn.innerHTML = old;
   }
 });
 
@@ -1757,8 +1782,8 @@ document.getElementById("go-today")?.addEventListener("click", async (e) => {
   const customerId = btn.dataset.customer;
   if (!customerId) return;
   btn.disabled = true;
-  const old = btn.textContent;
-  btn.textContent = "正在出一批…";
+  const old = btn.innerHTML;
+  btn.innerHTML = `${icon("bolt")}正在出一批…`;
   try {
     const res = await fetch("/api/today", {
       method: "POST",
@@ -1779,7 +1804,7 @@ document.getElementById("go-today")?.addEventListener("click", async (e) => {
     toast("网络不通，请再试");
   } finally {
     btn.disabled = false;
-    btn.textContent = old;
+    btn.innerHTML = old;
   }
 });
 
@@ -1788,8 +1813,8 @@ document.getElementById("go-refill")?.addEventListener("click", async (e) => {
   const customerId = btn.dataset.customer;
   if (!customerId) return;
   btn.disabled = true;
-  const old = btn.textContent;
-  btn.textContent = "正在补货…";
+  const old = btn.innerHTML;
+  btn.innerHTML = `${icon("bolt")}正在补货…`;
   try {
     const res = await fetch("/api/refill", {
       method: "POST",
@@ -1809,7 +1834,7 @@ document.getElementById("go-refill")?.addEventListener("click", async (e) => {
     toast("网络不通，请再试");
   } finally {
     btn.disabled = false;
-    btn.textContent = old;
+    btn.innerHTML = old;
   }
 });
 
@@ -1919,8 +1944,8 @@ document.getElementById("material-replace-files")?.addEventListener("change", as
   if (!files.length || !customerId) return;
   const btn = document.getElementById("material-re-upload");
   btn.disabled = true;
-  const old = btn.textContent;
-  btn.textContent = "正在读取资料…";
+  const old = btn.innerHTML;
+  btn.innerHTML = `${icon("upload")}正在读取资料…`;
   try {
     const form = new FormData();
     files.forEach((file) => form.append("files", file, file.name));
@@ -1942,7 +1967,7 @@ document.getElementById("material-replace-files")?.addEventListener("change", as
     toast("网络不通，请再试");
   } finally {
     btn.disabled = false;
-    btn.textContent = old;
+    btn.innerHTML = old;
   }
 });
 
@@ -1955,7 +1980,7 @@ document.getElementById("analyze-materials")?.addEventListener("click", async ()
   const status = document.getElementById("material-state");
   btn.disabled = true;
   state.materials.busy = true;
-  btn.textContent = "正在读取…";
+  btn.innerHTML = `${icon("search")}正在读取…`;
   status.textContent = "正在抽取正文、画面和视频语音，之后会形成资料梳理";
   try {
     const form = new FormData();
@@ -2078,7 +2103,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     if (!track) {
       toast("先选：这是存量还是拓新");
       btn.disabled = false;
-      btn.textContent = old;
+      btn.innerHTML = old;
       return;
     }
     const res = await fetch("/api/customers", {
@@ -2102,7 +2127,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     if (!res.ok) {
       toast(data.error || "建档失败");
       btn.disabled = false;
-      btn.textContent = old;
+      btn.innerHTML = old;
       return;
     }
     state.workspace = data;
@@ -2138,7 +2163,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     toast("网络不通，请再试");
   }
   btn.disabled = false;
-  btn.textContent = old;
+  btn.innerHTML = old;
 });
 
 document.getElementById("add-ledger")?.addEventListener("click", async () => {

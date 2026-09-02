@@ -27,7 +27,7 @@ import {
   testVisionConnection,
   useModel,
 } from "./lib/llm.mjs";
-import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, groupOverview, publicWorkspace, readWorkspace, refillPack, repack, replaceCustomerMaterials, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, groupOverview, publicWorkspace, readWorkspace, refillPack, removePack, repack, replaceCustomerMaterials, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { createSession, destroySession, readSession } from "./lib/session.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
@@ -302,6 +302,15 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const out = replaceCustomerMaterials(user.email, body.customerId, body.batchId);
+    if (out.error) return json(res, 400, { error: out.error });
+    return json(res, 200, publicWorkspace(out.workspace));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/pack/delete") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const out = removePack(user.email, body.customerId, body.packId);
     if (out.error) return json(res, 400, { error: out.error });
     return json(res, 200, publicWorkspace(out.workspace));
   }

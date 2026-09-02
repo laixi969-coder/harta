@@ -783,6 +783,22 @@ section[data-view] { padding: 0 56px; }
   letter-spacing: 0.12em;
   color: var(--ink-3);
 }
+/* 图标基类：跟随文字颜色，深浅两套自动成立。只在导航、关键动作、回音状态出现。 */
+.icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rail a .icon { width: 15px; height: 15px; margin-right: 9px; }
+.btn, .do, .verdict { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn .icon, .do .icon { width: 15px; height: 15px; }
+.verdict .icon { width: 14px; height: 14px; color: var(--ink-2); }
+
 .verdict {
   border: 0;
   background: transparent;
@@ -857,6 +873,14 @@ section[data-view] { padding: 0 56px; }
   min-height: 32px;
   letter-spacing: 0.04em;
 }
+/* 删除这类次动作：细线、墨灰，不跟主操作抢青绿 */
+.do.do-quiet {
+  background: transparent;
+  color: var(--ink-2);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.do.do-quiet:hover { color: var(--ink-1); border-color: var(--ink-2); background: transparent; }
 @media (pointer: coarse) {
   .do { min-height: 44px; padding: 10px 14px; }
 }
