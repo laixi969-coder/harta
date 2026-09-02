@@ -1883,6 +1883,69 @@ document.getElementById("material-queue")?.addEventListener("click", (event) => 
   renderMaterialQueue();
 });
 
+/* 资料底稿卡：删掉整批资料，或换一批新的。历史出档不动。 */
+document.getElementById("material-record-clear")?.addEventListener("click", async () => {
+  const customerId = state.openedId;
+  if (!customerId) return;
+  if (!confirm("把这批资料整个删掉？原件、抽取正文、语音转写和资料梳理都会清掉，之后出档不再带这些资料。历史出档不受影响。")) return;
+  const btn = document.getElementById("material-record-clear");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/materials/clear", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ customerId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return toast(data.error || "没删掉");
+    state.workspace = data;
+    renderToday();
+    toast("资料已删除，可以重新上传");
+  } catch {
+    toast("网络不通，请再试");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("material-re-upload")?.addEventListener("click", () => {
+  document.getElementById("material-replace-files")?.click();
+});
+
+document.getElementById("material-replace-files")?.addEventListener("change", async (e) => {
+  const files = [...(e.target.files || [])];
+  e.target.value = "";
+  const customerId = state.openedId;
+  if (!files.length || !customerId) return;
+  const btn = document.getElementById("material-re-upload");
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "正在读取资料…";
+  try {
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file, file.name));
+    form.append("links", "[]");
+    const up = await fetch("/api/materials/analyze", { method: "POST", body: form });
+    const batch = await up.json();
+    if (!up.ok) return toast(batch.error || "新资料没读取成功");
+    const res = await fetch("/api/materials/replace", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ customerId, batchId: batch.id }),
+    });
+    const data = await res.json();
+    if (!res.ok) return toast(data.error || "新资料没换上");
+    state.workspace = data;
+    renderToday();
+    toast("新资料已换上，之后出档按新资料来");
+  } catch {
+    toast("网络不通，请再试");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+});
+
 document.getElementById("analyze-materials")?.addEventListener("click", async () => {
   if (!state.materials.files.length && !state.materials.links.length) {
     toast("请先选择文件或加入网页链接");

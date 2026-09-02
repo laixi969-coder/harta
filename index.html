@@ -81,8 +81,14 @@
               <h2>上传资料梳理</h2>
               <p class="meta material-record-engine" id="material-record-engine"></p>
             </div>
-            <span class="folio-no" id="material-record-count"></span>
+            <div class="record-acts">
+              <button class="btn ghost" id="material-re-upload" type="button">重新上传</button>
+              <button class="btn ghost" id="material-record-clear" type="button">删除资料</button>
+              <span class="folio-no" id="material-record-count"></span>
+            </div>
           </div>
+          <input id="material-replace-files" class="visually-hidden" type="file" multiple
+            accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.rtf,.txt,.md,.csv,.json,.html,.htm,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.mp4,.mov,.m4v,.webm,.avi,.mkv">
           <p class="material-record-pitch hidden" id="material-record-pitch"></p>
           <p class="analysis-overview" id="material-record-overview"></p>
           <div class="analysis-columns" id="material-record-columns"></div>

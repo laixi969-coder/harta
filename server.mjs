@@ -27,7 +27,7 @@ import {
   testVisionConnection,
   useModel,
 } from "./lib/llm.mjs";
-import { addCustomer, addLedger, dropToday, editLine, findShared, groupOverview, publicWorkspace, readWorkspace, refillPack, repack, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, groupOverview, publicWorkspace, readWorkspace, refillPack, repack, replaceCustomerMaterials, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { createSession, destroySession, readSession } from "./lib/session.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
@@ -285,6 +285,25 @@ async function handleApi(req, res, url) {
     } catch (err) {
       return json(res, 400, { error: err.message || "资料梳理没有保存" });
     }
+  }
+
+  // 资料包裹的删除与重建：新资料来了整批换掉，历史出档不动
+  if (req.method === "POST" && url.pathname === "/api/materials/clear") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const out = clearCustomerMaterials(user.email, body.customerId);
+    if (out.error) return json(res, 400, { error: out.error });
+    return json(res, 200, publicWorkspace(out.workspace));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/materials/replace") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const out = replaceCustomerMaterials(user.email, body.customerId, body.batchId);
+    if (out.error) return json(res, 400, { error: out.error });
+    return json(res, 200, publicWorkspace(out.workspace));
   }
 
   if (req.method === "GET" && url.pathname === "/api/workspace") {

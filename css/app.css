@@ -1236,6 +1236,13 @@ td:last-child { color: var(--ink-2); }
   align-items: flex-start;
   gap: 24px;
 }
+.record-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .material-record-head h2 { margin-top: 2px; }
 .material-record-engine { margin-top: 4px; font-family: var(--font-meta); }
 .record-k {
