@@ -1018,6 +1018,7 @@ function renderToday() {
       <div class="folio-cell is-who">
         <p class="k">主战场</p>
         <p>${esc((pack.battlefields || []).join("、"))}</p>
+        ${pack.battlefieldWhy ? `<p class="meta" style="margin-top:6px">为什么是这两个：${esc(pack.battlefieldWhy)}</p>` : ""}
       </div>
       <div class="folio-cell">
         <p class="k">测试路径</p>
