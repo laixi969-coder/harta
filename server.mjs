@@ -270,7 +270,7 @@ async function handleApi(req, res, url) {
         : err?.code === 1016
           ? "单个文件不能超过 60MB"
           : err?.code === 1015
-            ? "文件最多 8 个"
+            ? "文件最多 20 个"
             : err.message;
       return json(res, 400, { error: detail || "资料读取失败" });
     }

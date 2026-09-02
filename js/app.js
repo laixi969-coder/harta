@@ -28,8 +28,8 @@ const state = {
 
 const MATERIAL_MAX_FILE = 60 * 1024 * 1024;
 const MATERIAL_MAX_TOTAL = 120 * 1024 * 1024;
-const MATERIAL_MAX_FILES = 8;
-const MATERIAL_MAX_LINKS = 8;
+const MATERIAL_MAX_FILES = 20;
+const MATERIAL_MAX_LINKS = 20;
 const LINE_EDIT_MAX = 2000;
 const MATERIAL_EXTS = new Set([
   "pdf", "docx", "doc", "pptx", "ppt", "xlsx", "xls", "odt", "rtf",
@@ -400,7 +400,7 @@ function addMaterialFiles(files) {
   let total = 0;
   for (const file of current.values()) {
     if (kept.length >= MATERIAL_MAX_FILES) {
-      rejected.push("文件最多 8 个");
+      rejected.push(`文件最多 ${MATERIAL_MAX_FILES} 个`);
       break;
     }
     if (total + file.size > MATERIAL_MAX_TOTAL) {
@@ -1854,7 +1854,7 @@ document.getElementById("add-material-link")?.addEventListener("click", () => {
       return;
     }
     if (state.materials.links.length >= MATERIAL_MAX_LINKS) {
-      toast("网页链接最多 8 条");
+      toast(`网页链接最多 ${MATERIAL_MAX_LINKS} 条`);
       return;
     }
     state.materials.links.push(normalized);
