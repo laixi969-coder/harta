@@ -267,6 +267,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: 0 0 88px;
   background: transparent;
 }
+/* 宽屏下把主内容列收拢居中。原先壳层铺满整个窗口，窗口多宽内容就拉多宽，
+   信头、卡片左右直接顶到窗口边缘。1280px 以内布局不变，超过才收拢。 */
+.main > * {
+  max-width: 1280px;
+  margin-inline: auto;
+}
 .mast {
   height: 88px;
   display: flex;
