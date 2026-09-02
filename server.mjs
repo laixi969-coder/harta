@@ -28,6 +28,7 @@ import {
   useModel,
 } from "./lib/llm.mjs";
 import { addCustomer, addLedger, dropToday, editLine, findShared, groupOverview, publicWorkspace, readWorkspace, refillPack, repack, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { createSession, destroySession, readSession } from "./lib/session.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { exportReport } from "./lib/report-export.mjs";
@@ -37,7 +38,6 @@ import { receiveAndAnalyzeMaterials, updateMaterialAnalysis } from "./lib/materi
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
-const sessions = new Map();
 
 function parseCookies(header) {
   const out = {};
@@ -51,14 +51,7 @@ function parseCookies(header) {
 }
 
 function currentUser(req) {
-  const sid = parseCookies(req.headers.cookie).harta_sid;
-  if (!sid) return null;
-  const row = sessions.get(sid);
-  if (!row || row.exp < Date.now()) {
-    if (sid) sessions.delete(sid);
-    return null;
-  }
-  return row.user;
+  return readSession(parseCookies(req.headers.cookie).harta_sid);
 }
 
 function requireUser(req, res) {
@@ -211,11 +204,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = loginOrBootstrap(body.email, body.password);
     if (result.error) return json(res, 400, { error: result.error });
-    const sid = crypto.randomBytes(24).toString("hex");
-    sessions.set(sid, {
-      user: result.user,
-      exp: Date.now() + 7 * 24 * 3600 * 1000,
-    });
+    const sid = createSession(result.user);
     return json(
       res,
       200,
@@ -233,11 +222,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = register(body.email, body.password);
     if (result.error) return json(res, 400, { error: result.error });
-    const sid = crypto.randomBytes(24).toString("hex");
-    sessions.set(sid, {
-      user: result.user,
-      exp: Date.now() + 7 * 24 * 3600 * 1000,
-    });
+    const sid = createSession(result.user);
     return json(
       res,
       200,
@@ -440,7 +425,7 @@ async function handleApi(req, res, url) {
 
   if (req.method === "POST" && url.pathname === "/api/logout") {
     const sid = parseCookies(req.headers.cookie).harta_sid;
-    if (sid) sessions.delete(sid);
+    if (sid) destroySession(sid);
     return json(res, 200, { ok: true }, { "set-cookie": "harta_sid=; HttpOnly; Path=/; Max-Age=0" });
   }
 
