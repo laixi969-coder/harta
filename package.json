@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "formidable": "^3.5.4",
+    "jszip": "^3.10.1",
     "mammoth": "^1.12.2",
     "pdf-parse": "1.1.1",
+    "pdfkit": "^0.20.2",
     "sharp": "^0.35.4"
   }
 }
