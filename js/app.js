@@ -46,6 +46,21 @@ const esc = (v) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+/* 网页链接直接当名字展示时是一整串带追踪参数的长 URL，会把卡片撑到顶边。
+ * 列表里只显示主机名加一段路径，完整链接留在 title 和存档数据里。 */
+function linkName(name) {
+  const value = String(name || "").trim();
+  if (!/^https?:\/\//i.test(value)) return value;
+  try {
+    const url = new URL(value);
+    const path = url.pathname.replace(/\/+$/, "");
+    const clipped = path.length > 30 ? `${path.slice(0, 30)}…` : path;
+    return `${url.hostname}${clipped}`;
+  } catch {
+    return value.length > 72 ? `${value.slice(0, 72)}…` : value;
+  }
+}
+
 function toast(t) {
   const el = document.getElementById("toast");
   el.textContent = t;
@@ -201,7 +216,7 @@ function renderMaterialQueue() {
     .map(
       (row) => `<div class="material-row">
         <span class="material-mark">${row.kind === "link" ? "链" : "件"}</span>
-        <span class="material-name">${esc(row.name)}<small>${esc(notes.get(row.name) || row.meta)}</small></span>
+        <span class="material-name" title="${esc(row.name)}">${esc(linkName(row.name))}<small>${esc(notes.get(row.name) || row.meta)}</small></span>
         <button type="button" class="textish" data-remove-material="${row.kind}" data-index="${row.index}">移除</button>
       </div>`,
     )
@@ -236,7 +251,7 @@ function materialSourcesHtml(analysis, sources) {
     .map(
       (source, index) => `<div class="analysis-source-row">
         <span class="analysis-source-no">${String(index + 1).padStart(2, "0")}</span>
-        <span><strong>${esc(source.name)}</strong><small>${esc(notes.get(source.id) || source.note || "已归档")}</small></span>
+        <span><strong title="${esc(source.name)}">${esc(linkName(source.name))}</strong><small>${esc(notes.get(source.id) || source.note || "已归档")}</small></span>
         <em>${esc(source.kind || "资料")}</em>
       </div>`,
     )
@@ -262,7 +277,7 @@ function materialTranscriptsHtml(sources) {
     .filter((source) => source.transcript)
     .map(
       (source) => `<details>
-        <summary>${esc(source.name)} · 语音转写</summary>
+        <summary title="${esc(source.name)}">${esc(linkName(source.name))} · 语音转写</summary>
         <p>${esc(source.transcript)}</p>
       </details>`,
     )
@@ -299,7 +314,7 @@ function materialAnalysisEditorHtml(analysis, sources) {
   const sourceRows = (sources || []).map((source, index) =>
     analysisEditTextarea({
       id: `analysis-edit-source-${index}`,
-      label: `${String(index + 1).padStart(2, "0")} · ${source.name}`,
+      label: `${String(index + 1).padStart(2, "0")} · ${linkName(source.name)}`,
       value: notes.get(source.id) || source.note || "",
       max: 1000,
       rows: 3,

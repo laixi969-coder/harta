@@ -1270,6 +1270,7 @@ td:last-child { color: var(--ink-2); }
   min-height: 54px;
   border-bottom: 1px solid var(--border);
 }
+.analysis-source-row > span { min-width: 0; }
 .analysis-source-no {
   color: var(--accent);
   font-family: var(--font-meta);
