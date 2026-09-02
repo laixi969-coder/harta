@@ -54,6 +54,79 @@ function toast(t) {
   toast._t = setTimeout(() => el.classList.add("hidden"), 3200);
 }
 
+function filenameFromDisposition(header, fallback) {
+  const raw = String(header || "");
+  const utf = raw.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (utf?.[1]) {
+    try {
+      return decodeURIComponent(utf[1].trim().replace(/^"|"$/g, ""));
+    } catch {
+      /* keep falling through */
+    }
+  }
+  const plain = raw.match(/filename\s*=\s*("?)([^";]+)\1/i);
+  if (plain?.[2]) return plain[2].trim();
+  return fallback;
+}
+
+async function saveBlobLocally(blob, filename) {
+  const name = filename || "report";
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const ext = name.includes(".") ? "." + name.split(".").pop() : "";
+      const types = blob.type
+        ? [{ description: "导出文件", accept: { [blob.type]: ext ? [ext] : [] } }]
+        : undefined;
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        ...(types ? { types } : {}),
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return "saved";
+    } catch (err) {
+      if (err?.name === "AbortError") return "cancelled";
+      /* fall through to anchor download */
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  return "downloaded";
+}
+
+async function exportReportLocally(url, fallbackName) {
+  toast("正在导出…");
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast(data.error || "导出失败");
+      return;
+    }
+    const raw = await res.blob();
+    const mime = (res.headers.get("content-type") || "").split(";")[0].trim() || raw.type;
+    const blob = mime && raw.type !== mime ? new Blob([raw], { type: mime }) : raw;
+    const filename = filenameFromDisposition(res.headers.get("content-disposition"), fallbackName);
+    const result = await saveBlobLocally(blob, filename);
+    if (result === "cancelled") toast("已取消另存");
+    else toast("已另存到本地");
+  } catch {
+    toast("网络不通，导出失败");
+  }
+}
+
+
 function updateCharCount(input) {
   if (!input?.id || !input.maxLength || input.maxLength < 0) return;
   const counter = document.querySelector(`[data-char-count="${CSS.escape(input.id)}"]`);
@@ -622,15 +695,19 @@ function renderToday() {
     const exportBase = `/api/reports/${encodeURIComponent(pack.id)}/export`;
     exportPdf?.classList.remove("hidden");
     exportPdf?.setAttribute("href", `${exportBase}/pdf`);
+    exportPdf?.setAttribute("download", "判断报告.pdf");
     exportDocx?.classList.remove("hidden");
     exportDocx?.setAttribute("href", `${exportBase}/docx`);
+    exportDocx?.setAttribute("download", "判断报告.docx");
   } else {
     open.classList.add("hidden");
     open.removeAttribute("href");
     exportPdf?.classList.add("hidden");
     exportPdf?.removeAttribute("href");
+    exportPdf?.removeAttribute("download");
     exportDocx?.classList.add("hidden");
     exportDocx?.removeAttribute("href");
+    exportDocx?.removeAttribute("download");
   }
 
   const landscapeCard = document.getElementById("landscape-card");
@@ -2381,6 +2458,19 @@ document.body.addEventListener("dragend", async () => {
   card.draggable = false;
   card.classList.remove("is-dragging");
   await saveLlmOrder();
+});
+
+document.getElementById("pack-export-pdf")?.addEventListener("click", (e) => {
+  const href = e.currentTarget.getAttribute("href");
+  if (!href || href === "#") return;
+  e.preventDefault();
+  exportReportLocally(href, "判断报告.pdf");
+});
+document.getElementById("pack-export-docx")?.addEventListener("click", (e) => {
+  const href = e.currentTarget.getAttribute("href");
+  if (!href || href === "#") return;
+  e.preventDefault();
+  exportReportLocally(href, "判断报告.docx");
 });
 
 boot();
