@@ -1223,7 +1223,9 @@ td:last-child { color: var(--ink-2); }
 }
 .material-record {
   margin-top: 30px;
-  padding: 22px 0 26px;
+  /* 这是一张带边框底色的卡片，左右必须留出内边距；
+     之前沿用了无边框区块的 0 左右，文字直接怼在边框线上。 */
+  padding: 22px 24px 26px;
   border-top: 2px solid var(--rule);
   border-bottom: 1px solid var(--border);
   animation: rise 260ms var(--ease) both;
