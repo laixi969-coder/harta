@@ -187,6 +187,22 @@ button, input, select, textarea { font: inherit; color: inherit; }
   grid-template-columns: 244px minmax(0, 1fr);
   min-height: 100dvh;
 }
+/* 更宽的屏幕：给整个应用一圈画框——壳层定宽居中，四周露出纸面背景，
+   左侧栏不再焊死窗口左缘，内容也不再顶到右缘。窄于此宽度不套画框。 */
+@media (min-width: 1440px) {
+  .shell {
+    max-width: 1400px;
+    margin: 20px auto;
+    min-height: calc(100dvh - 40px);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: clip;
+  }
+  .rail {
+    top: 20px;
+    height: calc(100dvh - 40px);
+  }
+}
 
 .rail {
   background:
