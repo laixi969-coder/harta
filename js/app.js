@@ -164,6 +164,14 @@ async function runExport(button) {
 
 const RECENT_JOB_MS = 10 * 60 * 1000;
 
+/** 把一处硬伤说成人话：哪个位置、哪个词、超了多少字。导出口的提示要用它点名。 */
+function hardRowLabel(row) {
+  if (row.scope === "batch") return row.why || "这一批整体不合格";
+  if (row.platform && row.field) return `${row.where} 有 ${row.n} 字（上限约 ${row.max} 字）`;
+  if (row.words?.length) return `${row.where} 里的「${row.words.join("、")}」`;
+  return `${row.where || "这一条"}：${row.why || "要先改"}`;
+}
+
 function jobPercent(job) {
   const n = Number(job?.progress);
   return Number.isFinite(n) ? Math.max(1, Math.min(99, Math.round(n))) : 5;
@@ -193,7 +201,7 @@ function renderJobCenter() {
       return `<div class="job-row is-running">
         <div class="job-row-main">
           <div class="job-title"><button type="button" class="job-customer" data-using="${esc(customer.id)}">${esc(customer.name)}</button><span>运行中</span></div>
-          <div class="job-meter" role="progressbar" aria-label="${esc(customer.name)}${esc(job.kind)}进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><i style="--job-scale:${progress / 100}"></i></div>
+          <div class="job-meter is-live" role="progressbar" aria-label="${esc(customer.name)}${esc(job.kind)}进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><i style="--job-scale:${progress / 100}"></i></div>
           <p>${progress}% · ${esc(job.stage || `正在${job.kind}`)} · 已运行 ${elapsedLabel(job.startedAt, now)}</p>
         </div>
         <button type="button" class="go" data-using="${esc(customer.id)}">查看</button>
@@ -215,6 +223,78 @@ function renderJobCenter() {
   box.innerHTML = rows.length
     ? `<div class="job-center-head"><span>生成任务</span><small>${active.length ? "自动刷新，不用守着" : "最近结果"}</small></div>${rows.join("")}`
     : "";
+}
+
+/* 每种任务的步骤、真实计数和预期耗时。百分比来自后端按完成份数实报，
+ * 前端只负责把「跑到哪一步、还差几份、一般要多久」摆在眼前——
+ * 人对「要多久」有数了，等待才不慌；时间预期优先用他自己的上一批，没有才给区间。 */
+const JOB_META = {
+  出今日: {
+    band: "一批 50 条文案加 80 条外壳，一般 3~7 分钟",
+    steps: [
+      { label: "文案", count: "copiesGot", total: 50, unit: "条", doneAt: 55 },
+      { label: "外壳", count: "shellsGot", total: 80, unit: "条", doneAt: 90 },
+      { label: "合规检查", doneAt: 94 },
+    ],
+  },
+  出判断: {
+    band: "一般 1~3 分钟",
+    steps: [
+      { label: "读资料", doneAt: 48 },
+      { label: "生成判断", doneAt: 88 },
+      { label: "交付检查", doneAt: 94 },
+    ],
+  },
+  重出: {
+    band: "一般 1~3 分钟",
+    steps: [
+      { label: "读资料", doneAt: 48 },
+      { label: "生成判断", doneAt: 88 },
+      { label: "交付检查", doneAt: 94 },
+    ],
+  },
+  补分镜: {
+    band: "一般 1~2 分钟",
+    steps: [{ label: "生成分镜", doneAt: 94 }],
+  },
+};
+
+/** 客户页里长在眼前的进度：大进度条 + 当前阶段 + 真实耗时 + 还差几份 + 预期耗时。
+ * 页顶的任务中心是全组的，这里是正在看的这一家——生成时不切页也能看清跑到哪。 */
+function renderPackJob() {
+  const box = document.getElementById("pack-job");
+  if (!box) return;
+  const mine = usingCustomer();
+  const job = mine?.job;
+  if (!job) {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  const meta = JOB_META[job.kind] || { band: "", steps: [] };
+  const progress = jobPercent(job);
+  const chips = meta.steps.map((step) => {
+    const n = step.count ? Number(job[step.count]) || 0 : null;
+    const label =
+      n === null ? step.label : `${step.label} ${n}/${step.total}${step.unit || ""}`;
+    const done = (step.count && n >= step.total) || progress >= (step.doneAt || 101);
+    return `<span class="${done ? "is-done" : ""}">${esc(label)}</span>`;
+  });
+  const prev =
+    mine.lastRun && mine.lastRun.kind === job.kind && mine.lastRun.status === "done"
+      ? elapsedLabel(mine.lastRun.startedAt, mine.lastRun.finishedAt)
+      : "";
+  const expect = prev ? `上一批用了 ${prev}，这批一般差不多` : meta.band;
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <div class="pack-job-head">
+      <b>正在${esc(job.kind)}</b>
+      <span class="pack-job-percent">${progress}%</span>
+    </div>
+    <div class="job-meter is-live" role="progressbar" aria-label="${esc(mine.name || "")}正在${esc(job.kind)}的进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><i style="--job-scale:${progress / 100}"></i></div>
+    <p class="pack-job-stage">${esc(job.stage || `正在${job.kind}`)} · 已运行 ${elapsedLabel(job.startedAt)}</p>
+    ${chips.length ? `<p class="pack-job-steps">${chips.join('<i class="step-arrow">→</i>')}</p>` : ""}
+    <p class="meta">${expect ? `${esc(expect)}。` : ""}关掉页面也不丢，回来看进度还在；出好了这一页自己刷新。</p>`;
 }
 
 
@@ -610,6 +690,7 @@ function renderToday() {
   const packs = packsOf(mine);
   const pack = currentPack();
   if (pack && !state.packId) state.packId = pack.id;
+  renderPackJob();
 
   const nCopy = pack ? copyCount(pack) : 0;
   const nGap = pack?.gaps?.length || 0;
@@ -623,7 +704,7 @@ function renderToday() {
     : pack
       ? `${mine.name} · 已出${pack.tier}`
       : mine.job
-        ? `${mine.name} 正在${mine.job.kind}，一般一两分钟。出好了这一页自己会刷新，不用守着。`
+        ? `${mine.name} 正在${mine.job.kind}，出好了这一页自己会刷新，不用守着。`
         : mine.lastFail
           ? `${mine.name} 这次没出成：${mine.lastFail}。点「重出」再来一次。`
           : `${mine.name} 还没有出过${mine.track === "存量" ? "今日内容" : "判断"}`;
@@ -797,9 +878,13 @@ function renderToday() {
     else open?.removeAttribute("href");
     if (exportNote) {
       exportNote.classList.toggle("hidden", !publishBlocked);
-      exportNote.textContent = publishBlocked
-        ? `当前有 ${hardBlockCount(pack)} 处红线或硬限制。处理完即可另存，系统不会把风险项静默带出去。`
-        : "";
+      if (publishBlocked) {
+        const named = hardRows.slice(0, 3).map(hardRowLabel).join("；");
+        const more = hardRows.length > 3 ? `等 ${hardRows.length} 处` : "";
+        exportNote.textContent = `还有 ${hardBlockCount(pack)} 处没过：${named}${more}。在下面「发出去之前」改完即可另存，系统不会把风险项静默带出去。`;
+      } else {
+        exportNote.textContent = "";
+      }
     }
   } else {
     open?.classList.add("hidden");
@@ -1846,6 +1931,7 @@ function watchJob(customerId) {
       // 不只在结束时拿一次结果：运行中的真实阶段、百分比和耗时也要每轮更新。
       state.workspace = data;
       renderJobCenter();
+      renderPackJob();
       renderDesk();
       renderCustomers();
       if (settled) {

@@ -123,6 +123,7 @@
         </article>
         <!-- 重出放在 pack-body 外面：没出成的时候 pack-body 整块是藏起来的，
              按钮跟着藏了，正好在最需要它的时候点不到 -->
+        <div class="pack-job hidden" id="pack-job" aria-label="当前客户的生成进度"></div>
         <div class="acts" style="margin:0 0 20px">
           <button class="btn hidden" id="go-today" type="button"><svg class="icon" aria-hidden="true"><use href="#i-bolt"></use></svg>出一批（每次 50 条）</button>
           <button class="btn ghost hidden" id="go-repack" type="button"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>重出这份档</button>

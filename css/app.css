@@ -401,10 +401,73 @@ button, input, select, textarea { font: inherit; color: inherit; }
   transform-origin: left center;
   transition: transform 420ms var(--ease);
 }
+/* 在跑的任务条自己会动：条纹流动说明活着，刻度仍然只认后端的真实阶段。 */
+.job-meter.is-live i {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--accent) 0 12px,
+    color-mix(in oklch, var(--accent) 55%, var(--bg)) 12px 24px
+  );
+  animation: job-flow 0.9s linear infinite;
+}
+@keyframes job-flow {
+  to { background-position: 33.94px 0; }
+}
 .chip-running {
   background: color-mix(in oklch, var(--accent) 13%, var(--bg));
   color: var(--accent);
 }
+
+/* 客户页里的生成进度。要长在人眼前：大字、粗条、当前阶段和耗时一行说清。 */
+.pack-job {
+  margin: 0 0 20px;
+  padding: 16px 20px 14px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-left-width: 4px;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
+}
+.pack-job-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pack-job-head b {
+  font-size: var(--t-3);
+  font-weight: 600;
+}
+.pack-job-percent {
+  font-family: var(--font-meta);
+  font-size: var(--t-2);
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.pack-job .job-meter {
+  height: 8px;
+  margin-top: 10px;
+}
+.pack-job-stage {
+  margin-top: 10px;
+  color: var(--ink-2);
+  font-family: var(--font-meta);
+  font-size: var(--t-5);
+}
+.pack-job-steps {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--ink-3);
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  letter-spacing: 0.04em;
+}
+.pack-job-steps span.is-done { color: var(--accent); font-weight: 600; }
+.pack-job-steps .step-arrow { font-style: normal; color: var(--border); }
+.pack-job .meta { margin-top: 8px; }
 
 section[data-view] { padding: 0 56px; }
 
