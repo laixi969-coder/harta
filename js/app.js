@@ -3,8 +3,11 @@ import { copyKey, editOf, edited, shellKey } from "./pack-edits.js";
 import { lastEffective, rankCopyGroups, rankShells } from "./rank-feedback.js";
 import {
   artifactsForCustomer,
+  canExportJudgment,
   canRepackCustomer,
   clientPacksForCustomer,
+  hardBlockCount,
+  isJudgmentPack,
   latestAttributablePack,
 } from "./customer-view.js";
 
@@ -138,10 +141,80 @@ async function exportReportLocally(url, fallbackName) {
     const filename = filenameFromDisposition(res.headers.get("content-disposition"), fallbackName);
     const result = await saveBlobLocally(blob, filename);
     if (result === "cancelled") toast("已取消另存");
-    else toast("已另存到本地");
+    else if (result === "saved") toast("已另存到选择的位置");
+    else toast("已下载到本地");
   } catch {
     toast("网络不通，导出失败");
   }
+}
+
+async function runExport(button) {
+  const url = button?.dataset.exportUrl;
+  if (!url || button.disabled) return;
+  const old = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = `${icon("download")}正在另存…`;
+  try {
+    await exportReportLocally(url, button.dataset.exportName || "判断报告.pdf");
+  } finally {
+    button.disabled = false;
+    button.innerHTML = old;
+  }
+}
+
+const RECENT_JOB_MS = 10 * 60 * 1000;
+
+function jobPercent(job) {
+  const n = Number(job?.progress);
+  return Number.isFinite(n) ? Math.max(1, Math.min(99, Math.round(n))) : 5;
+}
+
+function elapsedLabel(startedAt, finishedAt = Date.now()) {
+  const seconds = Math.max(0, Math.floor((Number(finishedAt) - Number(startedAt || finishedAt)) / 1000));
+  if (seconds < 60) return `${seconds} 秒`;
+  const minutes = Math.floor(seconds / 60);
+  return seconds % 60 ? `${minutes} 分 ${seconds % 60} 秒` : `${minutes} 分钟`;
+}
+
+/** 所有页面都看得见的任务条。进度来自后端真实阶段，不靠前端计时猜百分比。 */
+function renderJobCenter() {
+  const box = document.getElementById("job-center");
+  if (!box) return;
+  const now = Date.now();
+  const customers = state.workspace.customers || [];
+  const active = customers.filter((c) => c.job);
+  const recent = customers.filter(
+    (c) => !c.job && c.lastRun?.finishedAt && now - Number(c.lastRun.finishedAt) < RECENT_JOB_MS,
+  );
+  const rows = [
+    ...active.map((customer) => {
+      const job = customer.job;
+      const progress = jobPercent(job);
+      return `<div class="job-row is-running">
+        <div class="job-row-main">
+          <div class="job-title"><button type="button" class="job-customer" data-using="${esc(customer.id)}">${esc(customer.name)}</button><span>运行中</span></div>
+          <div class="job-meter" role="progressbar" aria-label="${esc(customer.name)}${esc(job.kind)}进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><i style="--job-scale:${progress / 100}"></i></div>
+          <p>${progress}% · ${esc(job.stage || `正在${job.kind}`)} · 已运行 ${elapsedLabel(job.startedAt, now)}</p>
+        </div>
+        <button type="button" class="go" data-using="${esc(customer.id)}">查看</button>
+      </div>`;
+    }),
+    ...recent.map((customer) => {
+      const run = customer.lastRun;
+      const failed = run.status === "failed";
+      return `<div class="job-row ${failed ? "is-failed" : "is-done"}">
+        <div class="job-row-main">
+          <div class="job-title"><button type="button" class="job-customer" data-using="${esc(customer.id)}">${esc(customer.name)}</button><span>${failed ? "未完成" : "已完成"}</span></div>
+          <p>${esc(run.message || (failed ? `${run.kind}没出成` : `${run.kind}已完成`))} · 用时 ${elapsedLabel(run.startedAt, run.finishedAt)}</p>
+        </div>
+        <button type="button" class="go" data-using="${esc(customer.id)}">${failed ? "查看并重试" : "打开内容"}</button>
+      </div>`;
+    }),
+  ];
+  box.classList.toggle("hidden", !rows.length);
+  box.innerHTML = rows.length
+    ? `<div class="job-center-head"><span>生成任务</span><small>${active.length ? "自动刷新，不用守着" : "最近结果"}</small></div>${rows.join("")}`
+    : "";
 }
 
 
@@ -481,10 +554,10 @@ function renderDesk() {
   const row = (c, action, act, extraChip) =>
     rowCard({
       title: c.name,
-      chips: `${c.hunt ? chip(c.hunt) : ""}${extraChip || ""}`,
-      meta: esc(c.reason || ""),
+      chips: `${c.hunt ? chip(c.hunt) : ""}${extraChip || ""}${c.job ? chip(`生成中 ${jobPercent(c.job)}%`, "chip-running") : ""}`,
+      meta: esc(c.job?.stage || c.reason || ""),
       actions: c.busy
-        ? `<button type="button" class="go" disabled>正在出档…</button>`
+        ? `<button type="button" class="go" data-using="${c.id}">查看进度</button>`
         : `<button type="button" class="go" data-using="${c.id}" data-act="${act || ""}">${action}</button>`,
     });
   if (sendBox) {
@@ -515,6 +588,7 @@ function renderDesk() {
 }
 
 function renderToday() {
+  renderJobCenter();
   const mine = usingCustomer();
   const empty = document.getElementById("empty-today");
   const owned = document.getElementById("owned-today");
@@ -701,25 +775,49 @@ function renderToday() {
   const open = document.getElementById("pack-open");
   const exportPdf = document.getElementById("pack-export-pdf");
   const exportDocx = document.getElementById("pack-export-docx");
-  if (pack.sharePath && !publishBlocked && pack.tier !== "今日") {
-    open.classList.remove("hidden");
-    open.setAttribute("href", pack.sharePath);
+  const handoff = document.getElementById("pack-handoff");
+  const exportNote = document.getElementById("pack-export-note");
+  const judgment = isJudgmentPack(pack);
+  handoff?.classList.toggle("hidden", !judgment);
+  if (judgment) {
     const exportBase = `/api/reports/${encodeURIComponent(pack.id)}/export`;
     exportPdf?.classList.remove("hidden");
-    exportPdf?.setAttribute("href", `${exportBase}/pdf`);
-    exportPdf?.setAttribute("download", "判断报告.pdf");
+    exportPdf.dataset.exportUrl = `${exportBase}/pdf`;
+    exportPdf.dataset.exportName = `${mine.name}-判断报告.pdf`;
+    exportPdf.disabled = publishBlocked;
+    exportPdf.title = publishBlocked ? "先处理报告里的红线或硬限制" : "选择保存位置并另存为 PDF";
     exportDocx?.classList.remove("hidden");
-    exportDocx?.setAttribute("href", `${exportBase}/docx`);
-    exportDocx?.setAttribute("download", "判断报告.docx");
+    exportDocx.dataset.exportUrl = `${exportBase}/docx`;
+    exportDocx.dataset.exportName = `${mine.name}-判断报告.docx`;
+    exportDocx.disabled = publishBlocked;
+    exportDocx.title = publishBlocked ? "先处理报告里的红线或硬限制" : "选择保存位置并另存为 Word";
+    const canPreview = Boolean(pack.sharePath && !publishBlocked);
+    open?.classList.toggle("hidden", !canPreview);
+    if (canPreview) open?.setAttribute("href", pack.sharePath);
+    else open?.removeAttribute("href");
+    if (exportNote) {
+      exportNote.classList.toggle("hidden", !publishBlocked);
+      exportNote.textContent = publishBlocked
+        ? `当前有 ${hardBlockCount(pack)} 处红线或硬限制。处理完即可另存，系统不会把风险项静默带出去。`
+        : "";
+    }
   } else {
-    open.classList.add("hidden");
-    open.removeAttribute("href");
+    open?.classList.add("hidden");
+    open?.removeAttribute("href");
     exportPdf?.classList.add("hidden");
-    exportPdf?.removeAttribute("href");
-    exportPdf?.removeAttribute("download");
+    if (exportPdf) {
+      exportPdf.disabled = false;
+      delete exportPdf.dataset.exportUrl;
+      delete exportPdf.dataset.exportName;
+    }
     exportDocx?.classList.add("hidden");
-    exportDocx?.removeAttribute("href");
-    exportDocx?.removeAttribute("download");
+    if (exportDocx) {
+      exportDocx.disabled = false;
+      delete exportDocx.dataset.exportUrl;
+      delete exportDocx.dataset.exportName;
+    }
+    exportNote?.classList.add("hidden");
+    if (exportNote) exportNote.textContent = "";
   }
 
   const landscapeCard = document.getElementById("landscape-card");
@@ -1051,9 +1149,10 @@ function renderCustomers() {
           const packs = packsOf(c);
           const latest = packs[0];
           const using = c.id === state.workspace.usingId;
-          const kind = c.track || "未标明";
           const kindChip = c.track === "存量" ? chip("存量", "chip-stock") : c.track === "拓新" ? chip("拓新", "chip-new") : chip("未标明", "chip-warn");
-          const actions = c.track
+          const actions = c.job
+            ? `<button type="button" class="go" data-using="${c.id}">查看进度</button>`
+            : c.track
             ? using
               ? ""
               : `<button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "打开"}</button>`
@@ -1061,8 +1160,10 @@ function renderCustomers() {
                 <button type="button" class="go" data-track="${c.id}|拓新">标为拓新</button>`;
           return rowCard({
             title: c.name,
-            chips: `${kindChip}${c.hunt ? chip(c.hunt) : ""}${using && c.track ? chip("当前", "chip-hot") : ""}`,
-            meta: `${c.materials?.length ? `资料 ${c.materials.length} 份 · ` : ""}${packs.length ? `已出 ${packs.length} 份` : c.track === "存量" ? "还没出今日" : c.track === "拓新" ? "还没出判断" : "先标明种类"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}`,
+            chips: `${kindChip}${c.hunt ? chip(c.hunt) : ""}${c.job ? chip(`生成中 ${jobPercent(c.job)}%`, "chip-running") : ""}${using && c.track ? chip("当前", "chip-hot") : ""}`,
+            meta: c.job
+              ? `${esc(c.job.stage || `正在${c.job.kind}`)} · 已运行 ${elapsedLabel(c.job.startedAt)}`
+              : `${c.materials?.length ? `资料 ${c.materials.length} 份 · ` : ""}${packs.length ? `已出 ${packs.length} 份` : c.track === "存量" ? "还没出今日" : c.track === "拓新" ? "还没出判断" : "先标明种类"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}`,
             actions,
           });
         })
@@ -1083,9 +1184,13 @@ function renderPackIndex() {
             rowCard({
               title: customer.name,
               chips: `${chip(pack.tier || "档")}${pack.deliveredAt || pack.createdAt ? chip(pack.deliveredAt || pack.createdAt) : ""}`,
-              meta: esc(pack.title || ""),
+              meta: canExportJudgment(pack)
+                ? esc(pack.title || "")
+                : `${esc(pack.title || "")} · 有 ${hardBlockCount(pack)} 处红线或硬限制，处理后可另存`,
               actions:
-                `<button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开这份</button>` +
+                `<button type="button" class="do" data-export-url="/api/reports/${encodeURIComponent(pack.id)}/export/pdf" data-export-name="${esc(customer.name)}-判断报告.pdf"${canExportJudgment(pack) ? "" : ' disabled title="先打开处理红线或硬限制"'}>${icon("download")}另存 PDF</button>` +
+                `<button type="button" class="go" data-export-url="/api/reports/${encodeURIComponent(pack.id)}/export/docx" data-export-name="${esc(customer.name)}-判断报告.docx"${canExportJudgment(pack) ? "" : ' disabled title="先打开处理红线或硬限制"'}>另存 Word</button>` +
+                `<button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开判断</button>` +
                 `<button type="button" class="do do-quiet" data-del-pack="${pack.id}" data-customer="${customer.id}" title="删除这份出档">${icon("trash")}删除</button>`,
             }),
         )
@@ -1178,6 +1283,12 @@ function renderLedgerLines() {
 
 function bind() {
   document.body.addEventListener("click", (e) => {
+    const exportButton = e.target.closest("[data-export-url]");
+    if (exportButton) {
+      e.preventDefault();
+      runExport(exportButton);
+      return;
+    }
     const navEl = e.target.closest("[data-nav]");
     if (navEl) {
       e.preventDefault();
@@ -1732,8 +1843,12 @@ function watchJob(customerId) {
         settled = true;
         toast(c?.lastFail ? `${c.name || "客户"}没出成：${c.lastFail}` : `${c?.name || "客户"}出好了`);
       }
+      // 不只在结束时拿一次结果：运行中的真实阶段、百分比和耗时也要每轮更新。
+      state.workspace = data;
+      renderJobCenter();
+      renderDesk();
+      renderCustomers();
       if (settled) {
-        state.workspace = data;
         state.packId = "";
         renderToday();
       }
@@ -2580,19 +2695,6 @@ document.body.addEventListener("dragend", async () => {
   card.draggable = false;
   card.classList.remove("is-dragging");
   await saveLlmOrder();
-});
-
-document.getElementById("pack-export-pdf")?.addEventListener("click", (e) => {
-  const href = e.currentTarget.getAttribute("href");
-  if (!href || href === "#") return;
-  e.preventDefault();
-  exportReportLocally(href, "判断报告.pdf");
-});
-document.getElementById("pack-export-docx")?.addEventListener("click", (e) => {
-  const href = e.currentTarget.getAttribute("href");
-  if (!href || href === "#") return;
-  e.preventDefault();
-  exportReportLocally(href, "判断报告.docx");
 });
 
 boot();

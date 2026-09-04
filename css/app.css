@@ -325,6 +325,87 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .tools { display: flex; gap: 8px; }
 
+/* 生成任务跨页面常驻。它是工作状态，不是一次即逝的提示。 */
+.job-center {
+  padding: 4px 56px 14px;
+}
+.job-center-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+.job-center-head small {
+  color: var(--ink-3);
+  font: inherit;
+  letter-spacing: 0.04em;
+}
+.job-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.job-row:last-child { border-bottom: 0; }
+.job-row-main { min-width: 0; }
+.job-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.job-title span {
+  color: var(--accent);
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  letter-spacing: 0.1em;
+}
+.job-row.is-done .job-title span { color: var(--up); }
+.job-row.is-failed .job-title span { color: var(--down); }
+.job-customer {
+  border: 0;
+  background: transparent;
+  color: var(--ink-1);
+  padding: 0;
+  cursor: pointer;
+  font-weight: 600;
+  text-align: left;
+}
+.job-customer:hover { color: var(--accent); }
+.job-row p {
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  letter-spacing: 0.02em;
+}
+.job-meter {
+  height: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.job-meter i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(var(--job-scale, 0.05));
+  transform-origin: left center;
+  transition: transform 420ms var(--ease);
+}
+.chip-running {
+  background: color-mix(in oklch, var(--accent) 13%, var(--bg));
+  color: var(--accent);
+}
+
 section[data-view] { padding: 0 56px; }
 
 .kicker {
@@ -449,6 +530,19 @@ section[data-view] { padding: 0 56px; }
   letter-spacing: 0.01em;
 }
 .card h2 .tag { margin-left: 8px; vertical-align: 0.18em; }
+.handoff-actions {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+.handoff-k {
+  color: var(--accent);
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+.handoff-actions .meta { margin-top: 8px; color: var(--down); }
 /* 纸色带让位给出活章的整章台面：封面回到本色纸，锚点交给右边的章 */
 .card-id { margin-top: 24px; }
 .cover-row {
@@ -1594,7 +1688,9 @@ td:last-child { color: var(--ink-2); }
     letter-spacing: 0.2em;
   }
   .chapter-take { margin: 48px -16px 0; padding: 20px 16px 36px; }
-  .topbar, section[data-view] { padding-left: 16px; padding-right: 16px; }
+  .topbar, .job-center, section[data-view] { padding-left: 16px; padding-right: 16px; }
+  .job-row { grid-template-columns: 1fr; gap: 8px; }
+  .job-row > .go { justify-self: start; }
   .card-id { margin: 24px -16px 0; padding: 20px 16px 24px; }
   .tools { width: 100%; }
   .hook h1 { max-width: none; }

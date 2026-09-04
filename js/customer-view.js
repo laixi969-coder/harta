@@ -19,3 +19,22 @@ export function latestAttributablePack(customer) {
 export function canRepackCustomer(customer) {
   return Boolean(customer?.id && customer.track === "拓新");
 }
+
+/** 判断档可以作为文件交付；今日内容留在工作台，不伪装成报告。 */
+export function isJudgmentPack(pack) {
+  return Boolean(pack?.id && pack.tier !== "今日");
+}
+
+export function hardBlockCount(pack) {
+  const checks = pack?.checks || {};
+  return [
+    ...(checks.redline || []),
+    ...(checks.sensitive || []),
+    ...(checks.length || []).filter((row) => row.level === "hard"),
+    ...(checks.quality || []).filter((row) => row.level === "hard"),
+  ].length;
+}
+
+export function canExportJudgment(pack) {
+  return isJudgmentPack(pack) && hardBlockCount(pack) === 0;
+}

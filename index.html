@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260901b">
+  <link rel="stylesheet" href="css/app.css?v=20260904a">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -28,6 +28,7 @@
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9.2"/><path d="M20 4.5v4.7h-4.7"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 14.8"/><path d="M4 19.5v-4.7h4.7"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="10.5" height="10.5" rx="1.5"/><path d="M5 14.5V5.5A1.5 1.5 0 0 1 6.5 4h9"/></symbol>
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15.5v-11M8 8l4-3.5L16 8"/><path d="M4.5 15.5v3A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v11M8 12l4 3.5 4-3.5"/><path d="M4.5 16v2.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V16"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 6.5h15M9.5 6V4.5h5V6"/><path d="m6.5 6.5.8 13h9.4l.8-13"/><path d="M10 10v6M14 10v6"/></symbol>
     <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9.5 7 4.5 12l5 5"/><path d="M4.5 12H14a5.5 5.5 0 0 1 5.5 5.5V19"/></symbol>
     <symbol id="i-mute" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="m6.7 6.7 10.6 10.6"/></symbol>
@@ -63,6 +64,7 @@
           <button class="btn gold" data-nav="customers"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>新建客户</button>
         </div>
       </div>
+      <div class="job-center hidden" id="job-center" aria-label="生成任务"></div>
 
       <section data-view="today">
         <div class="hook">
@@ -133,12 +135,16 @@
           </div>
           <p class="meta" id="using-meta"></p>
           <p class="meta" id="pack-title"></p>
-          <div class="acts" style="margin:16px 0 0">
-            <a class="btn hidden" id="pack-open" href="pack.html" target="_blank" rel="noreferrer">打开甲方包裹</a>
-            <a class="btn ghost hidden" id="pack-export-pdf" href="#">导出 PDF</a>
-            <a class="btn ghost hidden" id="pack-export-docx" href="#">导出 Word</a>
+          <div class="handoff-actions hidden" id="pack-handoff">
+            <p class="handoff-k">交付出口</p>
+            <div class="acts">
+            <button class="btn hidden" id="pack-export-pdf" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>另存判断 PDF</button>
+            <button class="btn ghost hidden" id="pack-export-docx" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>另存 Word</button>
+            <a class="btn ghost hidden" id="pack-open" href="pack.html" target="_blank" rel="noreferrer">预览甲方页</a>
             <button class="btn ghost hidden" id="go-full" type="button"><svg class="icon" aria-hidden="true"><use href="#i-film"></use></svg>客户有反应了，补分镜</button>
             <button class="btn ghost hidden" id="go-refill" type="button"><svg class="icon" aria-hidden="true"><use href="#i-bolt"></use></svg>再出一批</button>
+            </div>
+            <p class="meta hidden" id="pack-export-note"></p>
           </div>
         </article>
         <div class="chapter" id="judge-chapter">
@@ -289,7 +295,8 @@
       <section class="hidden" data-view="pack">
         <div class="hook">
           <p class="kicker">包裹</p>
-          <h1>发给甲方的那一页。他们不进后台。</h1>
+          <h1>判断的交付出口。直接另存，或打开甲方页核对。</h1>
+          <p class="meta">PDF 适合直接发，Word 适合继续修改。每日内容仍在「今天」里使用。</p>
         </div>
         <div id="pack-list" class="chase"></div>
       </section>
@@ -380,6 +387,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260901c"></script>
+  <script type="module" src="js/app.js?v=20260904a"></script>
 </body>
 </html>
