@@ -876,12 +876,18 @@ function renderToday() {
     open?.classList.toggle("hidden", !canPreview);
     if (canPreview) open?.setAttribute("href", pack.sharePath);
     else open?.removeAttribute("href");
+    const autoFix = document.getElementById("pack-autofix");
+    if (autoFix) {
+      autoFix.classList.toggle("hidden", !publishBlocked);
+      autoFix.dataset.pack = publishBlocked ? pack.id || "" : "";
+      autoFix.disabled = busy;
+    }
     if (exportNote) {
       exportNote.classList.toggle("hidden", !publishBlocked);
       if (publishBlocked) {
         const named = hardRows.slice(0, 3).map(hardRowLabel).join("；");
         const more = hardRows.length > 3 ? `等 ${hardRows.length} 处` : "";
-        exportNote.textContent = `还有 ${hardBlockCount(pack)} 处没过：${named}${more}。在下面「发出去之前」改完即可另存，系统不会把风险项静默带出去。`;
+        exportNote.textContent = `还有 ${hardBlockCount(pack)} 处没过：${named}${more}。点「自动修复」让系统改，或在下面「发出去之前」手动改完即可另存；系统不会把风险项静默带出去。`;
       } else {
         exportNote.textContent = "";
       }
@@ -1970,6 +1976,39 @@ document.getElementById("go-repack")?.addEventListener("click", async (e) => {
     renderToday();
     toast("正在重出，出好了这里会自己刷新");
     watchJob(customerId);
+  } catch {
+    toast("网络不通，请再试");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = old;
+  }
+});
+
+document.getElementById("pack-autofix")?.addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const packId = btn.dataset.pack;
+  if (!packId) return;
+  btn.disabled = true;
+  const old = btn.innerHTML;
+  btn.innerHTML = `${icon("refresh")}正在自动修复…`;
+  try {
+    const res = await fetch("/api/pack/fix", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ packId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || "自动修复失败");
+      return;
+    }
+    state.workspace = data.workspace;
+    renderToday();
+    toast(
+      data.fixed
+        ? `已自动修复 ${data.fixed} 处，剩余的看检查区`
+        : "这几处机器改不了（要通篇看的），得在检查区手动改",
+    );
   } catch {
     toast("网络不通，请再试");
   } finally {

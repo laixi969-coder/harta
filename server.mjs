@@ -27,7 +27,7 @@ import {
   testVisionConnection,
   useModel,
 } from "./lib/llm.mjs";
-import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, groupOverview, publicWorkspace, readWorkspace, refillPack, removePack, repack, replaceCustomerMaterials, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, fixPack, groupOverview, publicWorkspace, readWorkspace, refillPack, removePack, repack, replaceCustomerMaterials, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { createSession, destroySession, readSession } from "./lib/session.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
@@ -313,6 +313,19 @@ async function handleApi(req, res, url) {
     const out = removePack(user.email, body.customerId, body.packId);
     if (out.error) return json(res, 400, { error: out.error });
     return json(res, 200, publicWorkspace(out.workspace));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/pack/fix") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    try {
+      const out = await fixPack(user.email, body.packId);
+      if (out.error) return json(res, 400, { error: out.error });
+      return json(res, 200, { workspace: publicWorkspace(out.workspace), fixed: out.fixed });
+    } catch (err) {
+      return json(res, 500, { error: err.message || "自动修复失败" });
+    }
   }
 
   if (req.method === "GET" && url.pathname === "/api/workspace") {
