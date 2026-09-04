@@ -606,6 +606,124 @@ section[data-view] { padding: 0 56px; }
   letter-spacing: 0.14em;
 }
 .handoff-actions .meta { margin-top: 8px; color: var(--down); }
+
+/* 内容库控制台：一批货先筛、再安排、再带走。它是台面，不是弹窗。 */
+.content-console { border-top: 3px solid var(--rule); }
+.content-console-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+.content-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 18px;
+  font-family: var(--font-meta);
+  color: var(--ink-3);
+  font-size: var(--t-6);
+}
+.content-summary span { display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 5px; }
+.content-summary b { color: var(--ink-1); font-size: var(--t-3); font-weight: 600; font-variant-numeric: tabular-nums; }
+.content-learning {
+  margin-top: 14px;
+  padding: 11px 14px;
+  border-left: 2px solid var(--rule);
+  background: var(--accent-soft);
+  color: var(--ink-2);
+  font-size: var(--t-5);
+}
+.content-filters {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1.7fr) repeat(4, minmax(8rem, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+.content-filters label,
+.export-options label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.content-filters label > span,
+.export-options label > span {
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+.content-filters input,
+.content-filters select,
+.content-state-action input,
+.content-state-action select,
+.export-options select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  color: var(--ink-1);
+  font-size: var(--t-5);
+}
+.content-filters input:focus,
+.content-filters select:focus,
+.content-state-action input:focus,
+.content-state-action select:focus,
+.export-options select:focus { outline: none; border-color: var(--accent); background: var(--bg); }
+.content-batch-actions {
+  display: grid;
+  grid-template-columns: auto minmax(13rem, 1fr) auto;
+  align-items: center;
+  gap: 12px 22px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.content-selection-copy { display: flex; gap: 10px; align-items: baseline; font-family: var(--font-meta); font-size: var(--t-6); color: var(--ink-3); }
+.content-selection-copy b { color: var(--ink-1); font-weight: 600; }
+.content-state-action { display: grid; grid-template-columns: minmax(9rem, 1fr) minmax(9rem, 1fr) auto; gap: 8px; align-items: center; }
+.export-desk { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); }
+.export-desk summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  color: var(--accent);
+  font-family: var(--font-meta);
+  font-size: var(--t-5);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.export-desk summary::-webkit-details-marker { display: none; }
+.export-options { display: grid; grid-template-columns: repeat(4, minmax(9rem, 1fr)); gap: 10px; margin-top: 10px; }
+.risk-export { display: flex; align-items: center; gap: 9px; margin-top: 12px; color: var(--ink-2); font-size: var(--t-5); }
+.risk-export input,
+.content-pick input { width: 17px; height: 17px; min-height: 0; accent-color: var(--accent); }
+.content-line { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; }
+.content-pick { display: inline-flex; padding-top: 2px; cursor: pointer; }
+.content-line-main { min-width: 0; }
+.content-shell-main { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; }
+.content-shell-main > .acts-inline { grid-column: 2; }
+.content-state {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-3);
+  font-family: var(--font-meta);
+  font-size: var(--t-6);
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+.content-state.is-selected { color: var(--accent); box-shadow: inset 0 -1px 0 var(--accent); }
+.content-state.is-published { color: var(--up); box-shadow: inset 0 -1px 0 var(--up); }
+.content-state.is-paused { color: var(--ink-3); text-decoration: line-through; }
+.group-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 14px; }
+.group-actions > span { color: var(--ink-3); font-family: var(--font-meta); font-size: var(--t-6); font-weight: 400; }
+.group-actions .textish { min-height: 32px; padding: 4px 0; font-size: var(--t-6); }
+.hidden-filter,
+.filter-empty { display: none !important; }
 /* 纸色带让位给出活章的整章台面：封面回到本色纸，锚点交给右边的章 */
 .card-id { margin-top: 24px; }
 .cover-row {
@@ -1738,6 +1856,16 @@ td:last-child { color: var(--ink-2); }
   .sleeve-fields .full { grid-column: auto; }
   .line-row { grid-template-columns: 1fr; }
   .line-row .do { justify-self: start; }
+  .content-console-head { display: grid; }
+  .content-summary { justify-content: flex-start; }
+  .content-filters,
+  .export-options { grid-template-columns: 1fr 1fr; }
+  .content-filters label:first-child { grid-column: 1 / -1; }
+  .content-batch-actions { grid-template-columns: 1fr; }
+  .content-state-action { grid-template-columns: 1fr 1fr; }
+  .content-state-action .btn { grid-column: 1 / -1; justify-self: start; }
+  .sleeve-across .sleeve-tab { align-items: flex-start; }
+  .group-actions { justify-content: flex-start; }
   .track-pick { grid-template-columns: 1fr; }
   .chase .row, .hunt-stat { grid-template-columns: 1fr; }
   .row-acts, .stat-pills { justify-content: flex-start; text-align: left; }

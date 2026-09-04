@@ -2,6 +2,13 @@ import { bindEyes } from "./eyes.js";
 import { copyKey, editOf, edited, shellKey } from "./pack-edits.js";
 import { lastEffective, rankCopyGroups, rankShells } from "./rank-feedback.js";
 import {
+  CONTENT_STATUS_LABELS,
+  contentItemKey,
+  contentStateCounts,
+  contentStateOf,
+  learningSummary,
+} from "./content-workflow.js";
+import {
   artifactsForCustomer,
   canExportJudgment,
   canRepackCustomer,
@@ -27,6 +34,9 @@ const state = {
   llmBaseEdit: {},
   llmAddOpen: {},
   llmFocus: "",
+  contentSelection: new Set(),
+  contentFilter: { query: "", status: "all", kind: "all", group: "all", platform: "all" },
+  exportGroup: "",
 };
 
 const MATERIAL_MAX_FILE = 60 * 1024 * 1024;
@@ -146,6 +156,77 @@ async function exportReportLocally(url, fallbackName) {
   } catch {
     toast("网络不通，导出失败");
   }
+}
+
+async function postExportLocally(url, body, fallbackName) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "导出失败");
+  }
+  const raw = await res.blob();
+  const filename = filenameFromDisposition(res.headers.get("content-disposition"), fallbackName);
+  const result = await saveBlobLocally(raw, filename);
+  const included = Number(res.headers.get("x-harta-included") || 0);
+  const excluded = Number(res.headers.get("x-harta-excluded") || 0);
+  return { result, included, excluded };
+}
+
+async function runContentExport({ history = false } = {}) {
+  const pack = currentPack();
+  const customer = usingCustomer();
+  if (!pack || !customer) return;
+  const format = document.getElementById("content-export-format")?.value === "md" ? "md" : "xlsx";
+  const button = document.getElementById(history ? "content-export-history" : "content-export");
+  if (!button || button.disabled) return;
+  const old = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = `${icon("download")}正在另存…`;
+  try {
+    const body = history
+      ? { customerId: customer.id, format }
+      : {
+          packId: pack.id,
+          format,
+          scope: document.getElementById("content-export-scope")?.value || "all",
+          group: document.getElementById("content-export-group")?.value || "",
+          kind: document.getElementById("content-export-kind")?.value || "all",
+          includeRisky: Boolean(document.getElementById("content-include-risky")?.checked),
+          selection: [...state.contentSelection],
+        };
+    if (!history && body.scope === "selected" && !body.selection.length) throw new Error("先勾选要导出的内容");
+    if (!history && body.scope === "group" && !body.group) throw new Error("先选择要导出的方向");
+    const stem = `${customer.name}_${history ? "内容库_全部历史" : pack.date || "内容批次"}.${format}`;
+    const saved = await postExportLocally(history ? "/api/content/export-history" : "/api/content/export", body, stem);
+    if (saved.result === "cancelled") toast("已取消另存");
+    else toast(`${history ? "历史已备份" : `已导出 ${saved.included} 条`}${saved.excluded ? `，排除 ${saved.excluded} 条风险项` : ""}`);
+  } catch (err) {
+    toast(err.message || "导出失败");
+  } finally {
+    button.disabled = false;
+    button.innerHTML = old;
+  }
+}
+
+async function updateContentState(keys, status, plannedAt = "") {
+  const pack = currentPack();
+  if (!pack || !keys.length) return false;
+  const res = await fetch("/api/content-state", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ packId: pack.id, keys, status, plannedAt }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || "状态没存上");
+    return false;
+  }
+  state.workspace = data.workspace;
+  return true;
 }
 
 async function runExport(button) {
@@ -612,6 +693,120 @@ function copyCount(pack) {
   return Object.values(pack?.copies || {}).flat().length;
 }
 
+function contentRisk(pack, text, hardRows = []) {
+  if ((hardRows || []).some((row) => row.scope === "batch")) return true;
+  return (hardRows || []).some((row) => String(row.text || "") === String(text || ""));
+}
+
+function contentItemMeta(pack, lineKey, { kind, group = "", platform = "", text = "", risky = false } = {}) {
+  const key = contentItemKey(pack.id, lineKey);
+  const workflow = contentStateOf(state.workspace.contentStates, key);
+  return {
+    key,
+    workflow,
+    checked: state.contentSelection.has(key),
+    attrs: `data-content-item data-content-key="${esc(key)}" data-kind="${esc(kind)}" data-group="${esc(group)}" data-platform="${esc(platform)}" data-status="${esc(workflow.status)}" data-search="${esc(`${group} ${platform} ${text}`.toLocaleLowerCase("zh-CN"))}" data-risk="${risky ? "1" : "0"}"`,
+  };
+}
+
+function contentPick(meta, label) {
+  return `<label class="content-pick" title="勾选这条"><input type="checkbox" data-content-check="${esc(meta.key)}" aria-label="${esc(label)}"${meta.checked ? " checked" : ""}><span aria-hidden="true"></span></label>`;
+}
+
+function contentStateMark(workflow) {
+  const dates = [workflow.plannedAt ? `计划 ${workflow.plannedAt}` : "", workflow.publishedAt ? `发布 ${String(workflow.publishedAt).slice(0, 10)}` : ""].filter(Boolean);
+  return `<span class="content-state is-${esc(workflow.status)}">${esc(CONTENT_STATUS_LABELS[workflow.status] || "待筛选")}${dates.length ? ` · ${esc(dates.join(" · "))}` : ""}</span>`;
+}
+
+function replaceOptions(select, values, allLabel, selected) {
+  if (!select) return;
+  const wanted = selected ?? select.value;
+  select.innerHTML = `<option value="all">${esc(allLabel)}</option>${values.map((value) => `<option value="${esc(value)}">${esc(value)}</option>`).join("")}`;
+  select.value = values.includes(wanted) || wanted === "all" ? wanted : "all";
+}
+
+function syncContentExportControls() {
+  const scope = document.getElementById("content-export-scope");
+  const group = document.getElementById("content-export-group");
+  const kind = document.getElementById("content-export-kind");
+  const isGroup = scope?.value === "group";
+  if (group) group.disabled = !isGroup;
+  if (kind) {
+    if (isGroup) kind.value = "copies";
+    kind.disabled = isGroup;
+  }
+}
+
+function updateContentSelectionUI() {
+  const selected = [...state.contentSelection].filter((key) => key.startsWith(`${currentPack()?.id || ""}::`));
+  const count = document.getElementById("content-selected-count");
+  if (count) count.textContent = `已选 ${selected.length} 条`;
+  const apply = document.getElementById("content-apply-status");
+  if (apply) apply.disabled = !selected.length;
+}
+
+function applyContentFilters() {
+  const filter = state.contentFilter;
+  const items = [...document.querySelectorAll("[data-content-item]")];
+  let visible = 0;
+  for (const item of items) {
+    const show =
+      (!filter.query || item.dataset.search.includes(filter.query.toLocaleLowerCase("zh-CN"))) &&
+      (filter.status === "all" || item.dataset.status === filter.status) &&
+      (filter.kind === "all" || item.dataset.kind === filter.kind) &&
+      (filter.group === "all" || item.dataset.group === filter.group) &&
+      (filter.platform === "all" || item.dataset.platform === filter.platform);
+    item.classList.toggle("hidden-filter", !show);
+    if (show) visible += 1;
+  }
+  document.querySelectorAll("[data-content-container]").forEach((box) => {
+    box.classList.toggle("hidden-filter", !box.querySelector("[data-content-item]:not(.hidden-filter)"));
+  });
+  document.getElementById("copies-card")?.classList.toggle("filter-empty", !document.querySelector('#copies [data-content-item]:not(.hidden-filter)'));
+  document.getElementById("platform-card")?.classList.toggle("filter-empty", !document.querySelector('#plats [data-content-item]:not(.hidden-filter)'));
+  const label = document.getElementById("content-visible-count");
+  if (label) label.textContent = `当前显示 ${visible} 条`;
+  updateContentSelectionUI();
+}
+
+function renderContentConsole(pack, customer, hardRows) {
+  const consoleBox = document.getElementById("content-console");
+  const isContent = pack?.tier === "今日";
+  consoleBox?.classList.toggle("hidden", !isContent);
+  if (!isContent || !consoleBox) {
+    document.getElementById("copies-card")?.classList.remove("filter-empty");
+    document.getElementById("platform-card")?.classList.remove("filter-empty");
+    return;
+  }
+  state.contentSelection = new Set([...state.contentSelection].filter((key) => key.startsWith(`${pack.id}::`)));
+  const groups = Object.keys(pack.copies || {});
+  const platforms = Object.keys(pack.shells || {});
+  const counts = contentStateCounts(pack, state.workspace.contentStates, state.workspace.feedback);
+  const itemRisks = [...document.querySelectorAll("[data-content-item][data-risk=\"1\"]")].length;
+  document.getElementById("content-batch-title").textContent = `${pack.date || pack.deliveredAt || pack.createdAt || "本次"} · ${pack.batch ? `第 ${pack.batch} 批` : "内容批次"}`;
+  document.getElementById("content-summary").innerHTML = [
+    ["库存", counts.total],
+    ["已选", counts.selected],
+    ["已发", counts.published],
+    ["回音", counts.replied],
+    ["风险", itemRisks],
+  ].map(([label, value]) => `<span><b>${value}</b>${label}</span>`).join("");
+  document.getElementById("content-learning").textContent = learningSummary(customer, pack, state.workspace.feedback);
+  replaceOptions(document.getElementById("content-group-filter"), groups, "全部方向", state.contentFilter.group);
+  replaceOptions(document.getElementById("content-platform-filter"), platforms, "全部平台", state.contentFilter.platform);
+  const exportGroup = document.getElementById("content-export-group");
+  if (exportGroup) {
+    const wanted = state.exportGroup || exportGroup.value;
+    exportGroup.innerHTML = `<option value="">选择方向</option>${groups.map((group) => `<option value="${esc(group)}">${esc(group)}</option>`).join("")}`;
+    exportGroup.value = groups.includes(wanted) ? wanted : "";
+  }
+  syncContentExportControls();
+  document.getElementById("content-search").value = state.contentFilter.query;
+  document.getElementById("content-status-filter").value = state.contentFilter.status;
+  document.getElementById("content-kind-filter").value = state.contentFilter.kind;
+  applyContentFilters();
+}
+
 function chip(text, tone = "") {
   return `<span class="chip${tone ? ` ${tone}` : ""}">${esc(text)}</span>`;
 }
@@ -690,6 +885,17 @@ function renderToday() {
   const packs = packsOf(mine);
   const pack = currentPack();
   if (pack && !state.packId) state.packId = pack.id;
+  const isContentPack = pack?.tier === "今日";
+  const chapterName = document.getElementById("content-chapter-name");
+  const copiesTitle = document.getElementById("copies-title");
+  const copiesNote = document.getElementById("copies-note");
+  if (chapterName) chapterName.textContent = isContentPack ? "二 · 内容库" : "二 · 样例";
+  if (copiesTitle) copiesTitle.textContent = isContentPack ? "基础文案" : "样例文案";
+  if (copiesNote) {
+    copiesNote.textContent = isContentPack
+      ? "勾选后可批量安排、标记和导出；有回音的组会往前排。"
+      : "这些只用来说明判断方向，不算可直接运营的内容库存。";
+  }
   renderPackJob();
 
   const nCopy = pack ? copyCount(pack) : 0;
@@ -731,8 +937,8 @@ function renderToday() {
       .map(
         (p) => `<button type="button" data-pack="${p.id}" class="${p.id === (pack && pack.id) ? "on" : ""}">
         <span class="when">${esc(p.deliveredAt || p.createdAt)}</span>
-        <span class="what">${esc(p.title || p.tier)}</span>
-        <span class="meta">${esc(p.tier)} · ${copyCount(p)} 条</span>
+        <span class="what">${esc(p.tier === "今日" && p.batch ? `内容库 · 第 ${p.batch} 批` : p.title || p.tier)}</span>
+        <span class="meta">${esc(p.tier)} · ${copyCount(p)} 条${p.tier === "今日" ? ` · 已发 ${contentStateCounts(p, state.workspace.contentStates, state.workspace.feedback).published}` : ""}</span>
       </button>`,
       )
       .join("");
@@ -748,10 +954,10 @@ function renderToday() {
   const blockedTexts = new Set(hardRows.map((row) => String(row.text || "")).filter(Boolean));
   const batchQualityFail = (pack?.checks?.quality || []).some((row) => row.level === "hard" && row.scope === "batch");
   const publishBlocked = hardRows.length > 0;
-  const copyButton = (text, label = "复制") =>
+  const copyButton = (text, label = "复制", contentKey = "") =>
     batchQualityFail || blockedTexts.has(String(text || ""))
       ? `<button type="button" class="do" disabled title="这句质量或红线过不了，先改或重出">先改再复制</button>`
-      : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}">${icon("copy")}${label}</button>`;
+      : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}"${contentKey ? ` data-content-copy="${esc(contentKey)}"` : ""}>${icon("copy")}${label}</button>`;
   const win = document.getElementById("win");
   // 跨批次找：刚补的新批自己没反馈，别让他上周点过的回音凭空消失。
   // 只翻当前这位客户的档——别人的回音不挂到这位脸上
@@ -791,6 +997,7 @@ function renderToday() {
   const noPack = document.getElementById("no-pack");
   const body = document.getElementById("pack-body");
   if (!pack) {
+    document.getElementById("content-console")?.classList.add("hidden");
     noPack.classList.remove("hidden");
     const noPackTitle = noPack.querySelector("h2");
     if (noPackTitle) {
@@ -1039,13 +1246,15 @@ function renderToday() {
           const k = copyKey(g.group, row.i);
           const text = edited(pack, k, row.text);
           const was = editOf(pack, k)?.was;
-          return `<div class="line slip" data-line="${encodeURIComponent(k)}">
-            <p class="line-text">${esc(text)}</p>
+          const meta = contentItemMeta(pack, k, { kind: "copy", group: g.group, text, risky: contentRisk(pack, text, hardRows) });
+          return `<div class="line slip${isContentPack ? " content-line" : ""}" data-line="${encodeURIComponent(k)}" ${isContentPack ? meta.attrs : ""}>
+            ${isContentPack ? contentPick(meta, `选择 ${g.group} 第 ${row.i + 1} 条`) + '<div class="content-line-main">' : ""}<p class="line-text">${esc(text)}</p>
             ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}
             <div class="slip-bar">
               <div class="slip-step">
-                ${copyButton(text, "复制这条")}
+                ${copyButton(text, "复制这条", isContentPack ? meta.key : "")}
                 <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
+                ${isContentPack ? contentStateMark(meta.workflow) : ""}
               </div>
               <div class="slip-step">
                 <span class="slip-k">用过之后</span>
@@ -1053,7 +1262,7 @@ function renderToday() {
                 <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${esc(row.key)}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${icon("mute")}${row.fb === "dead" ? "已记没反应" : "没反应"}</button>
               </div>
             </div>
-          </div>`;
+            ${isContentPack ? "</div>" : ""}</div>`;
         })
         .join("");
       // 组名常自带字母编号（模型起的，台账里也这么引用），把它提成组号；
@@ -1061,8 +1270,8 @@ function renderToday() {
       const m = g.group.match(/^([A-H])(?:组)?\s+(.+)$/);
       const num = m ? m[1] : ["一", "二", "三", "四", "五", "六", "七", "八", "九"][i] || i + 1;
       const name = m ? m[2] : g.group;
-      return `<article class="sleeve sleeve-across${g.replied ? " is-hot" : ""}">
-        <div class="sleeve-tab"><span><i class="sleeve-num">${esc(num)}</i>${esc(name)}</span><span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span></div>
+      return `<article class="sleeve sleeve-across${g.replied ? " is-hot" : ""}"${isContentPack ? " data-content-container" : ""}>
+        <div class="sleeve-tab"><span><i class="sleeve-num">${esc(num)}</i>${esc(name)}</span>${isContentPack ? `<div class="group-actions"><span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span><button class="textish" type="button" data-select-group="${esc(g.group)}">勾选本组</button><button class="textish" type="button" data-copy-group="${esc(g.group)}">复制本组</button><button class="textish" type="button" data-export-group="${esc(g.group)}">导出本组</button></div>` : `<span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span>`}</div>
         <div class="sleeve-body">${items}</div>
       </article>`;
     })
@@ -1157,20 +1366,23 @@ function renderToday() {
             const k = shellKey(s.name, idx, f.key);
             const text = edited(pack, k, item[f.key]);
             const was = editOf(pack, k)?.was;
-            return `<div class="line-row"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}">
-              <div>${present.length > 1 ? `<p class="field-k">${esc(f.label)}</p>` : ""}<p class="line-text${f.key === "body" ? " asis" : ""}">${esc(text)}</p>
+            const meta = contentItemMeta(pack, k, { kind: "shell", platform: s.name, text, risky: contentRisk(pack, text, hardRows) });
+            return `<div class="line-row${isContentPack ? " content-shell-row" : ""}"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}" ${isContentPack ? meta.attrs : ""}>
+              ${isContentPack ? `<div class="content-shell-main">${contentPick(meta, `选择 ${s.name} 第 ${idx + 1} 条${f.label}`)}<div>` : "<div>"}${present.length > 1 ? `<p class="field-k">${esc(f.label)}</p>` : ""}<p class="line-text${f.key === "body" ? " asis" : ""}">${esc(text)}</p>
               ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}</div>
               <div class="acts-inline">
-                ${copyButton(text)}
+                ${copyButton(text, "复制", isContentPack ? meta.key : "")}
                 <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
+                ${isContentPack ? contentStateMark(meta.workflow) : ""}
               </div>
+              ${isContentPack ? "</div>" : ""}
             </div>`;
           })
           .join("");
-        return `<div class="line slip">${rows}</div>`;
+        return `<div class="line slip"${isContentPack ? " data-content-container" : ""}>${rows}</div>`;
       })
       .join("");
-    return `<section class="plat ${kind}"><h3>${esc(s.name)}<span>${kind === "is-main" ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
+    return `<section class="plat ${kind}"${isContentPack ? " data-content-container" : ""}><h3>${esc(s.name)}<span>${kind === "is-main" ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
   };
   const platBox = document.getElementById("plats");
   // 有正文的平台（小红书、朋友圈折叠后）塞进窄栏会挤成一条，
@@ -1218,6 +1430,8 @@ function renderToday() {
     <p style="margin-top:14px">${esc(pack.honest || "")}</p>
     <p class="meta">下一步：${esc((pack.next || []).join("；"))}</p>
     <p class="meta">出价和定向让代运营定，我们负责让他们有好素材可投。</p>`;
+
+  renderContentConsole(pack, mine, hardRows);
 
   renderCustomers();
   renderPackIndex();
@@ -1380,6 +1594,75 @@ function bind() {
       runExport(exportButton);
       return;
     }
+    if (e.target.closest("#content-export")) {
+      runContentExport();
+      return;
+    }
+    if (e.target.closest("#content-export-history")) {
+      runContentExport({ history: true });
+      return;
+    }
+    const selectGroup = e.target.closest("[data-select-group]");
+    if (selectGroup) {
+      const group = selectGroup.dataset.selectGroup;
+      document.querySelectorAll('[data-content-item][data-kind="copy"]').forEach((item) => {
+        if (item.dataset.group === group) state.contentSelection.add(item.dataset.contentKey);
+      });
+      document.querySelectorAll("[data-content-check]").forEach((input) => { input.checked = state.contentSelection.has(input.dataset.contentCheck); });
+      updateContentSelectionUI();
+      toast(`已勾选「${group}」`);
+      return;
+    }
+    const copyGroupButton = e.target.closest("[data-copy-group]");
+    if (copyGroupButton) {
+      const group = copyGroupButton.dataset.copyGroup;
+      const items = [...document.querySelectorAll('[data-content-item][data-kind="copy"]')].filter((item) => item.dataset.group === group);
+      const safe = items.filter((item) => item.dataset.risk !== "1");
+      const text = safe.map((item) => item.querySelector(".line-text")?.textContent || "").filter(Boolean).join("\n\n");
+      navigator.clipboard.writeText(text).then(async () => {
+        const keys = safe.map((item) => item.dataset.contentKey);
+        const pending = keys.filter((key) => contentStateOf(state.workspace.contentStates, key).status === "pending");
+        if (pending.length) await updateContentState(pending, "selected");
+        toast(`已复制本组 ${safe.length} 条${safe.length < items.length ? `，跳过 ${items.length - safe.length} 条风险项` : ""}`);
+        renderToday();
+      }).catch(() => toast("没复制上，手动选中复制"));
+      return;
+    }
+    const exportGroupButton = e.target.closest("[data-export-group]");
+    if (exportGroupButton) {
+      state.exportGroup = exportGroupButton.dataset.exportGroup;
+      const desk = document.getElementById("content-export-desk");
+      if (desk) desk.open = true;
+      document.getElementById("content-export-scope").value = "group";
+      document.getElementById("content-export-group").value = state.exportGroup;
+      syncContentExportControls();
+      desk?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (e.target.closest("#content-select-visible")) {
+      document.querySelectorAll("[data-content-item]:not(.hidden-filter)").forEach((item) => state.contentSelection.add(item.dataset.contentKey));
+      document.querySelectorAll("[data-content-check]").forEach((input) => { input.checked = state.contentSelection.has(input.dataset.contentCheck); });
+      updateContentSelectionUI();
+      return;
+    }
+    if (e.target.closest("#content-clear-selection")) {
+      state.contentSelection.clear();
+      document.querySelectorAll("[data-content-check]").forEach((input) => { input.checked = false; });
+      updateContentSelectionUI();
+      return;
+    }
+    if (e.target.closest("#content-apply-status")) {
+      const keys = [...state.contentSelection];
+      const status = document.getElementById("content-bulk-status")?.value || "selected";
+      const plannedAt = document.getElementById("content-plan-date")?.value || "";
+      updateContentState(keys, status, plannedAt).then((ok) => {
+        if (!ok) return;
+        state.contentSelection.clear();
+        toast(`已更新 ${keys.length} 条：${CONTENT_STATUS_LABELS[status]}`);
+        renderToday();
+      });
+      return;
+    }
     const navEl = e.target.closest("[data-nav]");
     if (navEl) {
       e.preventDefault();
@@ -1447,7 +1730,14 @@ function bind() {
       // 承诺「已复制」之前先等剪贴板真的写进去；非安全上下文里这步会失败
       navigator.clipboard
         .writeText(decodeURIComponent(copy.dataset.copy))
-        .then(() => toast("已复制"))
+        .then(async () => {
+          toast("已复制");
+          const key = copy.dataset.contentCopy;
+          if (key && contentStateOf(state.workspace.contentStates, key).status === "pending") {
+            await updateContentState([key], "selected");
+            renderToday();
+          }
+        })
         .catch(() => toast("没复制上，手动选中复制"));
       return;
     }
@@ -2735,8 +3025,35 @@ document.body.addEventListener("focusout", (e) => {
 });
 
 document.body.addEventListener("change", (e) => {
+  const contentCheck = e.target.closest?.("[data-content-check]");
+  if (contentCheck) {
+    if (contentCheck.checked) state.contentSelection.add(contentCheck.dataset.contentCheck);
+    else state.contentSelection.delete(contentCheck.dataset.contentCheck);
+    updateContentSelectionUI();
+    return;
+  }
+  const filterMap = {
+    "content-status-filter": "status",
+    "content-kind-filter": "kind",
+    "content-group-filter": "group",
+    "content-platform-filter": "platform",
+  };
+  const filterKey = filterMap[e.target.id];
+  if (filterKey) {
+    state.contentFilter[filterKey] = e.target.value;
+    applyContentFilters();
+    return;
+  }
+  if (e.target.id === "content-export-scope") syncContentExportControls();
+  if (e.target.id === "content-export-group") state.exportGroup = e.target.value;
   const vis = e.target.closest?.("[data-llm-vision]");
   if (vis) saveLlmField(vis.dataset.llmVision, { vision: vis.value });
+});
+
+document.body.addEventListener("input", (e) => {
+  if (e.target.id !== "content-search") return;
+  state.contentFilter.query = e.target.value.trim();
+  applyContentFilters();
 });
 
 document.body.addEventListener("keydown", (e) => {

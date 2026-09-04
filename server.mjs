@@ -27,11 +27,12 @@ import {
   testVisionConnection,
   useModel,
 } from "./lib/llm.mjs";
-import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, fixPack, groupOverview, publicWorkspace, readWorkspace, refillPack, removePack, repack, replaceCustomerMaterials, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, fixPack, groupOverview, publicWorkspace, readWorkspace, refillPack, removePack, repack, replaceCustomerMaterials, setContentState, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { createSession, destroySession, readSession } from "./lib/session.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
 import { exportReport } from "./lib/report-export.mjs";
+import { exportContentBatch, exportContentHistory } from "./lib/content-export.mjs";
 import { fieldsFor } from "./lib/platform.mjs";
 import { checkPack, hasHardBlock } from "./lib/check.mjs";
 import { receiveAndAnalyzeMaterials, updateMaterialAnalysis } from "./lib/materials.mjs";
@@ -124,6 +125,21 @@ function reportForUser(email, packId) {
     if (pack) return { customer, pack };
   }
   return null;
+}
+
+function contentPackForUser(email, packId) {
+  const space = readWorkspace(email);
+  for (const customer of space.customers || []) {
+    const pack = (customer.drops || []).find((row) => row.id === packId);
+    if (pack) return { space, customer, pack };
+  }
+  return null;
+}
+
+function customerForUser(email, customerId) {
+  const space = readWorkspace(email);
+  const customer = (space.customers || []).find((row) => row.id === customerId);
+  return customer ? { space, customer } : null;
 }
 
 function readBody(req) {
@@ -360,6 +376,74 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/content/export") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const found = contentPackForUser(user.email, body.packId);
+    if (!found) return json(res, 404, { error: "找不到这份内容批次" });
+    found.pack.checks = checkPack(found.pack, found.customer.hunt);
+    try {
+      const file = await exportContentBatch({
+        pack: found.pack,
+        customer: found.customer,
+        contentStates: found.space.contentStates || {},
+        feedback: found.space.feedback || {},
+        options: {
+          scope: body.scope,
+          group: body.group,
+          selection: body.selection,
+          kind: body.kind,
+          safeOnly: body.includeRisky !== true,
+        },
+      }, body.format === "md" ? "md" : "xlsx");
+      res.writeHead(200, {
+        "content-type": file.mime,
+        "content-length": file.contents.length,
+        "content-disposition": attachmentName(file.filename),
+        "x-harta-included": String(file.included),
+        "x-harta-excluded": String(file.excluded),
+        ...securityHeaders({ cache: "no-store" }),
+      });
+      res.end(file.contents);
+    } catch (err) {
+      json(res, 400, { error: err.message || "内容导出失败" });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/content/export-history") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const found = customerForUser(user.email, body.customerId);
+    if (!found) return json(res, 404, { error: "没有这个客户" });
+    const packs = (found.customer.drops || []).map((pack) => ({
+      ...pack,
+      checks: checkPack(pack, found.customer.hunt),
+    }));
+    try {
+      const file = await exportContentHistory({
+        packs,
+        customer: found.customer,
+        contentStates: found.space.contentStates || {},
+        feedback: found.space.feedback || {},
+      }, body.format === "md" ? "md" : "xlsx");
+      res.writeHead(200, {
+        "content-type": file.mime,
+        "content-length": file.contents.length,
+        "content-disposition": attachmentName(file.filename),
+        "x-harta-included": String(file.included),
+        "x-harta-excluded": "0",
+        ...securityHeaders({ cache: "no-store" }),
+      });
+      res.end(file.contents);
+    } catch (err) {
+      json(res, 400, { error: err.message || "历史内容导出失败" });
+    }
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/customers") {
     const user = requireUser(req, res);
     if (!user) return;
@@ -444,6 +528,15 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     return json(res, 200, publicWorkspace(setFeedback(user.email, body.key, body.value)));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/content-state") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const result = setContentState(user.email, body);
+    if (result.error) return json(res, 400, { error: result.error });
+    return json(res, 200, { workspace: publicWorkspace(result.workspace), updated: result.updated });
   }
 
   if (req.method === "POST" && url.pathname === "/api/using") {

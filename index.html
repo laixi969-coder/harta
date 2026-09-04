@@ -172,14 +172,60 @@
         </article>
         </div>
         <div class="chapter chapter-take">
-          <p class="chapter-name">二 · 出活</p>
+          <p class="chapter-name" id="content-chapter-name">二 · 内容库</p>
+        <article class="card content-console hidden" id="content-console">
+          <div class="content-console-head">
+            <div>
+              <p class="record-k">内容批次</p>
+              <h2 id="content-batch-title">本批内容</h2>
+            </div>
+            <div class="content-summary" id="content-summary" aria-label="本批内容状态"></div>
+          </div>
+          <p class="content-learning" id="content-learning"></p>
+          <div class="content-filters" aria-label="筛选内容">
+            <label><span>搜索</span><input id="content-search" type="search" placeholder="搜文案、方向或平台"></label>
+            <label><span>状态</span><select id="content-status-filter"><option value="all">全部状态</option><option value="pending">待筛选</option><option value="selected">已选用</option><option value="published">已发布</option><option value="paused">暂不用</option></select></label>
+            <label><span>内容</span><select id="content-kind-filter"><option value="all">文案与外壳</option><option value="copy">基础文案</option><option value="shell">平台外壳</option></select></label>
+            <label><span>方向</span><select id="content-group-filter"><option value="all">全部方向</option></select></label>
+            <label><span>平台</span><select id="content-platform-filter"><option value="all">全部平台</option></select></label>
+          </div>
+          <div class="content-batch-actions">
+            <div class="content-selection-copy"><b id="content-selected-count">已选 0 条</b><span id="content-visible-count"></span></div>
+            <div class="acts-inline">
+              <button class="textish" id="content-select-visible" type="button">勾选当前结果</button>
+              <button class="textish" id="content-clear-selection" type="button">清空勾选</button>
+            </div>
+            <div class="content-state-action">
+              <label class="visually-hidden" for="content-bulk-status">批量状态</label>
+              <select id="content-bulk-status"><option value="selected">标为已选用</option><option value="published">标为已发布</option><option value="paused">标为暂不用</option><option value="pending">恢复待筛选</option></select>
+              <label class="visually-hidden" for="content-plan-date">计划发布日期</label>
+              <input id="content-plan-date" type="date" title="可选：给所选内容安排计划发布日期">
+              <button class="btn ghost" id="content-apply-status" type="button">应用到所选</button>
+            </div>
+          </div>
+          <details class="export-desk" id="content-export-desk">
+            <summary><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>导出与备份</summary>
+            <div class="export-options">
+              <label><span>范围</span><select id="content-export-scope"><option value="all">当前整批</option><option value="selected">已勾选内容</option><option value="group">指定方向</option></select></label>
+              <label><span>方向</span><select id="content-export-group" disabled><option value="">选择方向</option></select></label>
+              <label><span>内容</span><select id="content-export-kind"><option value="all">文案与平台外壳</option><option value="copies">只要基础文案</option><option value="shells">只要平台外壳</option></select></label>
+              <label><span>格式</span><select id="content-export-format"><option value="xlsx">Excel 工作簿</option><option value="md">Markdown 文本</option></select></label>
+            </div>
+            <label class="risk-export"><input id="content-include-risky" type="checkbox">包含风险草稿，并在合规列明确标出</label>
+            <div class="acts">
+              <button class="btn" id="content-export" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>导出本批</button>
+              <button class="btn ghost" id="content-export-history" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>备份该客户全部历史</button>
+            </div>
+            <p class="meta">默认导出修改后的最终版本，并排除不能发布的风险项。历史备份会完整保留风险草稿。</p>
+          </details>
+        </article>
         <article class="card hidden" id="checks-card">
           <h2>发出去之前</h2>
           <div id="checks"></div>
         </article>
-        <article class="card">
-          <h2>文案</h2>
-          <p class="meta">有回音的组会往前排。</p>
+        <article class="card" id="copies-card">
+          <h2 id="copies-title">基础文案</h2>
+          <p class="meta" id="copies-note">勾选后可批量安排、标记和导出；有回音的组会往前排。</p>
           <div id="copies"></div>
         </article>
         <article class="card" id="breaks-card">
@@ -196,9 +242,9 @@
           <p class="meta">钩子只解决点击。第一屏答非所问，素材跑得越好越浪费。</p>
           <div id="landing"></div>
         </article>
-        <article class="card">
-          <h2>主战场</h2>
-          <p class="meta">只打 1–2 个。其余是换外壳，别四平台一起铺。</p>
+        <article class="card" id="platform-card">
+          <h2>平台外壳</h2>
+          <p class="meta">主战场优先；不同平台保留各自字段，不把封面、标题和正文揉成一句。</p>
           <div id="plats" class="field-grid"></div>
         </article>
         <article class="card" id="delivery-card">
@@ -298,7 +344,7 @@
         <div class="hook">
           <p class="kicker">包裹</p>
           <h1>判断的交付出口。直接另存，或打开甲方页核对。</h1>
-          <p class="meta">PDF 适合直接发，Word 适合继续修改。每日内容仍在「今天」里使用。</p>
+          <p class="meta">PDF 适合直接发，Word 适合继续修改。内容批次在「今天」的内容库里筛选、安排和导出。</p>
         </div>
         <div id="pack-list" class="chase"></div>
       </section>
