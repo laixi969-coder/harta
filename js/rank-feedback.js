@@ -32,7 +32,7 @@ export function rankShells(shells, battlefields) {
 export function topRepliedLabel(ranked) {
   const hit = ranked.find((g) => g.replied > 0);
   if (!hit) return "";
-  return `${hit.group} ${hit.replied} 条有回音，已往前排`;
+  return `${hit.group} ${hit.replied} 条有客户反馈，已排在前面`;
 }
 
 /* 「上次有效」不能补一批货就失忆：反馈是按「哪份档的哪一行」记的，
@@ -57,11 +57,11 @@ export function lastEffective(customer, feedback = {}, currentPackId = "") {
     if (!groups.length) continue;
     const hit = groups[0];
     if (p.id === currentPackId) {
-      return `${hit.group} ${hit.replied} 条有回音，已往前排`;
+      return `${hit.group} ${hit.replied} 条有客户反馈，已排在前面`;
     }
     const when = String(p.deliveredAt || p.createdAt || "").slice(5);
     const total = groups.reduce((n, g) => n + g.replied, 0);
-    return `${when} 那批：${hit.group} ${hit.replied} 条有回音（共 ${total} 条），这一批顺着它出`;
+    return `${when} 那批：${hit.group} ${hit.replied} 条有客户反馈（共 ${total} 条），这一批会优先参考这个方向`;
   }
   return "";
 }

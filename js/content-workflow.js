@@ -41,7 +41,7 @@ export function learningSummary(customer, pack, feedback = {}) {
   const older = [...(customer?.drops || []), ...(customer?.packs || [])]
     .filter((row) => row.id !== pack?.id);
   const source = older.find((row) => row.id === pack?.origin?.from) || older[0];
-  if (!source) return "这是第一批内容。先标记哪些真正发布、哪些有回音，下一批才有依据。";
+  if (!source) return "这是第一批内容。先标记哪些已经发布、哪些收到客户反馈，下一批才有依据。";
   const groups = Object.entries(source.copies || {})
     .map(([group, lines]) => ({
       group,
@@ -50,8 +50,8 @@ export function learningSummary(customer, pack, feedback = {}) {
     }))
     .filter((row) => row.replied || row.dead)
     .sort((a, b) => b.replied - a.replied || a.dead - b.dead);
-  if (!groups.length) return "上一批还没有结果标记。本批仍是平铺探索，发布后记下回音，下一批才会收窄。";
-  const wins = groups.filter((row) => row.replied).slice(0, 2).map((row) => `${row.group} ${row.replied} 条有回音`);
+  if (!groups.length) return "上一批还没有结果标记。本批仍是平铺探索，发布后记录客户反馈，下一批才会更聚焦。";
+  const wins = groups.filter((row) => row.replied).slice(0, 2).map((row) => `${row.group} ${row.replied} 条有客户反馈`);
   const losses = groups.filter((row) => row.dead).slice(0, 1).map((row) => `${row.group} ${row.dead} 条没反应`);
-  return `本批参考了上一批：${[...wins, ...losses].join("；")}。有回音的方向会往前排，没反应的方向会减少。`;
+  return `本批参考了上一批：${[...wins, ...losses].join("；")}。获得客户反馈的方向会排在前面，没反应的方向会减少。`;
 }

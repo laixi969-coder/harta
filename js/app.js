@@ -265,6 +265,21 @@ function elapsedLabel(startedAt, finishedAt = Date.now()) {
   return seconds % 60 ? `${minutes} 分 ${seconds % 60} 秒` : `${minutes} 分钟`;
 }
 
+function jobLabel(kind) {
+  return ({ 出今日: "生成今日内容", 出判断: "生成报告", 重出: "重新生成报告", 补分镜: "生成分镜" })[kind] || kind || "生成内容";
+}
+
+function packLabel(tier) {
+  return ({
+    今日: "今日内容",
+    快档: "获客建议报告",
+    侦察档: "初步报告",
+    补给档: "补充内容",
+    全档: "完整报告",
+    "侦察档 + 分镜": "初步报告（含分镜）",
+  })[tier] || tier || "报告";
+}
+
 /** 所有页面都看得见的任务条。进度来自后端真实阶段，不靠前端计时猜百分比。 */
 function renderJobCenter() {
   const box = document.getElementById("job-center");
@@ -283,7 +298,7 @@ function renderJobCenter() {
         <div class="job-row-main">
           <div class="job-title"><button type="button" class="job-customer" data-using="${esc(customer.id)}">${esc(customer.name)}</button><span>运行中</span></div>
           <div class="job-meter is-live" role="progressbar" aria-label="${esc(customer.name)}${esc(job.kind)}进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><i style="--job-scale:${progress / 100}"></i></div>
-          <p>${progress}% · ${esc(job.stage || `正在${job.kind}`)} · 已运行 ${elapsedLabel(job.startedAt, now)}</p>
+          <p>${progress}% · ${esc(job.stage || `正在${jobLabel(job.kind)}`)} · 已运行 ${elapsedLabel(job.startedAt, now)}</p>
         </div>
         <button type="button" class="go" data-using="${esc(customer.id)}">查看</button>
       </div>`;
@@ -294,7 +309,7 @@ function renderJobCenter() {
       return `<div class="job-row ${failed ? "is-failed" : "is-done"}">
         <div class="job-row-main">
           <div class="job-title"><button type="button" class="job-customer" data-using="${esc(customer.id)}">${esc(customer.name)}</button><span>${failed ? "未完成" : "已完成"}</span></div>
-          <p>${esc(run.message || (failed ? `${run.kind}没出成` : `${run.kind}已完成`))} · 用时 ${elapsedLabel(run.startedAt, run.finishedAt)}</p>
+          <p>${esc(run.message || (failed ? `${jobLabel(run.kind)}未完成` : `${jobLabel(run.kind)}已完成`))} · 用时 ${elapsedLabel(run.startedAt, run.finishedAt)}</p>
         </div>
         <button type="button" class="go" data-using="${esc(customer.id)}">${failed ? "查看并重试" : "打开内容"}</button>
       </div>`;
@@ -555,8 +570,8 @@ function materialAnalysisEditorHtml(analysis, sources) {
     }),
   ).join("");
   return `<p class="meta analysis-edit-note">这里改的是梳理结果；原文件、抽取正文和语音转写保持原样，便于回查证据。</p>
-    ${analysisEditTextarea({ id: "analysis-edit-overview", label: "资料总览", value: analysis.overview, max: 3000, rows: 6 })}
-    ${analysisEditTextarea({ id: "analysis-edit-pitch", label: "档案卖点", value: analysis.suggestedPitch, max: 300, rows: 3 })}
+    ${analysisEditTextarea({ id: "analysis-edit-overview", label: "资料摘要", value: analysis.overview, max: 3000, rows: 6 })}
+    ${analysisEditTextarea({ id: "analysis-edit-pitch", label: "一句话卖点", value: analysis.suggestedPitch, max: 300, rows: 3 })}
     <div class="analysis-edit-groups">${groups}</div>
     <div class="analysis-edit-sources"><h4>逐份资料摘要</h4>${sourceRows}</div>
     <div class="acts"><button class="btn" id="save-material-analysis" type="button">保存梳理</button><button class="btn ghost" id="cancel-material-analysis" type="button">取消</button></div>`;
@@ -566,10 +581,10 @@ function renderMaterialAnalysis(batch) {
   const analysis = batch?.analysis || {};
   const panel = document.getElementById("material-analysis");
   if (!panel) return;
-  document.getElementById("analysis-overview").textContent = analysis.overview || "没有形成资料总览。";
+  document.getElementById("analysis-overview").textContent = analysis.overview || "尚未生成资料摘要。";
   document.getElementById("analysis-engine").textContent = materialEngineText(analysis);
   const pitch = document.getElementById("analysis-pitch");
-  pitch.textContent = analysis.suggestedPitch ? `档案卖点：${analysis.suggestedPitch}` : "";
+  pitch.textContent = analysis.suggestedPitch ? `一句话卖点：${analysis.suggestedPitch}` : "";
   pitch.classList.toggle("hidden", !analysis.suggestedPitch);
   document.getElementById("analysis-columns").innerHTML = materialGroupsHtml(analysis);
   document.getElementById("analysis-sources").innerHTML = materialSourcesHtml(analysis, batch.sources);
@@ -604,7 +619,7 @@ function renderCustomerMaterialRecord(customer) {
   document.getElementById("material-record-engine").textContent = materialEngineText(analysis);
   document.getElementById("material-record-overview").textContent = analysis.overview || "资料已归档，尚未形成总览。";
   const pitch = document.getElementById("material-record-pitch");
-  pitch.textContent = analysis.suggestedPitch ? `档案卖点：${analysis.suggestedPitch}` : "";
+  pitch.textContent = analysis.suggestedPitch ? `一句话卖点：${analysis.suggestedPitch}` : "";
   pitch.classList.toggle("hidden", !analysis.suggestedPitch);
   document.getElementById("material-record-columns").innerHTML = materialGroupsHtml(analysis);
   document.getElementById("material-record-sources").innerHTML = materialSourcesHtml(analysis, sources);
@@ -788,7 +803,7 @@ function renderContentConsole(pack, customer, hardRows) {
     ["库存", counts.total],
     ["已选", counts.selected],
     ["已发", counts.published],
-    ["回音", counts.replied],
+    ["客户反馈", counts.replied],
     ["风险", itemRisks],
   ].map(([label, value]) => `<span><b>${value}</b>${label}</span>`).join("");
   document.getElementById("content-learning").textContent = learningSummary(customer, pack, state.workspace.feedback);
@@ -837,24 +852,24 @@ function renderDesk() {
     });
   if (sendBox) {
     sendBox.innerHTML = desk.send?.length
-      ? desk.send.map((c) => row(c, c.hasToday ? "打开" : "出今日", c.hasToday ? "" : "today", chip("存量", "chip-stock"))).join("")
-      : `<p class="empty-line">今天没有待发的存量客户。</p>`;
+      ? desk.send.map((c) => row(c, c.hasToday ? "打开" : "生成今日内容", c.hasToday ? "" : "today", chip("已有客户", "chip-stock"))).join("")
+      : `<p class="empty-line">今天没有需要生成内容的已有客户。</p>`;
   }
   if (judgeBox) {
     judgeBox.innerHTML = desk.judge?.length
-      ? desk.judge.map((c) => row(c, c.ready ? "出判断" : "打开", c.ready ? "judge" : "", chip("拓新", "chip-new"))).join("")
-      : `<p class="empty-line">没有待判断的拓新客户。</p>`;
+      ? desk.judge.map((c) => row(c, c.ready ? "生成报告" : "打开", c.ready ? "judge" : "", chip("潜在客户", "chip-new"))).join("")
+      : `<p class="empty-line">没有需要生成报告的潜在客户。</p>`;
   }
   if (unmarkedBox) {
     unmarkedBox.innerHTML = desk.unmarked?.length
-      ? `<p class="empty-line">这几家还没说是拓新还是存量，选一次才能出活。</p>` +
+      ? `<p class="empty-line">这几家还没有选择客户类型，请先选择“已有客户”或“潜在客户”。</p>` +
         desk.unmarked
           .map((c) =>
             rowCard({
               title: c.name,
               chips: `${c.hunt ? chip(c.hunt) : ""}${chip("未标明", "chip-warn")}`,
-              actions: `<button type="button" class="go" data-track="${c.id}|存量">标为存量</button>
-          <button type="button" class="go" data-track="${c.id}|拓新">标为拓新</button>`,
+              actions: `<button type="button" class="go" data-track="${c.id}|存量">设为已有客户</button>
+          <button type="button" class="go" data-track="${c.id}|拓新">设为潜在客户</button>`,
             }),
           )
           .join("")
@@ -874,7 +889,7 @@ function renderToday() {
   if (!mine) {
     empty.classList.remove("hidden");
     owned.classList.add("hidden");
-    document.getElementById("hook-line").textContent = "先建一个客户。已经在合作的选存量，还没合作的选拓新。";
+    document.getElementById("hook-line").textContent = "先新建一个客户。已经合作的选“已有客户”，还没合作的选“潜在客户”。";
     document.getElementById("hook-facts").innerHTML = "";
     document.getElementById("hook-gate").textContent = "";
     return;
@@ -893,33 +908,33 @@ function renderToday() {
   if (copiesTitle) copiesTitle.textContent = isContentPack ? "基础文案" : "样例文案";
   if (copiesNote) {
     copiesNote.textContent = isContentPack
-      ? "勾选后可批量安排、标记和导出；有回音的组会往前排。"
-      : "这些只用来说明判断方向，不算可直接运营的内容库存。";
+      ? "勾选后可批量安排、标记和导出；获得客户反馈的组会排在前面。"
+      : "这些内容仅用于说明报告方向，不是可直接运营的内容库存。";
   }
   renderPackJob();
 
   const nCopy = pack ? copyCount(pack) : 0;
   const nGap = pack?.gaps?.length || 0;
-  const fields = pack?.battlefields?.join("、") || "尚未定主战场";
+  const fields = pack?.battlefields?.join("、") || "尚未确定主平台";
   // 侦察档没有缺口，主体是提问。首行不能替它报「0 个缺口」。
   const nAsk = pack?.questions?.length || 0;
-  const headCount = nGap ? `${nGap} 个缺口` : nAsk ? `${nAsk} 个要先问清的` : "";
+  const headCount = nGap ? `${nGap} 个可利用的机会` : nAsk ? `${nAsk} 个待确认问题` : "";
   const deskHook = state.workspace.desk?.hook;
   document.getElementById("hook-line").textContent = deskHook?.line
     ? deskHook.line
     : pack
-      ? `${mine.name} · 已出${pack.tier}`
+      ? `${mine.name} · 已生成${packLabel(pack.tier)}`
       : mine.job
         ? `${mine.name} 正在${mine.job.kind}，出好了这一页自己会刷新，不用守着。`
         : mine.lastFail
-          ? `${mine.name} 这次没出成：${mine.lastFail}。点「重出」再来一次。`
-          : `${mine.name} 还没有出过${mine.track === "存量" ? "今日内容" : "判断"}`;
+          ? `${mine.name} 这次没有生成成功：${mine.lastFail}。点“重新生成”再试一次。`
+          : `${mine.name} 还没有生成过${mine.track === "存量" ? "今日内容" : "报告"}`;
   const facts = [...(deskHook?.facts || [])];
   if (pack) {
     facts.push(`${pack.deliveredAt || pack.createdAt} 出的`);
     if (headCount) facts.push(headCount);
     facts.push(`${nCopy} 条`);
-    if (fields && fields !== "尚未定主战场") facts.push(`主战场 ${fields}`);
+    if (fields && fields !== "尚未确定主平台") facts.push(`主平台 ${fields}`);
   }
   // 这行事实是日期/条数目录，不是正文句子
   document.getElementById("hook-facts").innerHTML = facts.map((f) => chip(f)).join("");
@@ -937,8 +952,8 @@ function renderToday() {
       .map(
         (p) => `<button type="button" data-pack="${p.id}" class="${p.id === (pack && pack.id) ? "on" : ""}">
         <span class="when">${esc(p.deliveredAt || p.createdAt)}</span>
-        <span class="what">${esc(p.tier === "今日" && p.batch ? `内容库 · 第 ${p.batch} 批` : p.title || p.tier)}</span>
-        <span class="meta">${esc(p.tier)} · ${copyCount(p)} 条${p.tier === "今日" ? ` · 已发 ${contentStateCounts(p, state.workspace.contentStates, state.workspace.feedback).published}` : ""}</span>
+        <span class="what">${esc(p.tier === "今日" && p.batch ? `内容库 · 第 ${p.batch} 批` : p.title || packLabel(p.tier))}</span>
+        <span class="meta">${esc(packLabel(p.tier))} · ${copyCount(p)} 条${p.tier === "今日" ? ` · 已发 ${contentStateCounts(p, state.workspace.contentStates, state.workspace.feedback).published}` : ""}</span>
       </button>`,
       )
       .join("");
@@ -956,7 +971,7 @@ function renderToday() {
   const publishBlocked = hardRows.length > 0;
   const copyButton = (text, label = "复制", contentKey = "") =>
     batchQualityFail || blockedTexts.has(String(text || ""))
-      ? `<button type="button" class="do" disabled title="这句质量或红线过不了，先改或重出">先改再复制</button>`
+      ? `<button type="button" class="do" disabled title="这句存在质量或发布风险，请先修改或重新生成">先改再复制</button>`
       : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}"${contentKey ? ` data-content-copy="${esc(contentKey)}"` : ""}>${icon("copy")}${label}</button>`;
   const win = document.getElementById("win");
   // 跨批次找：刚补的新批自己没反馈，别让他上周点过的回音凭空消失。
@@ -980,8 +995,8 @@ function renderToday() {
     repack.dataset.customer = mine.id || "";
     repack.disabled = busy;
     repack.innerHTML = busy
-      ? `${icon("refresh")}正在${mine.job.kind}…`
-      : `${icon("refresh")}${pack ? "重出这份判断" : "重出"}`;
+      ? `${icon("refresh")}正在${jobLabel(mine.job.kind)}…`
+      : `${icon("refresh")}${pack ? "重新生成报告" : "重新生成"}`;
   }
 
   const goToday = document.getElementById("go-today");
@@ -990,7 +1005,7 @@ function renderToday() {
     goToday.dataset.customer = mine.id || "";
     goToday.disabled = busy;
     goToday.innerHTML = busy
-      ? `${icon("bolt")}正在${mine.job?.kind}…`
+      ? `${icon("bolt")}正在${jobLabel(mine.job?.kind)}…`
       : `${icon("bolt")}${pack?.tier === "今日" ? "再出一批（每次 50 条）" : "出一批（每次 50 条）"}`;
   }
 
@@ -1002,7 +1017,7 @@ function renderToday() {
     const noPackTitle = noPack.querySelector("h2");
     if (noPackTitle) {
       noPackTitle.textContent =
-        mine.track === "存量" ? "今天还没出内容" : mine.track === "拓新" ? "还没给这位出过判断" : "先标明这家是拓新还是存量";
+        mine.track === "存量" ? "今天还没有生成内容" : mine.track === "拓新" ? "还没有为这位潜在客户生成报告" : "请先选择这家是已有客户还是潜在客户";
     }
     body.classList.add("hidden");
     renderCustomers();
@@ -1021,8 +1036,8 @@ function renderToday() {
     pack.tier === "今日"
       ? "今日\n内容"
       : pack.evidence === "D"
-        ? `${pack.tier}\n赛道判断`
-        : `${pack.tier}\n证据${pack.evidence}`;
+        ? "初步\n报告"
+        : "客户\n报告";
   document.getElementById("using-meta").textContent =
     `${mine.pitch} · ${mine.city || ""} · ${pack.evidenceNote || ""}`;
   document.getElementById("pack-title").textContent = `当时标题：${pack.title}`;
@@ -1071,14 +1086,14 @@ function renderToday() {
     const exportBase = `/api/reports/${encodeURIComponent(pack.id)}/export`;
     exportPdf?.classList.remove("hidden");
     exportPdf.dataset.exportUrl = `${exportBase}/pdf`;
-    exportPdf.dataset.exportName = `${mine.name}-判断报告.pdf`;
+    exportPdf.dataset.exportName = `${mine.name}-获客建议报告.pdf`;
     exportPdf.disabled = publishBlocked;
-    exportPdf.title = publishBlocked ? "先处理报告里的红线或硬限制" : "选择保存位置并另存为 PDF";
+    exportPdf.title = publishBlocked ? "请先处理报告中的发布风险或字数限制" : "选择保存位置并下载 PDF";
     exportDocx?.classList.remove("hidden");
     exportDocx.dataset.exportUrl = `${exportBase}/docx`;
-    exportDocx.dataset.exportName = `${mine.name}-判断报告.docx`;
+    exportDocx.dataset.exportName = `${mine.name}-获客建议报告.docx`;
     exportDocx.disabled = publishBlocked;
-    exportDocx.title = publishBlocked ? "先处理报告里的红线或硬限制" : "选择保存位置并另存为 Word";
+    exportDocx.title = publishBlocked ? "请先处理报告中的发布风险或字数限制" : "选择保存位置并下载 Word";
     const canPreview = Boolean(pack.sharePath && !publishBlocked);
     open?.classList.toggle("hidden", !canPreview);
     if (canPreview) open?.setAttribute("href", pack.sharePath);
@@ -1094,7 +1109,7 @@ function renderToday() {
       if (publishBlocked) {
         const named = hardRows.slice(0, 3).map(hardRowLabel).join("；");
         const more = hardRows.length > 3 ? `等 ${hardRows.length} 处` : "";
-        exportNote.textContent = `还有 ${hardBlockCount(pack)} 处没过：${named}${more}。点「自动修复」让系统改，或在下面「发出去之前」手动改完即可另存；系统不会把风险项静默带出去。`;
+        exportNote.textContent = `还有 ${hardBlockCount(pack)} 处需要处理：${named}${more}。可点“自动修复”让系统修改，或在下方“发出去之前”手动修改；处理完成后才能下载报告。`;
       } else {
         exportNote.textContent = "";
       }
@@ -1185,12 +1200,12 @@ function renderToday() {
           <p class="meta">${esc(r.text)}</p></div>`,
       ),
       ...(c.sensitive || []).map(
-        (r) => `<div class="line"><p><b>隐私红线</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
+        (r) => `<div class="line"><p><b>隐私风险</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
           <p class="meta">普通获客表单不能在第一步收医疗健康敏感信息，转入合规医疗流程再最小化收集</p>
           <p class="meta">${esc(r.text)}</p></div>`,
       ),
       ...(c.redline || []).map(
-        (r) => `<div class="line"><p><b>红线</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
+        (r) => `<div class="line"><p><b>发布风险</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
           <p class="meta">${esc(r.text)}</p></div>`,
       ),
       ...(c.watch || []).map(
@@ -1223,7 +1238,7 @@ function renderToday() {
   document.getElementById("gaps").innerHTML = `<div class="sleeves">${(pack.gaps || [])
     .map(
       (g, i) => `<article class="sleeve">
-        <div class="sleeve-tab">缺口${["一", "二", "三"][i] || i + 1}</div>
+        <div class="sleeve-tab">机会${["一", "二", "三"][i] || i + 1}</div>
         <div class="sleeve-body">
           <h3>${esc(g.name)}</h3>
           <p class="meta">证据 ${esc(pack.evidence)}</p>
@@ -1258,7 +1273,7 @@ function renderToday() {
               </div>
               <div class="slip-step">
                 <span class="slip-k">用过之后</span>
-                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${esc(row.key)}" data-val="replied" aria-pressed="${row.fb === "replied" ? "true" : "false"}">${icon("reply")}${row.fb === "replied" ? "已记有回音" : "有回音"}</button>
+                <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${esc(row.key)}" data-val="replied" aria-pressed="${row.fb === "replied" ? "true" : "false"}">${icon("reply")}${row.fb === "replied" ? "已记有客户反馈" : "有客户反馈"}</button>
                 <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${esc(row.key)}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${icon("mute")}${row.fb === "dead" ? "已记没反应" : "没反应"}</button>
               </div>
             </div>
@@ -1271,7 +1286,7 @@ function renderToday() {
       const num = m ? m[1] : ["一", "二", "三", "四", "五", "六", "七", "八", "九"][i] || i + 1;
       const name = m ? m[2] : g.group;
       return `<article class="sleeve sleeve-across${g.replied ? " is-hot" : ""}"${isContentPack ? " data-content-container" : ""}>
-        <div class="sleeve-tab"><span><i class="sleeve-num">${esc(num)}</i>${esc(name)}</span>${isContentPack ? `<div class="group-actions"><span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span><button class="textish" type="button" data-select-group="${esc(g.group)}">勾选本组</button><button class="textish" type="button" data-copy-group="${esc(g.group)}">复制本组</button><button class="textish" type="button" data-export-group="${esc(g.group)}">导出本组</button></div>` : `<span>${g.replied ? `${g.replied} 条有回音` : "还没记回音"}</span>`}</div>
+        <div class="sleeve-tab"><span><i class="sleeve-num">${esc(num)}</i>${esc(name)}</span>${isContentPack ? `<div class="group-actions"><span>${g.replied ? `${g.replied} 条有客户反馈` : "还没有客户反馈"}</span><button class="textish" type="button" data-select-group="${esc(g.group)}">勾选本组</button><button class="textish" type="button" data-copy-group="${esc(g.group)}">复制本组</button><button class="textish" type="button" data-export-group="${esc(g.group)}">导出本组</button></div>` : `<span>${g.replied ? `${g.replied} 条有客户反馈` : "还没有客户反馈"}</span>`}</div>
         <div class="sleeve-body">${items}</div>
       </article>`;
     })
@@ -1382,7 +1397,7 @@ function renderToday() {
         return `<div class="line slip"${isContentPack ? " data-content-container" : ""}>${rows}</div>`;
       })
       .join("");
-    return `<section class="plat ${kind}"${isContentPack ? " data-content-container" : ""}><h3>${esc(s.name)}<span>${kind === "is-main" ? "主战场" : "换外壳"}</span></h3>${items}</section>`;
+    return `<section class="plat ${kind}"${isContentPack ? " data-content-container" : ""}><h3>${esc(s.name)}<span>${kind === "is-main" ? "主平台" : "适配版本"}</span></h3>${items}</section>`;
   };
   const platBox = document.getElementById("plats");
   // 有正文的平台（小红书、朋友圈折叠后）塞进窄栏会挤成一条，
@@ -1414,7 +1429,7 @@ function renderToday() {
   document.getElementById("delivery").innerHTML = `
     <div class="folio folio-3">
       <div class="folio-cell is-who">
-        <p class="k">主战场</p>
+        <p class="k">主平台</p>
         <p>${esc((pack.battlefields || []).join("、"))}</p>
         ${pack.battlefieldWhy ? `<p class="meta" style="margin-top:6px">为什么是这两个：${esc(pack.battlefieldWhy)}</p>` : ""}
       </div>
@@ -1454,21 +1469,21 @@ function renderCustomers() {
           const packs = packsOf(c);
           const latest = packs[0];
           const using = c.id === state.workspace.usingId;
-          const kindChip = c.track === "存量" ? chip("存量", "chip-stock") : c.track === "拓新" ? chip("拓新", "chip-new") : chip("未标明", "chip-warn");
+          const kindChip = c.track === "存量" ? chip("已有客户", "chip-stock") : c.track === "拓新" ? chip("潜在客户", "chip-new") : chip("未选择类型", "chip-warn");
           const actions = c.job
             ? `<button type="button" class="go" data-using="${c.id}">查看进度</button>`
             : c.track
             ? using
               ? ""
               : `<button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "打开"}</button>`
-            : `<button type="button" class="go" data-track="${c.id}|存量">标为存量</button>
-                <button type="button" class="go" data-track="${c.id}|拓新">标为拓新</button>`;
+            : `<button type="button" class="go" data-track="${c.id}|存量">设为已有客户</button>
+                <button type="button" class="go" data-track="${c.id}|拓新">设为潜在客户</button>`;
           return rowCard({
             title: c.name,
             chips: `${kindChip}${c.hunt ? chip(c.hunt) : ""}${c.job ? chip(`生成中 ${jobPercent(c.job)}%`, "chip-running") : ""}${using && c.track ? chip("当前", "chip-hot") : ""}`,
             meta: c.job
               ? `${esc(c.job.stage || `正在${c.job.kind}`)} · 已运行 ${elapsedLabel(c.job.startedAt)}`
-              : `${c.materials?.length ? `资料 ${c.materials.length} 份 · ` : ""}${packs.length ? `已出 ${packs.length} 份` : c.track === "存量" ? "还没出今日" : c.track === "拓新" ? "还没出判断" : "先标明种类"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}`,
+              : `${c.materials?.length ? `资料 ${c.materials.length} 份 · ` : ""}${packs.length ? `已生成 ${packs.length} 份` : c.track === "存量" ? "还没有今日内容" : c.track === "拓新" ? "还没有报告" : "请先选择客户类型"}${latest ? ` · ${esc(latest.deliveredAt || latest.createdAt)}` : ""}`,
             actions,
           });
         })
@@ -1488,19 +1503,19 @@ function renderPackIndex() {
           ({ customer, pack }) =>
             rowCard({
               title: customer.name,
-              chips: `${chip(pack.tier || "档")}${pack.deliveredAt || pack.createdAt ? chip(pack.deliveredAt || pack.createdAt) : ""}`,
+              chips: `${chip(packLabel(pack.tier))}${pack.deliveredAt || pack.createdAt ? chip(pack.deliveredAt || pack.createdAt) : ""}`,
               meta: canExportJudgment(pack)
                 ? esc(pack.title || "")
-                : `${esc(pack.title || "")} · 有 ${hardBlockCount(pack)} 处红线或硬限制，处理后可另存`,
+                : `${esc(pack.title || "")} · 有 ${hardBlockCount(pack)} 处发布风险或字数限制，处理后可下载`,
               actions:
-                `<button type="button" class="do" data-export-url="/api/reports/${encodeURIComponent(pack.id)}/export/pdf" data-export-name="${esc(customer.name)}-判断报告.pdf"${canExportJudgment(pack) ? "" : ' disabled title="先打开处理红线或硬限制"'}>${icon("download")}另存 PDF</button>` +
-                `<button type="button" class="go" data-export-url="/api/reports/${encodeURIComponent(pack.id)}/export/docx" data-export-name="${esc(customer.name)}-判断报告.docx"${canExportJudgment(pack) ? "" : ' disabled title="先打开处理红线或硬限制"'}>另存 Word</button>` +
-                `<button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">打开判断</button>` +
-                `<button type="button" class="do do-quiet" data-del-pack="${pack.id}" data-customer="${customer.id}" title="删除这份出档">${icon("trash")}删除</button>`,
+                `<button type="button" class="do" data-export-url="/api/reports/${encodeURIComponent(pack.id)}/export/pdf" data-export-name="${esc(customer.name)}-获客建议报告.pdf"${canExportJudgment(pack) ? "" : ' disabled title="请先处理发布风险或字数限制"'}>${icon("download")}下载 PDF</button>` +
+                `<button type="button" class="go" data-export-url="/api/reports/${encodeURIComponent(pack.id)}/export/docx" data-export-name="${esc(customer.name)}-获客建议报告.docx"${canExportJudgment(pack) ? "" : ' disabled title="请先处理发布风险或字数限制"'}>下载 Word</button>` +
+                `<button type="button" class="go" data-using="${customer.id}" data-pack="${pack.id}">查看报告</button>` +
+                `<button type="button" class="do do-quiet" data-del-pack="${pack.id}" data-customer="${customer.id}" title="删除这份报告">${icon("trash")}删除</button>`,
             }),
         )
         .join("")
-    : `<p class="meta">还没有发给甲方的包裹。</p>`;
+    : `<p class="meta">还没有可发送给客户的报告。</p>`;
 }
 
 document.getElementById("pack-list")?.addEventListener("click", async (e) => {
@@ -1509,7 +1524,7 @@ document.getElementById("pack-list")?.addEventListener("click", async (e) => {
   const packId = btn.dataset.delPack;
   const customerId = btn.dataset.customer;
   if (!packId || !customerId) return;
-  if (!confirm("删掉这份出档？删除后不可恢复，它的甲方分享链接会立刻失效；台账和已记的回音不受影响。")) return;
+  if (!confirm("删除这份报告？删除后无法恢复，客户查看链接会立刻失效；跟进记录和已记的反馈不受影响。")) return;
   btn.disabled = true;
   try {
     const res = await fetch("/api/pack/delete", {
@@ -1524,7 +1539,7 @@ document.getElementById("pack-list")?.addEventListener("click", async (e) => {
     renderToday();
     renderPackIndex();
     renderCustomers();
-    toast("出档已删除");
+    toast("报告已删除");
   } catch {
     toast("网络不通，请再试");
     btn.disabled = false;
@@ -1540,7 +1555,7 @@ function renderLedger() {
       <td>${esc(r.result)}</td><td class="num">${esc(r.quote)}</td><td>${esc(r.talk)}</td>
     </tr>`,
   ).join("")
-    : `<tr><td colspan="6">还没有你自己的台账。</td></tr>`;
+    : `<tr><td colspan="6">还没有跟进记录。</td></tr>`;
 }
 
 /* 台账没有录入入口就是死胡同：销售真去记的时候，一张永远空着的表只会让他再也不点进来 */
@@ -1714,7 +1729,7 @@ function bind() {
           return;
         }
         state.workspace = data;
-        toast("改好了，复制和甲方页拿的都是这一版");
+        toast("已修改；复制内容和客户查看页都会使用这一版");
         renderToday();
       };
       let cancelled = false;
@@ -1872,7 +1887,7 @@ function providerCard(id, p, active) {
     ? shown
         .map(
           ({ m, on }) => `<div class="llm-model${on ? "" : " is-off"}${m === p.model ? " is-current" : ""}">
-          <button type="button" class="llm-model-pick" data-llm-pick="${esc(id)}" data-model="${esc(m)}" data-active="${isActive}" aria-pressed="${m === p.model}" title="${isActive ? "点一下就用这个模型出档" : "先为这个渠道选模型；点卡片顶部闪电后才会实际使用"}">
+          <button type="button" class="llm-model-pick" data-llm-pick="${esc(id)}" data-model="${esc(m)}" data-active="${isActive}" aria-pressed="${m === p.model}" title="${isActive ? "点击后，生成内容和报告会使用这个模型" : "先为这个渠道选择模型；点卡片顶部闪电后才会实际使用"}">
             <strong>${esc(modelPretty(m))}${m === p.model ? `<span class="llm-now${isActive ? " is-live" : ""}">${isActive ? "正在使用" : "渠道预选"}</span>` : ""}</strong>
             <code>${esc(m)}</code>
           </button>
@@ -1909,8 +1924,8 @@ function providerCard(id, p, active) {
         p.builtin
           ? esc(p.name)
           : `<input data-llm-name="${esc(id)}" value="${esc(p.name || "")}" data-orig="${esc(p.name || "")}" maxlength="20" placeholder="起个名字，比如 火山方舟" aria-label="渠道名字，最多 20 字">`
-      }${isActive ? '<small class="llm-provider-live">当前出档渠道</small>' : ""}</h2>
-      <button type="button" class="llm-live${isActive ? " is-on" : ""}" data-llm-use="${esc(id)}" title="${isActive ? "正在用这个渠道出档" : "切换后，该渠道预选的模型会用于常规出档"}" aria-label="${isActive ? "当前渠道" : "设为当前渠道"}" ${isActive ? "disabled" : ""}>${ICON_BOLT}<span>${isActive ? "当前渠道" : "设为当前"}</span></button>
+      }${isActive ? '<small class="llm-provider-live">当前生成渠道</small>' : ""}</h2>
+      <button type="button" class="llm-live${isActive ? " is-on" : ""}" data-llm-use="${esc(id)}" title="${isActive ? "正在使用这个渠道生成内容和报告" : "切换后，该渠道选择的模型会用于常规生成"}" aria-label="${isActive ? "当前渠道" : "设为当前渠道"}" ${isActive ? "disabled" : ""}>${ICON_BOLT}<span>${isActive ? "当前渠道" : "设为当前"}</span></button>
       <span class="llm-head-acts">
         <button class="do" type="button" data-llm-test="${esc(id)}">测试连接</button>
         ${p.docsUrl ? `<a class="do llm-docs" href="${esc(p.docsUrl)}" target="_blank" rel="noreferrer">开通教程</a>` : ""}
@@ -1969,7 +1984,7 @@ async function loadLlm() {
         <span class="llm-current-k">实际使用中的模型</span>
         <strong>${esc(activeProvider.name)} · ${activeProvider.model ? esc(modelPretty(activeProvider.model)) : "尚未选择模型"}</strong>
         ${activeProvider.model ? `<code>${esc(activeProvider.model)}</code>` : ""}
-        <p>${esc(activeVision)}。普通出档和纯文字资料只用这一组。其他渠道里的「渠道预选」不参与常规任务。资料含图片或视频画面时，先试当前渠道，再按卡片顺序尝试其他视觉模型；梳理结果会注明本次实际使用者。</p>
+        <p>${esc(activeVision)}。日常生成内容、报告和处理纯文字资料都使用这一组。其他渠道里的“渠道预选”不会参与日常任务。资料含图片或视频画面时，会先尝试当前渠道，再按卡片顺序尝试其他支持图片的模型；资料摘要会注明实际使用的模型。</p>
       </article>`
     : "";
   // 一个人可能同时挂着火山、硅基流动、一个自建中转，所以自定义接口不止一个
@@ -1978,7 +1993,7 @@ async function loadLlm() {
     .join("");
   box.innerHTML = `<article class="card">
       <h2>模型接口</h2>
-      <p class="meta">先在渠道内选择模型，再点卡片顶部的闪电切换实际渠道。常规出档始终只有一个「正在使用」的模型。</p>
+      <p class="meta">先在渠道内选择模型，再点卡片顶部的闪电切换实际渠道。日常生成内容和报告始终只使用一个“正在使用”的模型。</p>
     </article>
     ${activeSummary}
     <div class="llm-grid" id="llm-grid">${cards}
@@ -2054,8 +2069,8 @@ async function loadCrew() {
   const top = hunts.find((h) => h.replied > 0 || h.deals > 0);
   if (line) {
     line.textContent = top
-      ? `最响的方向：${top.hunt}——${top.replied} 条有回音${top.deals ? ` · ${top.deals} 笔成交` : ""}。全是点出来的，没有一条是编的。`
-      : "全组还没人标过一条有回音。有人点过「有回音」或记过台账，这里才有东西说。";
+      ? `反馈最多的方向：${top.hunt}——${top.replied} 条有客户反馈${top.deals ? ` · ${top.deals} 笔成交` : ""}。全是实际记录，没有一条是编的。`
+      : "全组还没有标记过客户反馈。有人点过“有客户反馈”或填写过跟进记录，这里才会显示结果。";
   }
   box.innerHTML = hunts.length
     ? hunts
@@ -2066,7 +2081,7 @@ async function loadCrew() {
         <div class="meta">${h.sales} 人在打 · ${h.customers} 个客户 · 出过 ${h.packs} 份档</div>
       </div>
       <div class="stat-pills">
-        <span><b>${h.replied}</b> 回音</span>
+        <span><b>${h.replied}</b> 客户反馈</span>
         <span><b>${h.asked}</b> 问价</span>
         <span><b>${h.deals}</b> 成交</span>
       </div>
@@ -2250,7 +2265,7 @@ document.getElementById("go-repack")?.addEventListener("click", async (e) => {
   if (!customerId) return;
   btn.disabled = true;
   const old = btn.innerHTML;
-  btn.innerHTML = `${icon("refresh")}正在重出…`;
+  btn.innerHTML = `${icon("refresh")}正在重新生成…`;
   try {
     const res = await fetch("/api/repack", {
       method: "POST",
@@ -2259,12 +2274,12 @@ document.getElementById("go-repack")?.addEventListener("click", async (e) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      toast(data.error || "重出失败");
+      toast(data.error || "重新生成失败");
       return;
     }
     state.workspace = data;
     renderToday();
-    toast("正在重出，出好了这里会自己刷新");
+    toast("正在重新生成，完成后这里会自动刷新");
     watchJob(customerId);
   } catch {
     toast("网络不通，请再试");
@@ -2442,7 +2457,7 @@ document.getElementById("material-queue")?.addEventListener("click", (event) => 
 document.getElementById("material-record-clear")?.addEventListener("click", async () => {
   const customerId = state.openedId;
   if (!customerId) return;
-  if (!confirm("把这批资料整个删掉？原件、抽取正文、语音转写和资料梳理都会清掉，之后出档不再带这些资料。历史出档不受影响。")) return;
+  if (!confirm("删除这批资料？原文件、读取的正文、语音转写和资料摘要都会清除；之后生成内容和报告时不会再使用这些资料。历史报告不受影响。")) return;
   const btn = document.getElementById("material-record-clear");
   btn.disabled = true;
   try {
@@ -2492,7 +2507,7 @@ document.getElementById("material-replace-files")?.addEventListener("change", as
     if (!res.ok) return toast(data.error || "新资料没换上");
     state.workspace = data;
     renderToday();
-    toast("新资料已换上，之后出档按新资料来");
+    toast("新资料已替换，之后生成内容和报告会使用新资料");
   } catch {
     toast("网络不通，请再试");
   } finally {
@@ -2511,7 +2526,7 @@ document.getElementById("analyze-materials")?.addEventListener("click", async ()
   btn.disabled = true;
   state.materials.busy = true;
   btn.innerHTML = `${icon("search")}正在读取…`;
-  status.textContent = "正在抽取正文、画面和视频语音，之后会形成资料梳理";
+  status.textContent = "正在读取正文、图片和视频语音，随后会生成资料摘要";
   try {
     const form = new FormData();
     state.materials.files.forEach((file) => form.append("files", file, file.name));
@@ -2527,7 +2542,7 @@ document.getElementById("analyze-materials")?.addEventListener("click", async ()
     state.materials.editing = false;
     renderMaterialQueue();
     renderMaterialAnalysis(data);
-    toast(data.analysis?.warning ? "资料已归档，但有内容未读到，请核对下方提示" : "资料已归档并梳理，可以核对后建档");
+    toast(data.analysis?.warning ? "资料已保存，但有内容未读取到，请核对下方提示" : "资料已保存并生成摘要，核对后即可创建客户");
   } catch {
     toast("网络不通，请再试");
     status.textContent = "读取没有完成，请再试";
@@ -2583,7 +2598,7 @@ document.getElementById("analysis-editor")?.addEventListener("click", async (eve
     });
     const data = await res.json();
     if (!res.ok) {
-      toast(data.error || "资料梳理没有保存");
+      toast(data.error || "资料摘要没有保存");
       save.disabled = false;
       save.textContent = "保存梳理";
       return;
@@ -2591,7 +2606,7 @@ document.getElementById("analysis-editor")?.addEventListener("click", async (eve
     state.materials.batch = data;
     state.materials.editing = false;
     renderMaterialAnalysis(data);
-    toast("梳理已保存，建档和后续重出都会使用这一版");
+    toast("资料摘要已保存，创建客户和后续重新生成都会使用这一版");
   } catch {
     toast("网络不通，梳理还没有保存");
     save.disabled = false;
@@ -2614,11 +2629,11 @@ document.getElementById("use-material-pitch")?.addEventListener("click", () => {
 document.getElementById("create-customer")?.addEventListener("click", async () => {
   const btn = document.getElementById("create-customer");
   if (state.materials.busy) {
-    toast("资料还在读取，读完再建档");
+    toast("资料还在读取，请完成后再创建客户");
     return;
   }
   if (state.materials.editing) {
-    toast("先保存或取消资料梳理的修改，再建档");
+    toast("请先保存或取消资料摘要的修改，再创建客户");
     return;
   }
   if ((state.materials.files.length || state.materials.links.length) && !state.materials.batch) {
@@ -2627,11 +2642,11 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
   }
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "正在建档…";
+  btn.textContent = "正在创建客户…";
   try {
     const track = document.querySelector('input[name="track"]:checked')?.value || "";
     if (!track) {
-      toast("先选：这是存量还是拓新");
+      toast("请先选择：这是已有客户还是潜在客户");
       btn.disabled = false;
       btn.innerHTML = old;
       return;
@@ -2655,7 +2670,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     });
     const data = await res.json();
     if (!res.ok) {
-      toast(data.error || "建档失败");
+      toast(data.error || "创建客户失败");
       btn.disabled = false;
       btn.innerHTML = old;
       return;
@@ -2663,7 +2678,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     state.workspace = data;
     state.packId = "";
     state.openedId = data.usingId || "";
-    toast(track === "存量" ? "客户已建好，正在出第一批 50 条内容" : "客户已建好，正在出判断");
+    toast(track === "存量" ? "客户已创建，正在生成第一批 50 条内容" : "客户已创建，正在生成报告");
     watchJob(data.usingId);
     const sel = document.getElementById("hunt");
     if (sel && sel.value === "__new__") {
@@ -2726,7 +2741,7 @@ document.getElementById("add-ledger")?.addEventListener("click", async () => {
   renderLedgerLines();
   // 刚记的这笔可能让「上次有效」冒出来，今天那一页要跟着变
   renderToday();
-  toast(data.marked ? "记下了，那条已算有回音" : "记下了");
+  toast(data.marked ? "已记录，这条已标为有客户反馈" : "已记录");
 });
 
 document.getElementById("change-pass")?.addEventListener("click", async () => {
@@ -2763,7 +2778,7 @@ document.body.addEventListener("click", async (e) => {
     state.workspace = data;
     renderToday();
     renderCustomers();
-    toast(track === "存量" ? "已标为存量，每次可出一批 50 条内容" : "已标为拓新，有资料再出判断");
+    toast(track === "存量" ? "已设为已有客户，每次可生成一批 50 条内容" : "已设为潜在客户，补充资料后可生成报告");
     return;
   }
   const using = e.target.closest("[data-using]");
@@ -2794,7 +2809,7 @@ document.body.addEventListener("click", async (e) => {
   if (reset) {
     const email = reset.dataset.whiteReset;
     // 抹掉密码不是小事，问一句。抹完他登录不了，得自己回注册页重设
-    if (!confirm(`把 ${email} 的密码抹掉？他要自己回注册页重新设一个。客户和历史出档不会丢。`)) return;
+    if (!confirm(`删除 ${email} 的密码？对方需要回注册页重新设置。客户和历史报告不会丢失。`)) return;
     const res = await fetch("/api/users/reset", {
       method: "POST",
       headers: { "content-type": "application/json" },

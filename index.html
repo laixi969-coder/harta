@@ -45,8 +45,8 @@
       <nav aria-label="工作台">
       <a href="#" data-nav="today" class="on" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg>今天</a>
       <a href="#" data-nav="customers"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>客户</a>
-      <a href="#" data-nav="pack"><svg class="icon" aria-hidden="true"><use href="#i-folio"></use></svg>包裹</a>
-      <a href="#" data-nav="ledger"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>台账</a>
+      <a href="#" data-nav="pack"><svg class="icon" aria-hidden="true"><use href="#i-folio"></use></svg>客户报告</a>
+      <a href="#" data-nav="ledger"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>跟进记录</a>
       <a href="#" data-nav="crew" id="nav-crew" class="hidden"><svg class="icon" aria-hidden="true"><use href="#i-crew"></use></svg>全组</a>
       <a href="#" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>设置</a>
       <a href="#" id="nav-logout"><svg class="icon" aria-hidden="true"><use href="#i-door"></use></svg>退出</a>
@@ -75,8 +75,8 @@
         </div>
         <article class="card hidden" id="empty-today">
           <h2>还没有你的客户</h2>
-          <p class="meta">建档时说清是拓新还是存量。已经在合作的直接选存量，不必先判断。</p>
-          <div class="acts"><button class="btn" data-nav="customers">去建档</button></div>
+          <p class="meta">新建时请选择客户类型：已经合作的客户可直接生成内容；潜在客户先根据资料生成报告。</p>
+          <div class="acts"><button class="btn" data-nav="customers">新建客户</button></div>
         </article>
         <article class="card" id="desk-card">
           <div class="desk-board">
@@ -86,8 +86,8 @@
               <div id="desk-send" class="chase"></div>
             </div>
             <div>
-              <h2>该判断</h2>
-              <p class="meta">拓新。根据资料出建议报告。</p>
+              <h2>待生成报告</h2>
+              <p class="meta">潜在客户。根据资料生成获客建议报告。</p>
               <div id="desk-judge" class="chase"></div>
             </div>
           </div>
@@ -99,8 +99,8 @@
         <article class="card material-record hidden" id="material-record-card">
           <div class="material-record-head">
             <div>
-              <p class="record-k">资料底稿</p>
-              <h2>上传资料梳理</h2>
+              <p class="record-k">已上传资料</p>
+              <h2>客户资料摘要</h2>
               <p class="meta material-record-engine" id="material-record-engine"></p>
             </div>
             <div class="record-acts">
@@ -119,14 +119,14 @@
           <p class="meta analysis-warning hidden" id="material-record-warning"></p>
         </article>
         <article class="card hidden" id="no-pack">
-          <h2>还没给这位出过档</h2>
+          <h2>还没有生成内容或报告</h2>
         </article>
         <!-- 重出放在 pack-body 外面：没出成的时候 pack-body 整块是藏起来的，
              按钮跟着藏了，正好在最需要它的时候点不到 -->
         <div class="pack-job hidden" id="pack-job" aria-label="当前客户的生成进度"></div>
         <div class="acts" style="margin:0 0 20px">
           <button class="btn hidden" id="go-today" type="button"><svg class="icon" aria-hidden="true"><use href="#i-bolt"></use></svg>出一批（每次 50 条）</button>
-          <button class="btn ghost hidden" id="go-repack" type="button"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>重出这份档</button>
+          <button class="btn ghost hidden" id="go-repack" type="button"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>重新生成报告</button>
         </div>
         <div id="pack-body">
         <article class="card card-id">
@@ -137,12 +137,12 @@
           <p class="meta" id="using-meta"></p>
           <p class="meta" id="pack-title"></p>
           <div class="handoff-actions hidden" id="pack-handoff">
-            <p class="handoff-k">交付出口</p>
+            <p class="handoff-k">发送给客户</p>
             <div class="acts">
-            <button class="btn hidden" id="pack-export-pdf" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>另存判断 PDF</button>
-            <button class="btn ghost hidden" id="pack-export-docx" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>另存 Word</button>
-            <button class="btn ghost hidden" id="pack-autofix" type="button"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>自动修复红线和超限</button>
-            <a class="btn ghost hidden" id="pack-open" href="pack.html" target="_blank" rel="noreferrer">预览甲方页</a>
+            <button class="btn hidden" id="pack-export-pdf" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>下载 PDF 报告</button>
+            <button class="btn ghost hidden" id="pack-export-docx" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>下载 Word 报告</button>
+            <button class="btn ghost hidden" id="pack-autofix" type="button"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>自动修复发布风险</button>
+            <a class="btn ghost hidden" id="pack-open" href="pack.html" target="_blank" rel="noreferrer">预览客户查看页</a>
             <button class="btn ghost hidden" id="go-full" type="button"><svg class="icon" aria-hidden="true"><use href="#i-film"></use></svg>客户有反应了，补分镜</button>
             <button class="btn ghost hidden" id="go-refill" type="button"><svg class="icon" aria-hidden="true"><use href="#i-bolt"></use></svg>再出一批</button>
             </div>
@@ -150,24 +150,24 @@
           </div>
         </article>
         <div class="chapter" id="judge-chapter">
-          <p class="chapter-name">一 · 判断</p>
+          <p class="chapter-name">一 · 客户分析</p>
         <article class="card hidden" id="landscape-card">
-          <h2>赛道格局</h2>
+          <h2>行业现状</h2>
           <p class="meta">公开检索能看到的，不是对这家的断言。</p>
           <p id="landscape"></p>
         </article>
         <article class="card" id="demand-card">
-          <h2>目标需求与排除人群</h2>
-          <p class="meta">前三格是值得争取的目标需求；最后一格是明确排除、不建议投放的人群。</p>
+          <h2>目标人群与不建议投放的人群</h2>
+          <p class="meta">前三项帮助理解目标人群；最后一项是明确不建议投放的人群。</p>
           <div id="demand"></div>
         </article>
         <article class="card" id="gaps-card">
-          <h2>缺口</h2>
+          <h2>可利用的机会</h2>
           <div id="gaps"></div>
         </article>
         <article class="card hidden" id="questions-card">
-          <h2>先问他这几个</h2>
-          <p class="meta">一个精准的提问比一个错误的诊断值钱。答案回来再升级成快档。</p>
+          <h2>建议先确认的问题</h2>
+          <p class="meta">先确认这些信息，避免根据不完整资料做判断；得到答案后可重新生成更完整的报告。</p>
           <div id="questions"></div>
         </article>
         </div>
@@ -185,7 +185,7 @@
           <div class="content-filters" aria-label="筛选内容">
             <label><span>搜索</span><input id="content-search" type="search" placeholder="搜文案、方向或平台"></label>
             <label><span>状态</span><select id="content-status-filter"><option value="all">全部状态</option><option value="pending">待筛选</option><option value="selected">已选用</option><option value="published">已发布</option><option value="paused">暂不用</option></select></label>
-            <label><span>内容</span><select id="content-kind-filter"><option value="all">文案与外壳</option><option value="copy">基础文案</option><option value="shell">平台外壳</option></select></label>
+            <label><span>内容</span><select id="content-kind-filter"><option value="all">文案与平台版本</option><option value="copy">基础文案</option><option value="shell">平台版本</option></select></label>
             <label><span>方向</span><select id="content-group-filter"><option value="all">全部方向</option></select></label>
             <label><span>平台</span><select id="content-platform-filter"><option value="all">全部平台</option></select></label>
           </div>
@@ -208,7 +208,7 @@
             <div class="export-options">
               <label><span>范围</span><select id="content-export-scope"><option value="all">当前整批</option><option value="selected">已勾选内容</option><option value="group">指定方向</option></select></label>
               <label><span>方向</span><select id="content-export-group" disabled><option value="">选择方向</option></select></label>
-              <label><span>内容</span><select id="content-export-kind"><option value="all">文案与平台外壳</option><option value="copies">只要基础文案</option><option value="shells">只要平台外壳</option></select></label>
+              <label><span>内容</span><select id="content-export-kind"><option value="all">文案与平台版本</option><option value="copies">只要基础文案</option><option value="shells">只要平台版本</option></select></label>
               <label><span>格式</span><select id="content-export-format"><option value="xlsx">Excel 工作簿</option><option value="md">Markdown 文本</option></select></label>
             </div>
             <label class="risk-export"><input id="content-include-risky" type="checkbox">包含风险草稿，并在合规列明确标出</label>
@@ -225,11 +225,11 @@
         </article>
         <article class="card" id="copies-card">
           <h2 id="copies-title">基础文案</h2>
-          <p class="meta" id="copies-note">勾选后可批量安排、标记和导出；有回音的组会往前排。</p>
+          <p class="meta" id="copies-note">勾选后可批量安排、标记和导出；获得客户反馈的组会排在前面。</p>
           <div id="copies"></div>
         </article>
         <article class="card" id="breaks-card">
-          <h2>钩子拆解</h2>
+          <h2>开头吸引力说明</h2>
           <div id="breaks"></div>
         </article>
         <article class="card hidden" id="boards-card">
@@ -238,13 +238,13 @@
           <div id="boards"></div>
         </article>
         <article class="card hidden" id="landing-card">
-          <h2>承接 · 人点进来之后</h2>
+          <h2>用户点进来后看到的内容</h2>
           <p class="meta">钩子只解决点击。第一屏答非所问，素材跑得越好越浪费。</p>
           <div id="landing"></div>
         </article>
         <article class="card" id="platform-card">
-          <h2>平台外壳</h2>
-          <p class="meta">主战场优先；不同平台保留各自字段，不把封面、标题和正文揉成一句。</p>
+          <h2>平台适配版本</h2>
+          <p class="meta">优先使用主平台；不同平台分别保留封面、标题和正文，方便直接发布。</p>
           <div id="plats" class="field-grid"></div>
         </article>
         <article class="card" id="delivery-card">
@@ -264,7 +264,7 @@
         <div id="customer-list" class="chase"></div>
         <article class="card form">
           <h2>新建</h2>
-          <label for="hunt">猎场</label>
+          <label for="hunt">目标行业</label>
           <select id="hunt"></select>
           <label for="new-hunt" id="new-hunt-label" class="hidden">新行业叫什么</label>
           <input id="new-hunt" class="hidden" maxlength="24" placeholder="例如 月子中心。最多 24 字">
@@ -272,13 +272,13 @@
           <div class="track-pick" role="radiogroup" aria-label="客户种类">
             <label class="choice">
               <input type="radio" name="track" value="存量">
-              <span class="choice-title">存量</span>
+              <span class="choice-title">已有客户</span>
               <span class="choice-note">已经在合作，直接出一批内容，每次 50 条</span>
             </label>
             <label class="choice">
               <input type="radio" name="track" value="拓新">
-              <span class="choice-title">拓新</span>
-              <span class="choice-note">根据资料出判断报告</span>
+              <span class="choice-title">潜在客户</span>
+              <span class="choice-note">根据资料生成获客建议报告</span>
             </label>
           </div>
           <label for="cname">客户名</label>
@@ -292,7 +292,7 @@
             <div class="material-heading">
               <div>
                 <h3>客户资料</h3>
-                <p class="meta">原件留档，先读后判。没有读到的内容不会写进诊断。</p>
+                <p class="meta">原文件会保留。系统先读取资料；未读取到的信息不会写入报告。</p>
               </div>
               <span class="folio-no">附件 / 01</span>
             </div>
@@ -315,7 +315,7 @@
             </div>
             <div class="material-analysis hidden" id="material-analysis">
               <div class="analysis-head">
-                <span>资料梳理 <small id="analysis-engine"></small></span>
+                <span>资料摘要 <small id="analysis-engine"></small></span>
                 <span class="analysis-head-actions">
                   <button class="textish" id="edit-material-analysis" type="button">编辑梳理</button>
                   <button class="textish" id="use-material-pitch" type="button">采用一句话卖点</button>
@@ -334,24 +334,24 @@
           </div>
           <label for="cmaterial">销售补充（可选）</label>
           <textarea id="cmaterial" class="long-textarea" rows="8" maxlength="12000" aria-describedby="cmaterial-count" placeholder="会议信息、客户原话、暂时没有文件的材料；可粘贴长文"></textarea>
-          <p class="field-meta"><span>最多 12,000 字；全部保存，出判断时优先读取这段</span><span id="cmaterial-count" data-char-count="cmaterial">0 / 12,000</span></p>
-          <p class="meta">拓新：资料读取成功后才出判断，没读到只出侦察。存量：不经过判断，建完就出一批；每次 50 条，同一天可以再出。</p>
-          <div class="acts"><button class="btn" id="create-customer" type="button">建档</button></div>
+          <p class="field-meta"><span>最多 12,000 字；全部保存，生成报告时会优先读取这段</span><span id="cmaterial-count" data-char-count="cmaterial">0 / 12,000</span></p>
+          <p class="meta">潜在客户：资料读取成功后生成报告；资料不足时只会给出待确认问题。已有客户：创建后直接生成一批内容，每次 50 条，同一天可以继续生成。</p>
+          <div class="acts"><button class="btn" id="create-customer" type="button">创建客户</button></div>
         </article>
       </section>
 
       <section class="hidden" data-view="pack">
         <div class="hook">
-          <p class="kicker">包裹</p>
-          <h1>判断的交付出口。直接另存，或打开甲方页核对。</h1>
-          <p class="meta">PDF 适合直接发，Word 适合继续修改。内容批次在「今天」的内容库里筛选、安排和导出。</p>
+          <p class="kicker">客户报告</p>
+          <h1>已生成、可发给客户的报告。</h1>
+          <p class="meta">下载 PDF 后可直接发送；下载 Word 后可继续修改。内容批次请到「今天」的内容库筛选、安排和导出。</p>
         </div>
         <div id="pack-list" class="chase"></div>
       </section>
 
       <section class="hidden" data-view="ledger">
         <div class="hook">
-          <p class="kicker">台账</p>
+          <p class="kicker">跟进记录</p>
           <h1>对方原话原样记。问价和成交，回头翻得出来。</h1>
         </div>
         <article class="card form hidden" id="ledger-form-card">
@@ -367,7 +367,7 @@
           </select>
           <label for="ledger-line">哪条带来的（可选）</label>
           <select id="ledger-line"></select>
-          <p class="meta">记问价、有兴趣或成交时选了哪条，那条自动算有回音，不用再回去点一遍。</p>
+          <p class="meta">记录问价、有兴趣或成交时选了哪条内容，这条会自动标为“有客户反馈”，不用再回去点一遍。</p>
           <label for="ledger-quote">报价</label>
           <input id="ledger-quote" maxlength="120" placeholder="没报就留空（最多 120 字）">
           <label for="ledger-talk">他原话怎么说</label>
@@ -376,10 +376,10 @@
           <div class="acts"><button class="btn" id="add-ledger" type="button">记下</button></div>
         </article>
         <article class="card">
-          <div class="table-scroll" tabindex="0" aria-label="台账表格，可横向滚动">
+          <div class="table-scroll" tabindex="0" aria-label="跟进记录表格，可横向滚动">
           <table>
             <thead>
-              <tr><th>日期</th><th>客户</th><th>猎场</th><th>结果</th><th>报价</th><th>原话</th></tr>
+              <tr><th>日期</th><th>客户</th><th>目标行业</th><th>结果</th><th>报价</th><th>原话</th></tr>
             </thead>
             <tbody id="ledger-body"></tbody>
           </table>
@@ -394,7 +394,7 @@
           <p class="meta" id="crew-line">只有你能看这一页。这里只有数，不拆到人。</p>
         </div>
         <article class="card">
-          <h2>按猎场</h2>
+          <h2>按目标行业</h2>
           <div id="crew-rows" class="chase"></div>
         </article>
         <article class="card">

@@ -20,6 +20,6 @@ describe("content workflow", () => {
     const customer = { drops: [{ id: "d2" }, { id: "d1", copies: { "A 风险": ["一", "二"], "B 报价": ["三"] } }] };
     const current = { id: "d2", origin: { from: "d1" } };
     expect(learningSummary(customer, current, { "d1-A 风险-0": "replied", "d1-B 报价-0": "dead" }))
-      .toContain("A 风险 1 条有回音");
+      .toContain("A 风险 1 条有客户反馈");
   });
 });
