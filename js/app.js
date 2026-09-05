@@ -1,3 +1,4 @@
+import { attributionEntries, customerAttributions, platformOutcomes, shellFeedbackKey } from "./acquisition.js";
 import { bindEyes } from "./eyes.js";
 import { copyKey, editOf, edited, shellKey } from "./pack-edits.js";
 import { lastEffective, rankCopyGroups, rankShells } from "./rank-feedback.js";
@@ -15,7 +16,6 @@ import {
   clientPacksForCustomer,
   hardBlockCount,
   isJudgmentPack,
-  latestAttributablePack,
 } from "./customer-view.js";
 
 const state = {
@@ -35,7 +35,7 @@ const state = {
   llmAddOpen: {},
   llmFocus: "",
   contentSelection: new Set(),
-  contentFilter: { query: "", status: "all", kind: "all", group: "all", platform: "all" },
+  contentFilter: { query: "", status: "all", kind: "all", group: "all", platform: "all", plan: "all" },
   exportGroup: "",
 };
 
@@ -212,9 +212,10 @@ async function runContentExport({ history = false } = {}) {
   }
 }
 
-async function updateContentState(keys, status, plannedAt = "") {
+async function updateContentState(keys, status, plannedAt) {
   const pack = currentPack();
   if (!pack || !keys.length) return false;
+  try {
   const res = await fetch("/api/content-state", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -227,6 +228,7 @@ async function updateContentState(keys, status, plannedAt = "") {
   }
   state.workspace = data.workspace;
   return true;
+  } catch { toast("连接中断，状态没有保存，请重试"); return false; }
 }
 
 async function runExport(button) {
@@ -720,7 +722,7 @@ function contentItemMeta(pack, lineKey, { kind, group = "", platform = "", text 
     key,
     workflow,
     checked: state.contentSelection.has(key),
-    attrs: `data-content-item data-content-key="${esc(key)}" data-kind="${esc(kind)}" data-group="${esc(group)}" data-platform="${esc(platform)}" data-status="${esc(workflow.status)}" data-search="${esc(`${group} ${platform} ${text}`.toLocaleLowerCase("zh-CN"))}" data-risk="${risky ? "1" : "0"}"`,
+    attrs: `data-content-item data-content-key="${esc(key)}" data-kind="${esc(kind)}" data-group="${esc(group)}" data-platform="${esc(platform)}" data-status="${esc(workflow.status)}" data-planned="${esc(workflow.plannedAt || "")}" data-search="${esc(`${group} ${platform} ${text}`.toLocaleLowerCase("zh-CN"))}" data-risk="${risky ? "1" : "0"}"`,
   };
 }
 
@@ -764,13 +766,16 @@ function applyContentFilters() {
   const filter = state.contentFilter;
   const items = [...document.querySelectorAll("[data-content-item]")];
   let visible = 0;
+  const day = state.workspace.desk?.date || "";
   for (const item of items) {
     const show =
       (!filter.query || item.dataset.search.includes(filter.query.toLocaleLowerCase("zh-CN"))) &&
       (filter.status === "all" || item.dataset.status === filter.status) &&
       (filter.kind === "all" || item.dataset.kind === filter.kind) &&
       (filter.group === "all" || item.dataset.group === filter.group) &&
-      (filter.platform === "all" || item.dataset.platform === filter.platform);
+      (filter.platform === "all" || item.dataset.platform === filter.platform) &&
+      (filter.plan === "all" || (item.dataset.status === "selected" && item.dataset.planned &&
+        (filter.plan === "today" ? item.dataset.planned === day : filter.plan === "overdue" ? item.dataset.planned < day : item.dataset.planned <= day)));
     item.classList.toggle("hidden-filter", !show);
     if (show) visible += 1;
   }
@@ -781,6 +786,7 @@ function applyContentFilters() {
   document.getElementById("platform-card")?.classList.toggle("filter-empty", !document.querySelector('#plats [data-content-item]:not(.hidden-filter)'));
   const label = document.getElementById("content-visible-count");
   if (label) label.textContent = `当前显示 ${visible} 条`;
+  document.getElementById("content-filter-empty")?.classList.toggle("hidden", visible > 0);
   updateContentSelectionUI();
 }
 
@@ -796,14 +802,17 @@ function renderContentConsole(pack, customer, hardRows) {
   state.contentSelection = new Set([...state.contentSelection].filter((key) => key.startsWith(`${pack.id}::`)));
   const groups = Object.keys(pack.copies || {});
   const platforms = Object.keys(pack.shells || {});
+  if (!groups.includes(state.contentFilter.group)) state.contentFilter.group = "all";
+  if (!platforms.includes(state.contentFilter.platform)) state.contentFilter.platform = "all";
   const counts = contentStateCounts(pack, state.workspace.contentStates, state.workspace.feedback);
+  const platformsInBatch = platformOutcomes({ id: customer.id, drops: [pack] }, state.workspace.contentStates, state.workspace.feedback);
   const itemRisks = [...document.querySelectorAll("[data-content-item][data-risk=\"1\"]")].length;
   document.getElementById("content-batch-title").textContent = `${pack.date || pack.deliveredAt || pack.createdAt || "本次"} · ${pack.batch ? `第 ${pack.batch} 批` : "内容批次"}`;
   document.getElementById("content-summary").innerHTML = [
-    ["库存", counts.total],
-    ["已选", counts.selected],
-    ["已发", counts.published],
-    ["客户反馈", counts.replied],
+    ["基础文案", counts.total],
+    ["基础已发", counts.published],
+    ["平台已发", platformsInBatch.reduce((sum, row) => sum + row.published, 0)],
+    ["平台反馈", platformsInBatch.reduce((sum, row) => sum + row.replied, 0)],
     ["风险", itemRisks],
   ].map(([label, value]) => `<span><b>${value}</b>${label}</span>`).join("");
   document.getElementById("content-learning").textContent = learningSummary(customer, pack, state.workspace.feedback);
@@ -819,6 +828,7 @@ function renderContentConsole(pack, customer, hardRows) {
   document.getElementById("content-search").value = state.contentFilter.query;
   document.getElementById("content-status-filter").value = state.contentFilter.status;
   document.getElementById("content-kind-filter").value = state.contentFilter.kind;
+  document.getElementById("content-plan-filter").value = state.contentFilter.plan;
   applyContentFilters();
 }
 
@@ -848,16 +858,16 @@ function renderDesk() {
       meta: esc(c.job?.stage || c.reason || ""),
       actions: c.busy
         ? `<button type="button" class="go" data-using="${c.id}">查看进度</button>`
-        : `<button type="button" class="go" data-using="${c.id}" data-act="${act || ""}">${action}</button>`,
+        : `<button type="button" class="go" data-using="${c.id}" data-pack="${act === "scheduled" ? esc(c.duePackId) : ""}" data-act="${act || ""}">${action}</button>`,
     });
   if (sendBox) {
     sendBox.innerHTML = desk.send?.length
-      ? desk.send.map((c) => row(c, c.hasToday ? "打开" : "生成今日内容", c.hasToday ? "" : "today", chip("已有客户", "chip-stock"))).join("")
+      ? desk.send.map((c) => row(c, c.dueCount ? "查看待发内容" : c.hasToday ? "打开" : "生成今日内容", c.dueCount ? "scheduled" : c.hasToday ? "" : "today", chip("已有客户", "chip-stock"))).join("")
       : `<p class="empty-line">今天没有需要生成内容的已有客户。</p>`;
   }
   if (judgeBox) {
     judgeBox.innerHTML = desk.judge?.length
-      ? desk.judge.map((c) => row(c, c.ready ? "生成报告" : "打开", c.ready ? "judge" : "", chip("潜在客户", "chip-new"))).join("")
+      ? desk.judge.map((c) => row(c, c.ready ? "生成报告" : "查看并补资料", c.ready ? "judge" : "", chip("潜在客户", "chip-new"))).join("")
       : `<p class="empty-line">没有需要生成报告的潜在客户。</p>`;
   }
   if (unmarkedBox) {
@@ -877,9 +887,20 @@ function renderDesk() {
   }
 }
 
+function renderAcquisition(customer) {
+  const rows = platformOutcomes(customer, state.workspace.contentStates, state.workspace.feedback, state.workspace.ledger);
+  document.getElementById("acquisition-card")?.classList.toggle("hidden", !rows.length);
+  document.getElementById("acquisition-body").innerHTML = rows.map((r) => `<tr><td>${esc(r.platform)}</td>${[r.published, r.replied, r.dead, r.interested, r.asked, r.deals].map((n) => `<td class="num">${n}</td>`).join("")}</tr>`).join("");
+  const hasResults = rows.some((r) => r.replied || r.asked || r.deals || r.interested);
+  document.getElementById("acquisition-next").textContent = hasResults
+    ? "已有真实反馈。继续记录内容来源，下一批会参考最近三批的平台反馈；不同平台的记录量不能直接当成转化率。"
+    : "还没有已记录的获客结果。选一个平台发布，收到咨询后在对应内容点“记询价 / 成交”，留下来源和原话。";
+}
+
 function renderToday() {
   renderJobCenter();
   const mine = usingCustomer();
+  renderAcquisition(mine);
   const empty = document.getElementById("empty-today");
   const owned = document.getElementById("owned-today");
   const deskCard = document.getElementById("desk-card");
@@ -931,7 +952,7 @@ function renderToday() {
           : `${mine.name} 还没有生成过${mine.track === "存量" ? "今日内容" : "报告"}`;
   const facts = [...(deskHook?.facts || [])];
   if (pack) {
-    facts.push(`${pack.deliveredAt || pack.createdAt} 出的`);
+    facts.push(`${pack.deliveredAt || pack.createdAt || pack.date || "历史批次"} 出的`);
     if (headCount) facts.push(headCount);
     facts.push(`${nCopy} 条`);
     if (fields && fields !== "尚未确定主平台") facts.push(`主平台 ${fields}`);
@@ -953,7 +974,7 @@ function renderToday() {
         (p) => `<button type="button" data-pack="${p.id}" class="${p.id === (pack && pack.id) ? "on" : ""}">
         <span class="when">${esc(p.deliveredAt || p.createdAt)}</span>
         <span class="what">${esc(p.tier === "今日" && p.batch ? `内容库 · 第 ${p.batch} 批` : p.title || packLabel(p.tier))}</span>
-        <span class="meta">${esc(packLabel(p.tier))} · ${copyCount(p)} 条${p.tier === "今日" ? ` · 已发 ${contentStateCounts(p, state.workspace.contentStates, state.workspace.feedback).published}` : ""}</span>
+        <span class="meta">${esc(packLabel(p.tier))} · ${copyCount(p)} 条${p.tier === "今日" ? ` · 基础已发 ${contentStateCounts(p, state.workspace.contentStates, state.workspace.feedback).published}` : ""}</span>
       </button>`,
       )
       .join("");
@@ -1039,8 +1060,8 @@ function renderToday() {
         ? "初步\n报告"
         : "客户\n报告";
   document.getElementById("using-meta").textContent =
-    `${mine.pitch} · ${mine.city || ""} · ${pack.evidenceNote || ""}`;
-  document.getElementById("pack-title").textContent = `当时标题：${pack.title}`;
+    [mine.pitch, mine.city, pack.evidenceNote].filter(Boolean).join(" · ");
+  document.getElementById("pack-title").textContent = `当时标题：${pack.title || "未命名报告"}`;
 
   const demandBox = document.getElementById("demand");
   const demandCard = document.getElementById("demand-card");
@@ -1369,6 +1390,7 @@ function renderToday() {
   const extras = shells.filter((s) => !s.main);
   // 小红书要分封面大字、标题、正文三样分别复制；朋友圈折叠线前后两样。
   // 一个「复制这条」按钮解决不了，那是把三个字段当成一句话。
+  const outcomesByKey = new Map(attributionEntries(pack).map((entry) => [entry.key, entry]));
   const platBlock = (s, kind) => {
     const fields = state.platformFields[s.name] || [{ key: "title", label: "文案" }];
     const items = s.lines
@@ -1394,7 +1416,17 @@ function renderToday() {
             </div>`;
           })
           .join("");
-        return `<div class="line slip"${isContentPack ? " data-content-container" : ""}>${rows}</div>`;
+        const outcomeKey = shellFeedbackKey(pack.id, s.name, idx);
+        const outcome = state.workspace.feedback?.[outcomeKey];
+        const entry = outcomesByKey.get(outcomeKey);
+        const published = entry?.contentKeys.every((key) => contentStateOf(state.workspace.contentStates, key).status === "published");
+        return `<div class="line slip"${isContentPack ? " data-content-container" : ""}>${rows}
+          ${isContentPack ? `<div class="slip-bar platform-outcome"><div class="slip-step">
+            <button type="button" class="textish" data-publish-post="${esc(outcomeKey)}" ${published ? "disabled" : ""}>${published ? "整条已发布" : "标记整条已发布"}</button>
+            <button type="button" class="verdict ${outcome === "replied" ? "on-yes" : ""}" data-fb="${esc(outcomeKey)}" data-val="replied" aria-pressed="${outcome === "replied"}">有客户反馈</button>
+            <button type="button" class="verdict ${outcome === "dead" ? "on-no" : ""}" data-fb="${esc(outcomeKey)}" data-val="dead" aria-pressed="${outcome === "dead"}">没反应</button>
+            <button type="button" class="textish" data-record-outcome="${esc(outcomeKey)}">记询价 / 成交</button>
+          </div></div>` : ""}</div>`;
       })
       .join("");
     return `<section class="plat ${kind}"${isContentPack ? " data-content-container" : ""}><h3>${esc(s.name)}<span>${kind === "is-main" ? "主平台" : "适配版本"}</span></h3>${items}</section>`;
@@ -1455,27 +1487,21 @@ function renderToday() {
 function renderCustomers() {
   const box = document.getElementById("customer-list");
   if (!box) return;
-  const list = [...(state.workspace.customers || [])].sort((a, b) => {
-    const au = a.track ? 1 : 0;
-    const bu = b.track ? 1 : 0;
-    if (au !== bu) return au - bu;
-    if (a.id === state.workspace.usingId) return -1;
-    if (b.id === state.workspace.usingId) return 1;
-    return packsOf(b).length - packsOf(a).length;
-  });
+  const desk = state.workspace.desk || {};
+  const order = [...(desk.unmarked || []), ...(desk.send || []), ...(desk.judge || []), ...(desk.done || [])];
+  const priority = new Map(order.map((row, index) => [row.id, index]));
+  const list = [...(state.workspace.customers || [])].sort((a, b) => (priority.get(a.id) ?? Infinity) - (priority.get(b.id) ?? Infinity));
   box.innerHTML = list.length
     ? list
         .map((c) => {
           const packs = packsOf(c);
           const latest = packs[0];
-          const using = c.id === state.workspace.usingId;
+          const using = c.id === usingCustomer()?.id;
           const kindChip = c.track === "存量" ? chip("已有客户", "chip-stock") : c.track === "拓新" ? chip("潜在客户", "chip-new") : chip("未选择类型", "chip-warn");
           const actions = c.job
             ? `<button type="button" class="go" data-using="${c.id}">查看进度</button>`
             : c.track
-            ? using
-              ? ""
-              : `<button type="button" class="go" data-using="${c.id}">${packs.length ? "看当时给的" : "打开"}</button>`
+            ? `<button type="button" class="go" data-using="${c.id}">${packs.length ? "打开内容与历史" : "打开"}</button>`
             : `<button type="button" class="go" data-track="${c.id}|存量">设为已有客户</button>
                 <button type="button" class="go" data-track="${c.id}|拓新">设为潜在客户</button>`;
           return rowCard({
@@ -1552,7 +1578,7 @@ function renderLedger() {
     ? rows.map(
     (r) => `<tr>
       <td>${esc(r.date)}</td><td>${esc(r.client)}${r.demo ? ' <span class="tag">演示</span>' : ""}</td><td>${esc(r.hunt)}</td>
-      <td>${esc(r.result)}</td><td class="num">${esc(r.quote)}</td><td>${esc(r.talk)}</td>
+      <td>${esc(r.result)}${r.platform ? `<span class="meta"> · ${esc(r.platform)}</span>` : ""}</td><td class="num">${esc(r.quote)}</td><td>${esc(r.talk)}${r.content ? `<details class="ledger-source"><summary>查看来源内容${r.platform ? ` · ${esc(r.platform)}` : ""}</summary><p class="asis">${esc(r.content)}</p></details>` : ""}</td>
     </tr>`,
   ).join("")
     : `<tr><td colspan="6">还没有跟进记录。</td></tr>`;
@@ -1577,32 +1603,57 @@ function renderLedgerForm() {
   renderLedgerLines();
 }
 
-/* 「哪条带来的」只列这个客户最新一份档里的文案，列的还是改后的那版——
- * 反馈要落在他真发出去的那句上，不是模型原来写的那句 */
+function renderLedgerPlatform() {
+  const customer = (state.workspace.customers || []).find((c) => c.id === document.getElementById("ledger-client")?.value);
+  const entries = customerAttributions(customer);
+  const entry = entries.find((entry) => entry.key === document.getElementById("ledger-line")?.value);
+  const select = document.getElementById("ledger-platform");
+  const previous = select.value;
+  select.innerHTML = `<option value="">尚未确定平台</option>${[...new Set(entries.map((entry) => entry.platform).filter(Boolean))].map((platform) => `<option value="${esc(platform)}">${esc(platform)}</option>`).join("")}`;
+  select.value = entry?.platform || ([...select.options].some((option) => option.value === previous) ? previous : "");
+  select.disabled = Boolean(entry?.platform);
+}
+
 function renderLedgerLines() {
   const sel = document.getElementById("ledger-line");
   if (!sel) return;
   const id = document.getElementById("ledger-client")?.value || "";
-  const c = (state.workspace.customers || []).find((x) => x.id === id);
-  const pack = latestAttributablePack(c);
-  const groups = pack ? Object.entries(pack.copies || {}) : [];
-  sel.innerHTML =
-    `<option value="">这次不挂某一条</option>` +
-    groups
-      .flatMap(([group, lines]) =>
-        (lines || []).map((text, i) => {
-          // 反馈的 key 带档 id，改稿的 key 只带组名和下标，两把钥匙别串
-          const key = `${pack.id}-${group}-${i}`;
-          const shown = edited(pack, copyKey(group, i), text);
-          const brief = shown.length > 16 ? `${shown.slice(0, 16)}…` : shown;
-          return `<option value="${esc(key)}">${esc(group)} · ${esc(brief)}</option>`;
-        }),
-      )
-      .join("");
+  const customer = (state.workspace.customers || []).find((c) => c.id === id);
+  const packs = [...(customer?.drops || []), ...(customer?.packs || [])];
+  sel.innerHTML = `<option value="">这次不挂某一条</option>` + packs.map((pack) => {
+    const entries = attributionEntries(pack);
+    const label = `${pack.date || pack.deliveredAt || pack.createdAt || "历史"} · ${pack.batch ? `第 ${pack.batch} 批` : pack.tier || "报告"}`;
+    return `<optgroup label="${esc(label)}">${entries.map((entry) => `<option value="${esc(entry.key)}">${esc(entry.group)} · ${esc(entry.text.slice(0, 48))}</option>`).join("")}</optgroup>`;
+  }).join("");
+  renderLedgerPlatform();
 }
 
 function bind() {
-  document.body.addEventListener("click", (e) => {
+  document.body.addEventListener("click", async (e) => {
+    const record = e.target.closest("[data-record-outcome]");
+    if (record) {
+      const customer = usingCustomer();
+      nav("ledger");
+      document.getElementById("ledger-client").value = customer?.id || "";
+      renderLedgerLines();
+      document.getElementById("ledger-line").value = record.dataset.recordOutcome || "";
+      renderLedgerPlatform();
+      document.getElementById("ledger-talk").focus();
+      return;
+    }
+    const post = e.target.closest("[data-publish-post]");
+    if (post && !post.disabled) {
+      const entry = attributionEntries(currentPack()).find((entry) => entry.key === post.dataset.publishPost);
+      if (!entry) return;
+      post.disabled = true;
+      if (await updateContentState(entry.contentKeys, "published")) { toast("已记录整条内容发布"); renderToday(); }
+      else post.disabled = false;
+      return;
+    }
+    if (e.target.closest("#content-reset-filters")) {
+      state.contentFilter = { query: "", status: "all", kind: "all", group: "all", platform: "all", plan: "all" };
+      renderToday(); return;
+    }
     const exportButton = e.target.closest("[data-export-url]");
     if (exportButton) {
       e.preventDefault();
@@ -1758,14 +1809,19 @@ function bind() {
     }
     const fb = e.target.closest("[data-fb]");
     if (fb) {
-      fetch("/api/feedback", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ key: fb.dataset.fb, value: fb.dataset.val }),
-      }).then(async (res) => {
-        if (res.ok) state.workspace = await res.json();
+      if (fb.disabled) return;
+      fb.disabled = true;
+      try {
+        const res = await fetch("/api/feedback", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ key: fb.dataset.fb, value: fb.dataset.val }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "反馈没保存，请重试");
+        state.workspace = data;
         renderToday();
-      });
+        toast("已记录反馈，下一批会参考");
+      } catch (error) { toast(error.message || "连接中断，请重试"); fb.disabled = false; }
       return;
     }
     const open = e.target.closest("[data-open]");
@@ -1773,6 +1829,8 @@ function bind() {
     const packBtn = e.target.closest("[data-pack]");
     if (packBtn && !packBtn.dataset.using) {
       state.packId = packBtn.dataset.pack;
+      state.contentFilter.group = "all";
+      state.contentFilter.platform = "all";
       renderToday();
     }
   });
@@ -2146,7 +2204,8 @@ async function boot() {
   renderToday();
   renderLedger();
   renderLedgerForm();
-  document.getElementById("ledger-client")?.addEventListener("change", renderLedgerLines);
+  document.getElementById("ledger-client")?.addEventListener("change", () => { document.getElementById("ledger-platform").value = ""; renderLedgerLines(); });
+  document.getElementById("ledger-line")?.addEventListener("change", renderLedgerPlatform);
   bind();
   refreshCharCounts();
   nav("today");
@@ -2717,10 +2776,16 @@ document.getElementById("add-ledger")?.addEventListener("click", async () => {
   const talk = document.getElementById("ledger-talk")?.value.trim() || "";
   if (!customer) return toast("先选一个客户");
   if (!talk) return toast("原话没填，这条记了也没用");
+  const submit = document.getElementById("add-ledger");
+  if (submit.disabled) return;
+  submit.disabled = true;
+  try {
   const res = await fetch("/api/ledger", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
+      customerId: customer.id,
+      platform: document.getElementById("ledger-platform")?.value || "",
       client: customer.name,
       hunt: customer.hunt,
       result: document.getElementById("ledger-result")?.value || "",
@@ -2742,6 +2807,8 @@ document.getElementById("add-ledger")?.addEventListener("click", async () => {
   // 刚记的这笔可能让「上次有效」冒出来，今天那一页要跟着变
   renderToday();
   toast(data.marked ? "已记录，这条已标为有客户反馈" : "已记录");
+  } catch { toast("连接中断，记录未确认保存，原话已保留"); }
+  finally { submit.disabled = false; }
 });
 
 document.getElementById("change-pass")?.addEventListener("click", async () => {
@@ -2784,7 +2851,13 @@ document.body.addEventListener("click", async (e) => {
   const using = e.target.closest("[data-using]");
   if (using) {
     e.preventDefault();
+    if (using.dataset.act === "scheduled") {
+      state.contentFilter = { query: "", status: "selected", kind: "all", group: "all", platform: "all", plan: "due" };
+    } else if (state.openedId !== using.dataset.using || state.packId !== (using.dataset.pack || "")) {
+      state.contentFilter = { query: "", status: "all", kind: "all", group: "all", platform: "all", plan: "all" };
+    }
     await useCustomer(using.dataset.using, using.dataset.pack || "");
+    if (using.dataset.act === "scheduled") document.getElementById("content-console")?.scrollIntoView({ behavior: "smooth", block: "start" });
     if (using.dataset.act === "today") {
       document.getElementById("go-today")?.click();
     } else if (using.dataset.act === "judge") {
@@ -3048,6 +3121,7 @@ document.body.addEventListener("change", (e) => {
     return;
   }
   const filterMap = {
+    "content-plan-filter": "plan",
     "content-status-filter": "status",
     "content-kind-filter": "kind",
     "content-group-filter": "group",

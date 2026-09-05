@@ -636,7 +636,7 @@ section[data-view] { padding: 0 56px; }
 }
 .content-filters {
   display: grid;
-  grid-template-columns: minmax(13rem, 1.7fr) repeat(4, minmax(8rem, 1fr));
+  grid-template-columns: minmax(12rem, 1.7fr) repeat(5, minmax(6.2rem, 1fr));
   gap: 10px;
   margin-top: 18px;
 }
@@ -2318,3 +2318,15 @@ td:last-child { color: var(--ink-2); }
   .llm-head { flex-wrap: wrap; }
   .llm-head-acts { width: 100%; padding-left: 76px; }
 }
+
+/* 平台效果按一篇内容记，字段操作仍留在原位置。 */
+.platform-outcome { border-top: 1px solid var(--rule); padding-top: 12px; margin-top: 12px; }
+.platform-outcome .slip-step { flex-wrap: wrap; }
+#acquisition-card .table-scroll td:last-child { min-width: 0; max-width: none; }
+#acquisition-card .table-scroll table { min-width: 600px; }
+#acquisition-card h2 { margin-bottom: 8px; }
+#acquisition-next { margin-top: 14px; }
+
+.ledger-source { margin-top: 8px; font-size: var(--t-5); }
+.ledger-source summary { cursor: pointer; color: var(--ink-2); }
+.ledger-source p { margin-top: 8px; }

@@ -38,6 +38,12 @@ export function contentStateCounts(pack, states = {}, feedback = {}) {
 }
 
 export function learningSummary(customer, pack, feedback = {}) {
+  if (Array.isArray(pack?.origin?.feedbackSummary)) {
+    const summary = pack.origin.feedbackSummary;
+    if (!summary.length) return "生成本批时还没有已记录的效果。发布后记录平台反馈和询价，下一批会参考。";
+    return `生成本批时参考了最近几批的真实反馈：${summary.map((g) => `${g.group}：${g.replied} 条有反馈、${g.dead} 条没反应`).join("；")}。`;
+  }
+
   const older = [...(customer?.drops || []), ...(customer?.packs || [])]
     .filter((row) => row.id !== pack?.id);
   const source = older.find((row) => row.id === pack?.origin?.from) || older[0];

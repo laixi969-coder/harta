@@ -82,7 +82,7 @@
           <div class="desk-board">
             <div>
               <h2>今日该发</h2>
-              <p class="meta">存量。已经在合作的，今天出内容。</p>
+              <p class="meta">已有客户。先发布排期内容，再按需要生成新内容。</p>
               <div id="desk-send" class="chase"></div>
             </div>
             <div>
@@ -96,6 +96,14 @@
         <div id="owned-today">
         <div id="history" class="history"></div>
         <div class="win hidden" id="win"></div>
+        <article class="card hidden" id="acquisition-card">
+          <p class="kicker">平台获客</p>
+          <h2>哪些平台带来了客户反馈</h2>
+          <p class="meta">当前客户的全部历史。发布按完整平台内容计；有兴趣、询价、成交按跟进记录次数计，不代表去重线索人数。</p>
+          <div class="table-scroll"><table><thead><tr><th>平台</th><th>已发布</th><th>有反馈</th><th>没反应</th><th>有兴趣</th><th>询价</th><th>成交</th></tr></thead><tbody id="acquisition-body"></tbody></table></div>
+          <p class="meta" id="acquisition-next"></p>
+          <div class="acts"><button class="btn ghost" type="button" data-record-outcome>记录询价或成交</button></div>
+        </article>
         <article class="card material-record hidden" id="material-record-card">
           <div class="material-record-head">
             <div>
@@ -188,7 +196,9 @@
             <label><span>内容</span><select id="content-kind-filter"><option value="all">文案与平台版本</option><option value="copy">基础文案</option><option value="shell">平台版本</option></select></label>
             <label><span>方向</span><select id="content-group-filter"><option value="all">全部方向</option></select></label>
             <label><span>平台</span><select id="content-platform-filter"><option value="all">全部平台</option></select></label>
+            <label><span>排期</span><select id="content-plan-filter"><option value="all">全部排期</option><option value="due">到期未发布</option><option value="today">今天待发布</option><option value="overdue">逾期未发布</option></select></label>
           </div>
+          <p class="meta hidden" id="content-filter-empty" role="status">没有符合条件的内容。<button class="textish" type="button" id="content-reset-filters">清除筛选</button></p>
           <div class="content-batch-actions">
             <div class="content-selection-copy"><b id="content-selected-count">已选 0 条</b><span id="content-visible-count"></span></div>
             <div class="acts-inline">
@@ -367,6 +377,8 @@
           </select>
           <label for="ledger-line">哪条带来的（可选）</label>
           <select id="ledger-line"></select>
+          <label for="ledger-platform">来源平台（可选）</label>
+          <select id="ledger-platform"><option value="">尚未确定平台</option></select>
           <p class="meta">记录问价、有兴趣或成交时选了哪条内容，这条会自动标为“有客户反馈”，不用再回去点一遍。</p>
           <label for="ledger-quote">报价</label>
           <input id="ledger-quote" maxlength="120" placeholder="没报就留空（最多 120 字）">

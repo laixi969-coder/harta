@@ -23,3 +23,11 @@ describe("content workflow", () => {
       .toContain("A 风险 1 条有客户反馈");
   });
 });
+
+
+it("生成依据使用当时快照，后补的反馈不改写过去", () => {
+  const pack = { id: "d2", origin: { feedbackSources: ["d1"], feedbackSummary: [{ group: "平台反馈 · 小红书", replied: 1, dead: 0 }] } };
+  const text = learningSummary({ drops: [pack] }, pack, { "d2-A-0": "dead" });
+  expect(text).toContain("生成本批时参考");
+  expect(text).toContain("小红书：1 条有反馈、0 条没反应");
+});

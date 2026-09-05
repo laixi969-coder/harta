@@ -1,3 +1,4 @@
+import { attributionEntries } from "./acquisition.js";
 export function lineScore(fb) {
   if (fb === "replied") return 2;
   if (fb === "dead") return 0;
@@ -54,6 +55,11 @@ export function lastEffective(customer, feedback = {}, currentPackId = "") {
       }))
       .filter((g) => g.replied > 0)
       .sort((a, b) => b.replied - a.replied);
+    const platformHits = attributionEntries(p).filter((entry) => entry.platform && feedback[entry.key] === "replied");
+    if (platformHits.length) {
+      const when = p.date || p.deliveredAt || p.createdAt || "历史";
+      return `${when} 那批：${[...new Set(platformHits.map((entry) => entry.platform))].join("、")}共 ${platformHits.length} 条内容有客户反馈，可回看内容并记录询价来源。`;
+    }
     if (!groups.length) continue;
     const hit = groups[0];
     if (p.id === currentPackId) {
