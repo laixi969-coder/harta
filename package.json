@@ -10,6 +10,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "exceljs": "4.4.0",
     "formidable": "^3.5.4",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.2",

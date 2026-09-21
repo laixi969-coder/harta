@@ -95,14 +95,38 @@
         </article>
         <div id="owned-today">
         <div id="history" class="history"></div>
+        <article class="card form" id="keyword-card">
+          <p class="kicker">业务关键词库</p><h2>导入领域、品类或品牌关键词</h2>
+          <p class="meta">自动去重、拆解需求与咨询意图，梳理内容主题。原表中的指数和备注会保留来源；下一批研究和内容会自动参考。每次研究按归属和意图轮流选取最多80个词，随内容批次轮换。</p>
+          <div class="keyword-scope">
+            <div><label for="keyword-scope-type">归属类型</label><select id="keyword-scope-type"><option>领域</option><option>产品品类</option><option>品牌</option></select></div>
+            <div><label for="keyword-scope-name">归属名称</label><input id="keyword-scope-name" maxlength="100" placeholder="例如：家装 / 隔音窗 / 品牌名称"></div>
+          </div>
+          <label for="keyword-files">关键词文档或表格</label><input id="keyword-files" type="file" multiple accept=".xlsx,.csv,.tsv,.txt,.md,.docx,.pdf">
+          <p class="meta">支持 XLSX、CSV、TSV、TXT、Markdown、DOCX、文字型 PDF。最多5个文件，单个10MB、合计20MB；每批3000条。表格建议有“关键词”列。XLS/DOC 请先另存为新格式。</p>
+          <div class="acts"><button class="btn" type="button" id="import-keywords">导入并自动梳理</button><a class="btn ghost" href="/api/keywords/template" download>下载表格模板</a></div>
+          <p id="keyword-import-status" class="meta" role="status" aria-live="polite"></p>
+          <label for="keyword-filter">查找已导入的词</label><input id="keyword-filter" type="search" placeholder="搜索关键词、归属、品类或品牌">
+          <div id="keyword-opportunities"></div>
+          <div id="keyword-library-list"></div>
+        </article>
+        <article class="card form" id="growth-card">
+          <p class="kicker">零投流内容获客</p><h2>获客打法与调整方向</h2>
+          <p class="meta">结合业务资料、行业知识和外部研究出内容。按你的实际体验随时调整，无需逐篇填写反馈。</p>
+          <label for="growth-direction">接下来希望怎样调整？</label>
+          <textarea id="growth-direction" rows="3" maxlength="2000" placeholder="例如：优先做小红书，吸引更重视品质的客户；每周能拍两条视频，不方便出镜。"></textarea>
+          <p class="meta">最多 2000 字。保存后用于下一批，历史内容保持原样。</p>
+          <div class="acts"><button class="btn" type="button" id="save-growth-direction">保存方向</button></div>
+          <div id="growth-research" aria-live="polite"></div>
+        </article>
         <div class="win hidden" id="win"></div>
         <article class="card hidden" id="acquisition-card">
           <p class="kicker">平台获客</p>
-          <h2>哪些平台带来了客户反馈</h2>
+          <details><summary>查看历史跟进记录（可选）</summary>
           <p class="meta">当前客户的全部历史。发布按完整平台内容计；有兴趣、询价、成交按跟进记录次数计，不代表去重线索人数。</p>
           <div class="table-scroll"><table><thead><tr><th>平台</th><th>已发布</th><th>有反馈</th><th>没反应</th><th>有兴趣</th><th>询价</th><th>成交</th></tr></thead><tbody id="acquisition-body"></tbody></table></div>
           <p class="meta" id="acquisition-next"></p>
-          <div class="acts"><button class="btn ghost" type="button" data-record-outcome>记录询价或成交</button></div>
+          <div class="acts"><button class="btn ghost" type="button" data-record-outcome>记录询价或成交</button></div></details>
         </article>
         <article class="card material-record hidden" id="material-record-card">
           <div class="material-record-head">
@@ -133,7 +157,7 @@
              按钮跟着藏了，正好在最需要它的时候点不到 -->
         <div class="pack-job hidden" id="pack-job" aria-label="当前客户的生成进度"></div>
         <div class="acts" style="margin:0 0 20px">
-          <button class="btn hidden" id="go-today" type="button"><svg class="icon" aria-hidden="true"><use href="#i-bolt"></use></svg>出一批（每次 50 条）</button>
+          <button class="btn hidden" id="go-today" type="button"><svg class="icon" aria-hidden="true"><use href="#i-bolt"></use></svg>出一批（每次六篇）</button>
           <button class="btn ghost hidden" id="go-repack" type="button"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>重新生成报告</button>
         </div>
         <div id="pack-body">
@@ -235,7 +259,7 @@
         </article>
         <article class="card" id="copies-card">
           <h2 id="copies-title">基础文案</h2>
-          <p class="meta" id="copies-note">勾选后可批量安排、标记和导出；获得客户反馈的组会排在前面。</p>
+          <p class="meta" id="copies-note">按发布顺序查看内容；勾选后可批量安排、标记和导出。</p>
           <div id="copies"></div>
         </article>
         <article class="card" id="breaks-card">
@@ -283,7 +307,7 @@
             <label class="choice">
               <input type="radio" name="track" value="存量">
               <span class="choice-title">已有客户</span>
-              <span class="choice-note">已经在合作，直接出一批内容，每次 50 条</span>
+              <span class="choice-note">已经在合作，直接出一批内容，每次六篇</span>
             </label>
             <label class="choice">
               <input type="radio" name="track" value="拓新">
@@ -345,7 +369,7 @@
           <label for="cmaterial">销售补充（可选）</label>
           <textarea id="cmaterial" class="long-textarea" rows="8" maxlength="12000" aria-describedby="cmaterial-count" placeholder="会议信息、客户原话、暂时没有文件的材料；可粘贴长文"></textarea>
           <p class="field-meta"><span>最多 12,000 字；全部保存，生成报告时会优先读取这段</span><span id="cmaterial-count" data-char-count="cmaterial">0 / 12,000</span></p>
-          <p class="meta">潜在客户：资料读取成功后生成报告；资料不足时只会给出待确认问题。已有客户：创建后直接生成一批内容，每次 50 条，同一天可以继续生成。</p>
+          <p class="meta">潜在客户：资料读取成功后生成报告；资料不足时只会给出待确认问题。已有客户：创建后直接生成一批内容，每次六篇，同一天可以继续生成。</p>
           <div class="acts"><button class="btn" id="create-customer" type="button">创建客户</button></div>
         </article>
       </section>
@@ -441,6 +465,17 @@
           <input id="white-email" type="email" maxlength="254" placeholder="name@company.com">
           <div class="acts"><button class="btn" id="add-white" type="button">开通</button></div>
           <div id="white-list" class="chase" style="margin-top:14px"></div>
+        </article>
+        <article class="card form hidden" id="research-settings">
+          <h2>需求研究数据源</h2>
+          <p class="meta">SearXNG 或 Brave Search 查询平台规则和公开内容；5118 可补充需求词与相关指数。密钥仅保存在服务器，空白表示保留。</p>
+          <p><a href="https://www.5118.com/apistore/detail/8cf3d6ed-2b12-ed11-8da8-e43d1a103141" target="_blank" rel="noopener noreferrer">开通 5118 长尾词 API</a> · <a href="https://api-dashboard.search.brave.com/" target="_blank" rel="noopener noreferrer">开通 Brave Search API</a></p>
+          <label for="research-searxng-url">SearXNG 自建搜索地址（开源，可替代 Brave）</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">配置后优先使用 SearXNG，需在服务端启用 JSON 搜索。清空地址可切回 Brave。</p>
+          <label for="research-rsshub-url">RSSHub 行业资讯地址（开源）</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">当前从 36 氪最新快讯匹配业务词，补充行业动向；不是全网历史搜索或平台流量指数。</p>
+          <label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password">
+          <label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password">
+          <div class="acts"><button class="btn" type="button" id="save-research-config">保存数据源</button><button class="btn ghost" type="button" id="test-research-config">测试连接</button></div>
+          <p class="meta">连接测试使用已保存配置，各执行一次小查询，会计入相应 API 额度。</p><p class="meta" id="research-config-status" role="status"></p>
         </article>
         <div id="llm-box"></div>
       </section>

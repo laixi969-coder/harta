@@ -328,10 +328,11 @@ function renderJobCenter() {
  * 人对「要多久」有数了，等待才不慌；时间预期优先用他自己的上一批，没有才给区间。 */
 const JOB_META = {
   出今日: {
-    band: "一批 50 条文案加 80 条外壳，一般 3~7 分钟",
+    band: "先研究需求与平台，再生成六篇内容；耗时取决于数据源和模型",
     steps: [
-      { label: "文案", count: "copiesGot", total: 50, unit: "条", doneAt: 55 },
-      { label: "外壳", count: "shellsGot", total: 80, unit: "条", doneAt: 90 },
+      { label: "需求与平台研究", doneAt: 65 },
+      { label: "文案", count: "copiesGot", total: 6, unit: "篇", doneAt: 90 },
+      { label: "平台版本", count: "shellsGot", total: 6, unit: "篇", doneAt: 90 },
       { label: "合规检查", doneAt: 94 },
     ],
   },
@@ -814,8 +815,8 @@ function renderContentConsole(pack, customer, hardRows) {
     ["平台已发", platformsInBatch.reduce((sum, row) => sum + row.published, 0)],
     ["平台反馈", platformsInBatch.reduce((sum, row) => sum + row.replied, 0)],
     ["风险", itemRisks],
-  ].map(([label, value]) => `<span><b>${value}</b>${label}</span>`).join("");
-  document.getElementById("content-learning").textContent = learningSummary(customer, pack, state.workspace.feedback);
+  ].filter(([label]) => pack.origin?.mode !== "organic" || label !== "平台反馈").map(([label, value]) => `<span><b>${value}</b>${label}</span>`).join("");
+  document.getElementById("content-learning").textContent = pack.origin?.mode === "organic" ? "按本批研究与用户保存的方向生成。需要调整时，在上方保存新的方向即可。" : learningSummary(customer, pack, state.workspace.feedback);
   replaceOptions(document.getElementById("content-group-filter"), groups, "全部方向", state.contentFilter.group);
   replaceOptions(document.getElementById("content-platform-filter"), platforms, "全部平台", state.contentFilter.platform);
   const exportGroup = document.getElementById("content-export-group");
@@ -893,8 +894,8 @@ function renderAcquisition(customer) {
   document.getElementById("acquisition-body").innerHTML = rows.map((r) => `<tr><td>${esc(r.platform)}</td>${[r.published, r.replied, r.dead, r.interested, r.asked, r.deals].map((n) => `<td class="num">${n}</td>`).join("")}</tr>`).join("");
   const hasResults = rows.some((r) => r.replied || r.asked || r.deals || r.interested);
   document.getElementById("acquisition-next").textContent = hasResults
-    ? "已有真实反馈。继续记录内容来源，下一批会参考最近三批的平台反馈；不同平台的记录量不能直接当成转化率。"
-    : "还没有已记录的获客结果。选一个平台发布，收到咨询后在对应内容点“记询价 / 成交”，留下来源和原话。";
+    ? "这里保留自愿记录的咨询与跟进。下一批按研究与用户保存的方向生成；记录量不代表转化率。"
+    : "这里可以自愿记录咨询与跟进；不填写也能继续研究和生成内容。";
 }
 
 function renderToday() {
@@ -929,7 +930,7 @@ function renderToday() {
   if (copiesTitle) copiesTitle.textContent = isContentPack ? "基础文案" : "样例文案";
   if (copiesNote) {
     copiesNote.textContent = isContentPack
-      ? "勾选后可批量安排、标记和导出；获得客户反馈的组会排在前面。"
+      ? "按发布顺序查看内容；勾选后可批量安排、标记和导出。"
       : "这些内容仅用于说明报告方向，不是可直接运营的内容库存。";
   }
   renderPackJob();
@@ -980,7 +981,7 @@ function renderToday() {
       .join("");
   }
 
-  const rankedCopies = pack ? rankCopyGroups(pack.copies, state.workspace.feedback, pack.id) : [];
+  const rankedCopies = pack ? rankCopyGroups(pack.copies, pack.origin?.mode === "organic" ? {} : state.workspace.feedback, pack.id) : [];
   const hardRows = [
     ...(pack?.checks?.redline || []),
     ...(pack?.checks?.sensitive || []),
@@ -999,7 +1000,7 @@ function renderToday() {
   // 只翻当前这位客户的档——别人的回音不挂到这位脸上
   const winLine = lastEffective(mine, state.workspace.feedback, pack?.id || "");
   const stillTodo = Boolean(state.workspace.desk?.send?.length || state.workspace.desk?.judge?.some((c) => c.ready));
-  if (winLine && !stillTodo) {
+  if (winLine && !stillTodo && pack?.origin?.mode !== "organic") {
     win.classList.remove("hidden");
     win.innerHTML = `<b>上次有效</b> · ${winLine}`;
   } else {
@@ -1007,6 +1008,9 @@ function renderToday() {
     win.textContent = "";
   }
   renderCustomerMaterialRecord(mine);
+  renderGrowthResearch(mine, pack);
+  renderKeywordLibrary(mine);
+  renderKeywordOpportunities(mine);
 
   /* 重出按钮必须画在「没有档」这条早返回之前：没出成的时候正是最需要它的时候。 */
   const busy = Boolean(mine.job);
@@ -1027,7 +1031,7 @@ function renderToday() {
     goToday.disabled = busy;
     goToday.innerHTML = busy
       ? `${icon("bolt")}正在${jobLabel(mine.job?.kind)}…`
-      : `${icon("bolt")}${pack?.tier === "今日" ? "再出一批（每次 50 条）" : "出一批（每次 50 条）"}`;
+      : `${icon("bolt")}${pack?.tier === "今日" ? "再出六篇内容" : "生成六篇起步内容"}`;
   }
 
   const noPack = document.getElementById("no-pack");
@@ -1293,9 +1297,9 @@ function renderToday() {
                 ${isContentPack ? contentStateMark(meta.workflow) : ""}
               </div>
               <div class="slip-step">
-                <span class="slip-k">用过之后</span>
+                ${pack.origin?.mode !== "organic" ? `<span class="slip-k">用过之后</span>
                 <button type="button" class="verdict ${row.fb === "replied" ? "on-yes" : ""}" data-fb="${esc(row.key)}" data-val="replied" aria-pressed="${row.fb === "replied" ? "true" : "false"}">${icon("reply")}${row.fb === "replied" ? "已记有客户反馈" : "有客户反馈"}</button>
-                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${esc(row.key)}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${icon("mute")}${row.fb === "dead" ? "已记没反应" : "没反应"}</button>
+                <button type="button" class="verdict ${row.fb === "dead" ? "on-no" : ""}" data-fb="${esc(row.key)}" data-val="dead" aria-pressed="${row.fb === "dead" ? "true" : "false"}">${icon("mute")}${row.fb === "dead" ? "已记没反应" : "没反应"}</button>` : ""}
               </div>
             </div>
             ${isContentPack ? "</div>" : ""}</div>`;
@@ -1307,7 +1311,7 @@ function renderToday() {
       const num = m ? m[1] : ["一", "二", "三", "四", "五", "六", "七", "八", "九"][i] || i + 1;
       const name = m ? m[2] : g.group;
       return `<article class="sleeve sleeve-across${g.replied ? " is-hot" : ""}"${isContentPack ? " data-content-container" : ""}>
-        <div class="sleeve-tab"><span><i class="sleeve-num">${esc(num)}</i>${esc(name)}</span>${isContentPack ? `<div class="group-actions"><span>${g.replied ? `${g.replied} 条有客户反馈` : "还没有客户反馈"}</span><button class="textish" type="button" data-select-group="${esc(g.group)}">勾选本组</button><button class="textish" type="button" data-copy-group="${esc(g.group)}">复制本组</button><button class="textish" type="button" data-export-group="${esc(g.group)}">导出本组</button></div>` : `<span>${g.replied ? `${g.replied} 条有客户反馈` : "还没有客户反馈"}</span>`}</div>
+        <div class="sleeve-tab"><span><i class="sleeve-num">${esc(num)}</i>${esc(name)}</span>${isContentPack ? `<div class="group-actions"><span>${pack.origin?.mode === "organic" ? "按发布顺序" : g.replied ? `${g.replied} 条有客户反馈` : "还没有客户反馈"}</span><button class="textish" type="button" data-select-group="${esc(g.group)}">勾选本组</button><button class="textish" type="button" data-copy-group="${esc(g.group)}">复制本组</button><button class="textish" type="button" data-export-group="${esc(g.group)}">导出本组</button></div>` : `<span>${pack.origin?.mode === "organic" ? "按发布顺序" : g.replied ? `${g.replied} 条有客户反馈` : "还没有客户反馈"}</span>`}</div>
         <div class="sleeve-body">${items}</div>
       </article>`;
     })
@@ -1423,8 +1427,8 @@ function renderToday() {
         return `<div class="line slip"${isContentPack ? " data-content-container" : ""}>${rows}
           ${isContentPack ? `<div class="slip-bar platform-outcome"><div class="slip-step">
             <button type="button" class="textish" data-publish-post="${esc(outcomeKey)}" ${published ? "disabled" : ""}>${published ? "整条已发布" : "标记整条已发布"}</button>
-            <button type="button" class="verdict ${outcome === "replied" ? "on-yes" : ""}" data-fb="${esc(outcomeKey)}" data-val="replied" aria-pressed="${outcome === "replied"}">有客户反馈</button>
-            <button type="button" class="verdict ${outcome === "dead" ? "on-no" : ""}" data-fb="${esc(outcomeKey)}" data-val="dead" aria-pressed="${outcome === "dead"}">没反应</button>
+            ${pack.origin?.mode !== "organic" ? `<button type="button" class="verdict ${outcome === "replied" ? "on-yes" : ""}" data-fb="${esc(outcomeKey)}" data-val="replied" aria-pressed="${outcome === "replied"}">有客户反馈</button>
+            <button type="button" class="verdict ${outcome === "dead" ? "on-no" : ""}" data-fb="${esc(outcomeKey)}" data-val="dead" aria-pressed="${outcome === "dead"}">没反应</button>` : ""}
             <button type="button" class="textish" data-record-outcome="${esc(outcomeKey)}">记询价 / 成交</button>
           </div></div>` : ""}</div>`;
       })
@@ -2176,7 +2180,14 @@ async function boot() {
   document.getElementById("settings-line").textContent = user.isAdmin
     ? "密钥和谁能进这个台子，只有你能定。"
     : "这台子上你能设的只有密码。别的都跟着客户走。";
-  if (user.isAdmin) document.getElementById("whitelist-card").classList.remove("hidden");
+  if (user.isAdmin) {
+    document.getElementById("whitelist-card").classList.remove("hidden");
+    document.getElementById("research-settings").classList.remove("hidden");
+    try {
+      const response = await fetch("/api/research-config");
+      if (response.ok) showResearchConfig(await response.json());
+    } catch { document.getElementById("research-config-status").textContent = "数据源状态读取失败，请重试。"; }
+  }
   const huntSel = document.getElementById("hunt");
   if (huntSel) {
     const got = await fetch("/api/hunts");
@@ -2402,7 +2413,7 @@ document.getElementById("go-today")?.addEventListener("click", async (e) => {
     state.workspace = data;
     state.packId = "";
     renderToday();
-    toast("正在出一批 50 条内容，出好了这里会自己刷新");
+    toast("正在出一批 六篇内容，出好了这里会自己刷新");
     watchJob(customerId);
   } catch {
     toast("网络不通，请再试");
@@ -2737,7 +2748,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     state.workspace = data;
     state.packId = "";
     state.openedId = data.usingId || "";
-    toast(track === "存量" ? "客户已创建，正在生成第一批 50 条内容" : "客户已创建，正在生成报告");
+    toast(track === "存量" ? "客户已创建，正在生成第一批 六篇内容" : "客户已创建，正在生成报告");
     watchJob(data.usingId);
     const sel = document.getElementById("hunt");
     if (sel && sel.value === "__new__") {
@@ -2845,7 +2856,7 @@ document.body.addEventListener("click", async (e) => {
     state.workspace = data;
     renderToday();
     renderCustomers();
-    toast(track === "存量" ? "已设为已有客户，每次可生成一批 50 条内容" : "已设为潜在客户，补充资料后可生成报告");
+    toast(track === "存量" ? "已设为已有客户，每次可生成一批 六篇内容" : "已设为潜在客户，补充资料后可生成报告");
     return;
   }
   const using = e.target.closest("[data-using]");
@@ -3229,3 +3240,125 @@ document.body.addEventListener("dragend", async () => {
 });
 
 boot();
+
+function showResearchConfig(config) {
+  document.getElementById("research-rsshub-url").value = config.rsshubUrl || "";
+  document.getElementById("research-searxng-url").value = config.searxngUrl || "";
+  document.getElementById("research-config-status").textContent = `5118：${config.keywordReady ? "已配置" : "未配置"}；外部搜索：${config.searxngReady ? "SearXNG 已配置" : config.searchReady ? "Brave 已配置" : "未配置"}；行业资讯：${config.rsshubReady ? "RSSHub 已配置" : "未配置"}；正文读取：${config.crawlerReady ? "Crawl4AI 已安装" : "基础读取器"}。点击测试连接核实当前可用性。`;
+}
+function renderGrowthResearch(customer, pack) {
+  const input = document.getElementById("growth-direction");
+  if (!input) return;
+  if (input.dataset.customer !== customer.id) { input.value = customer.growthDirection || ""; input.dataset.customer = customer.id; }
+  const research = pack?.research;
+  const output = document.getElementById("growth-research");
+  if (!research) { output.innerHTML = '<p class="meta">下一次生成将研究客户需求、平台机制与内容偏好，并给出获客打法。</p>'; return; }
+  const strategy = research.strategy || {};
+  const labels = { audience: "优先客户", platform: "研究建议平台", rationale: "选择依据", profile: "账号与主页", platformMechanism: "平台流量机制", preferences: "目标用户偏好", trust: "信任依据", consultation: "咨询承接", execution: "执行节奏" };
+  const safeLink = (value) => { try { const u = new URL(value); return ["http:", "https:"].includes(u.protocol) ? u.href : ""; } catch { return ""; } };
+  output.innerHTML = `<p class="meta">研究时间：${esc(research.checkedAt || "")} · ${research.reused ? "复用24小时内研究" : "本批研究"} · ${research.sources?.length || 0} 个网页来源 / ${research.keywords?.length || 0} 条需求词 / ${research.importedKeywords?.length || 0} 条导入参考词</p>
+    ${research.direction !== (customer.growthDirection || "") ? '<p class="meta">方向已更新，这份历史研究仍保留当时的依据；下一批采用新方向。</p>' : ""}
+    ${(research.warnings || []).map((w) => `<p class="meta">${esc(w)}</p>`).join("")}
+    ${Object.entries(labels).filter(([key]) => strategy[key]).map(([key, label]) => `<p><b>${label}</b>：${esc(strategy[key])}</p>`).join("")}
+    ${(strategy.opportunities || []).length ? `<details><summary>需求与选题机会</summary>${strategy.opportunities.map((o) => `<p><b>${esc(o.need)}</b> · ${esc(o.intent)}<br>${esc(o.angle)}<br><span class="meta">${esc(o.reason)} ${esc((o.sourceIds || []).join("、"))}</span></p>`).join("")}</details>` : ""}
+    ${(strategy.assumptions || []).length ? `<details><summary>待核实假设</summary>${strategy.assumptions.map((a) => `<p>${esc(a)}</p>`).join("")}</details>` : ""}
+    ${(pack.execution || []).length ? `<details open><summary>六篇内容的发布顺序与制作建议</summary>${pack.execution.map((item) => `<p><b>${item.order}. ${esc(item.purpose)}</b><br>${esc(item.visual)}<br><span class="meta">${esc(item.reason)}</span></p>`).join("")}<p class="meta">完整文案与平台版本在下方内容库，可编辑、复制、排期和导出。</p></details>` : ""}
+    <details><summary>研究来源与需求词</summary>${(research.sources || []).map((source) => `<p>${esc(source.id)} · <a href="${esc(safeLink(source.url))}" target="_blank" rel="noopener noreferrer">${esc(source.title)}</a><br><span class="meta">${esc(source.kind)} · ${esc(source.publishedAt || "页面日期未知")}</span></p>`).join("")}<p>${esc((research.keywords || []).map((k) => k.keyword).join("、"))}</p></details>`;
+}
+document.getElementById("save-growth-direction")?.addEventListener("click", async (event) => {
+  const input = document.getElementById("growth-direction");
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/growth-direction", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerId: input.dataset.customer, direction: input.value }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "保存失败");
+    state.workspace = data; renderToday(); toast("方向已保存，下一批会采用新方向");
+  } catch (error) { toast(error.message); } finally { button.disabled = false; }
+});
+document.getElementById("save-research-config")?.addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const keyword = document.getElementById("research-keyword-key");
+    const search = document.getElementById("research-search-key");
+    const response = await fetch("/api/research-config", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ keywordKey: keyword.value, searchKey: search.value, searxngUrl: document.getElementById("research-searxng-url").value, rsshubUrl: document.getElementById("research-rsshub-url").value }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "保存失败");
+    keyword.value = ""; search.value = ""; showResearchConfig(data); toast("数据源已保存");
+  } catch (error) { toast(error.message); } finally { button.disabled = false; }
+});
+document.getElementById("test-research-config")?.addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  document.getElementById("research-config-status").textContent = "正在测试已保存的数据源…";
+  try {
+    const response = await fetch("/api/research-test", { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "测试失败");
+    document.getElementById("research-config-status").textContent = data.results.join("；");
+  } catch (error) { document.getElementById("research-config-status").textContent = error.message; } finally { button.disabled = false; }
+});
+
+let keywordImportBusy = false;
+function keywordCustomer() { return state.workspace?.customers?.find(c => c.id === document.getElementById('keyword-card')?.dataset.customer); }
+function renderKeywordLibrary(customer) {
+  const card = document.getElementById('keyword-card');
+  if (card.dataset.customer !== customer.id) {
+    card.dataset.customer = customer.id;
+    document.getElementById('keyword-scope-type').value = '领域';
+    document.getElementById('keyword-scope-name').value = customer.hunt || '';
+    document.getElementById('keyword-filter').value = '';
+    document.getElementById('keyword-files').value = '';
+    if (!keywordImportBusy) document.getElementById('keyword-import-status').textContent = '';
+  }
+  const query = document.getElementById('keyword-filter').value.trim().toLowerCase();
+  const libraries = customer.keywordLibraries || [];
+  document.getElementById('keyword-library-list').innerHTML = libraries.length ? libraries.map(batch => {
+    const rows = batch.items.filter(row => [row.keyword, row.category, row.brand, row.intent, batch.scope.name].join(' ').toLowerCase().includes(query));
+    return `<details class="keyword-batch" ${query ? 'open' : ''}><summary>${esc(batch.scope.type)} · ${esc(batch.scope.name)} · ${batch.items.length} 个词${query ? ` · 匹配${rows.length}个` : ''}</summary>
+      <p class="meta">${esc(batch.sources.join('、'))} · 合并${batch.duplicateCount}条重复记录 · ${esc(new Date(batch.createdAt).toLocaleDateString())}</p>
+      <p>${esc(Object.entries(batch.summary).map(([k,v]) => `${k} ${v}`).join(' · '))}</p>
+      <p class="meta">意图与阶段为规则推断。语义分组覆盖 ${batch.analysis?.analyzedCount || 0}/${batch.items.length} 个词（每批最多深入梳理120个），其余仍会按规则分类并参与研究。</p>
+      ${[...(batch.warnings || []), batch.analysis?.warning].filter(Boolean).map(w => `<p class="meta">${esc(w)}</p>`).join('')}
+      ${(batch.analysis?.groups || []).map(g => `<p><b>${esc(g.topic)}</b> · ${esc(g.scenario)}<br>${esc(g.angle)} <span class="meta">（模型建议）</span></p>`).join('')}
+      <div class="keyword-table"><table><thead><tr><th>关键词</th><th>品类 / 品牌</th><th>意图 / 阶段</th><th>拆解</th><th>原始数据与来源</th></tr></thead><tbody>${rows.slice(0, 100).map(row => `<tr><td>${esc(row.keyword)}</td><td>${esc([row.category, row.brand].filter(Boolean).join(' / ') || batch.scope.name)}</td><td>${esc(row.intent)} / ${esc(row.stage)}</td><td>${esc(row.modifiers.join('、') || '基础需求词')}</td><td>${row.evidence.map(e => `<div>${esc(e.file)} ${esc(e.sheet)} · 行${e.row}<br><span class="meta">${esc(e.fields.filter(f => f.value).map(f => `${f.name}：${f.value}`).join('；'))}</span></div>`).join('')}</td></tr>`).join('')}</tbody></table></div>
+      ${rows.length > 100 ? '<p class="meta">当前显示前100条，可用搜索缩小范围；导出包含本批全部词。</p>' : ''}
+      <div class="acts"><a class="btn ghost" href="/api/keywords/export?customerId=${encodeURIComponent(customer.id)}&amp;batchId=${encodeURIComponent(batch.id)}" download>导出整理结果</a><button class="btn ghost" type="button" data-remove-keywords="${esc(batch.id)}">移除此批</button></div></details>`;
+  }).join('') : '<p class="meta">还没有导入词库。可直接导入 5118 等工具导出的表格，也可上传自己整理的关键词文档。</p>';
+}
+document.getElementById('keyword-filter')?.addEventListener('input', () => { const c = keywordCustomer(); if (c) renderKeywordLibrary(c); });
+document.getElementById('import-keywords')?.addEventListener('click', async event => {
+  const customer = keywordCustomer(); if (!customer || keywordImportBusy) return;
+  const files = [...document.getElementById('keyword-files').files];
+  const scopeName = document.getElementById('keyword-scope-name').value.trim();
+  if (!scopeName || !files.length) { toast('请填写归属名称并选择文件'); return; }
+  if (files.length > 5 || files.some(f => f.size > 10 * 1024 * 1024) || files.reduce((n,f) => n + f.size, 0) > 20 * 1024 * 1024) { toast('最多5个文件，单个10MB，合计20MB'); return; }
+  const form = new FormData(); form.append('customerId', customer.id); form.append('scopeType', document.getElementById('keyword-scope-type').value); form.append('scopeName', scopeName); files.forEach(f => form.append('files', f));
+  const button = event.currentTarget; button.disabled = true; keywordImportBusy = true;
+  const status = document.getElementById('keyword-import-status'); status.textContent = '正在读取、去重并梳理需求主题，文档较多时可能需要几分钟…';
+  try {
+    const response = await fetch('/api/keywords/import', { method: 'POST', body: form }); const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '导入失败');
+    state.workspace = data; renderToday();
+    if (keywordCustomer()?.id === customer.id) { document.getElementById('keyword-files').value = ''; status.textContent = '已归入当前业务词库，下一次研究和内容生成会自动参考。'; }
+    toast('关键词已导入并整理');
+  } catch (error) { status.textContent = error.message; toast(error.message); }
+  finally { button.disabled = false; keywordImportBusy = false; }
+});
+document.getElementById('keyword-library-list')?.addEventListener('click', async event => {
+  const button = event.target.closest('button'); const customer = keywordCustomer(); if (!button || !customer) return;
+  const batch = (customer.keywordLibraries || []).find(b => b.id === button.dataset.removeKeywords); if (!batch) return;
+  button.disabled = true;
+  try { const response = await fetch('/api/keywords/remove', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({customerId:customer.id,batchId:batch.id}) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); state.workspace = data; renderToday(); toast('已移除，历史内容中的研究快照仍保留'); }
+  catch (error) { toast(error.message); button.disabled = false; }
+});
+
+function renderKeywordOpportunities(customer) {
+  const board = customer.keywordOpportunities;
+  const target = document.getElementById('keyword-opportunities');
+  if (!board?.total) { target.innerHTML = ''; return; }
+  target.innerHTML = `<h3>产品与平台的内容依据</h3><p class="meta">${esc(board.note)}</p>
+    ${(board.platformBriefs || []).map(p => `<details><summary>${esc(p.platform)} · ${p.items.length}项内容依据</summary><p class="meta">${esc(p.basis)}</p>${p.items.map(i => `<p><b>${esc(i.product)} · ${esc(i.keyword)}</b><br>${esc(i.angle)} · ${esc(i.priority)}（${i.score}分）<br><span class="meta">${esc(i.metrics.map(m => `${m.name} ${m.raw}（${m.date || '日期未知'}）`).join('；') || '没有该平台的指标，仅作需求素材')}</span><br>${esc(i.consultation)}<br><span class="meta">${esc(i.reasons.join("；"))} ${esc(i.gaps.join("；"))}</span></p>`).join('')}</details>`).join('')}
+    <details><summary>优先选题与待补依据 · 展示${board.items.length}/${board.total}项</summary>${board.items.map(item => `<div class="keyword-batch"><b>${esc(item.keyword)}</b> · ${esc(item.priority)} · ${item.score}分<p>${esc(item.scope.name)} / ${esc(item.platform)} · ${esc(item.types.join('、'))}</p><p>${esc(item.angle)}</p><p class="meta">${esc(item.reasons.join('；'))}</p><p>${esc(item.consultation)}</p><p class="meta">${esc(item.evidenceNeeded)} ${esc(item.gaps.join('；'))}</p>${item.trends.map(t => `<p class="meta">${esc(t.platform)} ${esc(t.metric)}：${t.previous} → ${t.current}（${esc(t.from)} 至 ${esc(t.to)}${t.change === null ? '，零基数不算涨幅' : `，变化${Math.round(t.change*100)}%`}）</p>`).join('')}</div>`).join('')}</details>`;
+}

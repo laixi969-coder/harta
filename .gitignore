@@ -11,3 +11,6 @@ package-lock.json
 # Local browser verification artifacts
 .playwright-cli/
 output/playwright/
+
+# Native RSSHub runtime logs
+logs/

@@ -1,3 +1,8 @@
+import { receiveKeywordBatch, prepareKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
+import { saveKeywordLibrary, removeKeywordLibrary } from './lib/workspace.mjs';
+import { crawlerInstalled, readPublicSource, queryRsshub } from "./lib/native-sources.mjs";
+import { publicResearchConfig, saveResearchConfig, readResearchConfig, queryKeywords, queryWeb, querySearxng } from "./lib/research.mjs";
+import { setGrowthDirection } from "./lib/workspace.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -37,6 +42,7 @@ import { fieldsFor } from "./lib/platform.mjs";
 import { checkPack, hasHardBlock } from "./lib/check.mjs";
 import { receiveAndAnalyzeMaterials, updateMaterialAnalysis } from "./lib/materials.mjs";
 
+const keywordImports = new Set();
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
 
@@ -274,6 +280,43 @@ async function handleApi(req, res, url) {
     return json(res, 200, { fields });
   }
 
+  if (req.method === "GET" && ["/api/keywords/export", "/api/keywords/template"].includes(url.pathname)) {
+    const user = requireUser(req, res);
+    if (!user) return;
+    let batch;
+    if (url.pathname.endsWith("/export")) {
+      const customer = readWorkspace(user.email).customers.find(c => c.id === url.searchParams.get("customerId"));
+      batch = customer?.keywordLibraries?.find(b => b.id === url.searchParams.get("batchId"));
+      if (!batch) return json(res, 404, { error: "没有这批关键词，或不属于当前账号" });
+    }
+    res.writeHead(200, { "content-type": "text/csv; charset=utf-8", "content-disposition": attachmentName(batch ? `${batch.scope.name}-整理关键词.csv` : "Harta关键词导入模板.csv"), "cache-control": "no-store" });
+    return res.end(keywordCsv(batch));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/keywords/import") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    if (keywordImports.has(user.email)) return json(res, 409, { error: "已有关键词文件正在处理，请稍候" });
+    keywordImports.add(user.email);
+    let upload;
+    try {
+      upload = await receiveKeywordBatch(req);
+      const customer = readWorkspace(user.email).customers.find(c => c.id === upload.customerId);
+      if (!customer) return json(res, 404, { error: "没有这个客户，或不属于当前账号" });
+      const batch = await prepareKeywordBatch(upload.files, upload.scope);
+      const result = saveKeywordLibrary(user.email, upload.customerId, batch);
+      return result.error ? json(res, 400, result) : json(res, 200, publicWorkspace(result.workspace));
+    } catch (error) { return json(res, 400, { error: [1009, 1015, 1016].includes(error.code) ? "最多5个文件，单个10MB，合计20MB" : error.message || "关键词导入失败" }); }
+    finally { upload?.cleanup(); keywordImports.delete(user.email); }
+  }
+  if (req.method === "POST" && url.pathname === "/api/keywords/remove") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const result = removeKeywordLibrary(user.email, body.customerId, body.batchId);
+    return result.error ? json(res, 400, result) : json(res, 200, publicWorkspace(result.workspace));
+  }
+
   if (req.method === "POST" && url.pathname === "/api/materials/analyze") {
     const user = requireUser(req, res);
     if (!user) return;
@@ -442,6 +485,38 @@ async function handleApi(req, res, url) {
       json(res, 400, { error: err.message || "历史内容导出失败" });
     }
     return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/research-test") {
+    if (!requireAdmin(req, res)) return;
+    const config = readResearchConfig();
+    const results = [];
+    for (const [label, key, test] of [["5118", config.keywordKey, queryKeywords], ["Brave Search", config.searchKey, queryWeb], ["SearXNG", config.searxngUrl, querySearxng], ["RSSHub", config.rsshubUrl, queryRsshub]]) {
+      if (!key) { results.push(`${label}未配置`); continue; }
+      try { const rows = await test("门窗", key); results.push(rows.length ? `${label}读取成功，返回${rows.length}条` : `${label}接口可访问，但本次查询没有结果`); }
+      catch { results.push(`${label}连接失败，请检查密钥、API权益与网络`); }
+    }
+    if (crawlerInstalled()) {
+      const page = await readPublicSource("https://www.5118.com/");
+      results.push(page.ok ? `${page.method || "网页读取"}成功，取得${page.text.length}字` : "网页读取失败");
+    }
+    return json(res, 200, { results });
+  }
+
+  if (url.pathname === "/api/research-config" && ["GET", "POST"].includes(req.method)) {
+    if (!requireAdmin(req, res)) return;
+    try {
+      return json(res, 200, req.method === "GET" ? publicResearchConfig() : saveResearchConfig(await readBody(req)));
+    } catch (err) { return json(res, 400, { error: err.message }); }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/growth-direction") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const result = setGrowthDirection(user.email, body.customerId, body.direction);
+    if (result.error) return json(res, 400, { error: result.error });
+    return json(res, 200, publicWorkspace(result.workspace));
   }
 
   if (req.method === "POST" && url.pathname === "/api/customers") {

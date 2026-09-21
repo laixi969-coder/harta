@@ -2330,3 +2330,20 @@ td:last-child { color: var(--ink-2); }
 .ledger-source { margin-top: 8px; font-size: var(--t-5); }
 .ledger-source summary { cursor: pointer; color: var(--ink-2); }
 .ledger-source p { margin-top: 8px; }
+
+/* 研究信息与编辑框共用客户卡，长文保留阅读行宽。 */
+#growth-card { max-width: 58rem; }
+#growth-research { margin-top: 22px; overflow-wrap: anywhere; }
+#growth-research > p { margin: 10px 0; line-height: 1.7; }
+#growth-research details { margin-top: 16px; }
+#growth-research summary, #acquisition-card summary { cursor: pointer; font-weight: 600; }
+#growth-research details p { margin-top: 12px; line-height: 1.7; }
+#research-settings p { margin: 12px 0; line-height: 1.6; overflow-wrap: anywhere; }
+
+.keyword-scope { display: grid; grid-template-columns: minmax(120px, 1fr) 3fr; gap: 16px; }
+.keyword-batch { margin-top: 18px; padding: 16px; border: 1px solid var(--line, #ddd); border-radius: 10px; }
+.keyword-batch summary { cursor: pointer; font-weight: 600; }
+.keyword-table { overflow-x: auto; margin: 12px 0; }
+.keyword-table table { width: 100%; border-collapse: collapse; min-width: 680px; text-align: left; }
+.keyword-table th, .keyword-table td { padding: 10px; border-bottom: 1px solid var(--line, #ddd); vertical-align: top; font-size: 13px; max-width: 320px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .keyword-scope { grid-template-columns: 1fr; gap: 8px; } }
