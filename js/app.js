@@ -1,3 +1,4 @@
+import { keywordLibraryView } from './keyword-library-view.js';
 import { attributionEntries, customerAttributions, platformOutcomes, shellFeedbackKey } from "./acquisition.js";
 import { bindEyes } from "./eyes.js";
 import { copyKey, editOf, edited, shellKey } from "./pack-edits.js";
@@ -2296,36 +2297,40 @@ let watchingTimer = 0;
 function watchJob(customerId) {
   watching.set(customerId, true);
   if (watchingTimer) return;
+  let polling = false;
   watchingTimer = setInterval(async () => {
+    if (polling) return;
+    polling = true;
     try {
-      const res = await fetch("/api/workspace");
+      const res = await fetch("/api/jobs");
       if (!res.ok) return;
       const data = await res.json();
-      let settled = false;
-      for (const id of [...watching.keys()]) {
-        const c = data.customers?.find((x) => x.id === id);
-        if (c?.job) continue;
-        watching.delete(id);
-        settled = true;
-        toast(c?.lastFail ? `${c.name || "客户"}没出成：${c.lastFail}` : `${c?.name || "客户"}出好了`);
-      }
-      // 不只在结束时拿一次结果：运行中的真实阶段、百分比和耗时也要每轮更新。
-      state.workspace = data;
-      renderJobCenter();
-      renderPackJob();
-      renderDesk();
-      renderCustomers();
-      if (settled) {
+      const settled = [...watching.keys()].filter(id => !data.customers?.find(c=>c.id===id)?.job);
+      if (settled.length) {
+        // 先取得完成内容再移除监视；网络失败时下一轮重试，不丢完成结果。
+        const full = await fetch("/api/workspace");
+        if (!full.ok) return;
+        state.workspace = await full.json();
+        for (const id of settled) {
+          const c = state.workspace.customers.find(c=>c.id===id);
+          if (c?.job) continue;
+          watching.delete(id);
+          toast(c?.lastFail ? `${c.name || "客户"}没出成：${c.lastFail}` : `${c?.name || "客户"}出好了`);
+        }
         state.packId = "";
         renderToday();
+      } else {
+        for (const c of state.workspace.customers) {
+          const next = data.customers.find(x=>x.id===c.id);
+          if (next) { c.job = next.job; c.lastFail = next.lastFail; }
+        }
       }
-      if (!watching.size) {
-        clearInterval(watchingTimer);
-        watchingTimer = 0;
-      }
+      renderJobCenter(); renderPackJob(); renderDesk(); renderCustomers();
+      if (!watching.size) { clearInterval(watchingTimer); watchingTimer = 0; }
     } catch {
       /* 网络抖一下不算数，下一轮再问 */
-    }
+    } finally { polling = false; }
+
   }, 4000);
 }
 
@@ -3305,6 +3310,7 @@ function keywordCustomer() { return state.workspace?.customers?.find(c => c.id =
 function renderKeywordLibrary(customer) {
   const card = document.getElementById('keyword-card');
   if (card.dataset.customer !== customer.id) {
+    clearTimeout(keywordSearchTimer);
     card.dataset.customer = customer.id;
     document.getElementById('keyword-scope-type').value = '领域';
     document.getElementById('keyword-scope-name').value = customer.hunt || '';
@@ -3312,22 +3318,20 @@ function renderKeywordLibrary(customer) {
     document.getElementById('keyword-files').value = '';
     if (!keywordImportBusy) document.getElementById('keyword-import-status').textContent = '';
   }
-  const query = document.getElementById('keyword-filter').value.trim().toLowerCase();
   const libraries = customer.keywordLibraries || [];
-  document.getElementById('keyword-library-list').innerHTML = libraries.length ? libraries.map(batch => {
-    const rows = batch.items.filter(row => [row.keyword, row.category, row.brand, row.intent, batch.scope.name].join(' ').toLowerCase().includes(query));
-    return `<details class="keyword-batch" ${query ? 'open' : ''}><summary>${esc(batch.scope.type)} · ${esc(batch.scope.name)} · ${batch.items.length} 个词${query ? ` · 匹配${rows.length}个` : ''}</summary>
-      <p class="meta">${esc(batch.sources.join('、'))} · 合并${batch.duplicateCount}条重复记录 · ${esc(new Date(batch.createdAt).toLocaleDateString())}</p>
-      <p>${esc(Object.entries(batch.summary).map(([k,v]) => `${k} ${v}`).join(' · '))}</p>
-      <p class="meta">意图与阶段为规则推断。语义分组覆盖 ${batch.analysis?.analyzedCount || 0}/${batch.items.length} 个词（每批最多深入梳理120个），其余仍会按规则分类并参与研究。</p>
-      ${[...(batch.warnings || []), batch.analysis?.warning].filter(Boolean).map(w => `<p class="meta">${esc(w)}</p>`).join('')}
-      ${(batch.analysis?.groups || []).map(g => `<p><b>${esc(g.topic)}</b> · ${esc(g.scenario)}<br>${esc(g.angle)} <span class="meta">（模型建议）</span></p>`).join('')}
-      <div class="keyword-table"><table><thead><tr><th>关键词</th><th>品类 / 品牌</th><th>意图 / 阶段</th><th>拆解</th><th>原始数据与来源</th></tr></thead><tbody>${rows.slice(0, 100).map(row => `<tr><td>${esc(row.keyword)}</td><td>${esc([row.category, row.brand].filter(Boolean).join(' / ') || batch.scope.name)}</td><td>${esc(row.intent)} / ${esc(row.stage)}</td><td>${esc(row.modifiers.join('、') || '基础需求词')}</td><td>${row.evidence.map(e => `<div>${esc(e.file)} ${esc(e.sheet)} · 行${e.row}<br><span class="meta">${esc(e.fields.filter(f => f.value).map(f => `${f.name}：${f.value}`).join('；'))}</span></div>`).join('')}</td></tr>`).join('')}</tbody></table></div>
-      ${rows.length > 100 ? '<p class="meta">当前显示前100条，可用搜索缩小范围；导出包含本批全部词。</p>' : ''}
-      <div class="acts"><a class="btn ghost" href="/api/keywords/export?customerId=${encodeURIComponent(customer.id)}&amp;batchId=${encodeURIComponent(batch.id)}" download>导出整理结果</a><button class="btn ghost" type="button" data-remove-keywords="${esc(batch.id)}">移除此批</button></div></details>`;
-  }).join('') : '<p class="meta">还没有导入词库。可直接导入 5118 等工具导出的表格，也可上传自己整理的关键词文档。</p>';
+  const signature = JSON.stringify([customer.id,libraries]);
+  if (signature !== keywordViewSignature) {
+    keywordViewSignature = signature;
+    keywordViewFilter = keywordLibraryView(document.getElementById('keyword-library-list'), document.getElementById('keyword-search-status'), libraries, customer.id);
+  }
+  keywordViewFilter(document.getElementById('keyword-filter').value);
 }
-document.getElementById('keyword-filter')?.addEventListener('input', () => { const c = keywordCustomer(); if (c) renderKeywordLibrary(c); });
+let keywordViewSignature = '', keywordViewFilter = () => {}, keywordSearchTimer;
+document.getElementById('keyword-filter')?.addEventListener('input', event => {
+  clearTimeout(keywordSearchTimer);
+  const value = event.target.value;
+  keywordSearchTimer = setTimeout(() => keywordViewFilter(value), 120);
+});
 document.getElementById('import-keywords')?.addEventListener('click', async event => {
   const customer = keywordCustomer(); if (!customer || keywordImportBusy) return;
   const files = [...document.getElementById('keyword-files').files];
@@ -3360,5 +3364,5 @@ function renderKeywordOpportunities(customer) {
   if (!board?.total) { target.innerHTML = ''; return; }
   target.innerHTML = `<h3>产品与平台的内容依据</h3><p class="meta">${esc(board.note)}</p>
     ${(board.platformBriefs || []).map(p => `<details><summary>${esc(p.platform)} · ${p.items.length}项内容依据</summary><p class="meta">${esc(p.basis)}</p>${p.items.map(i => `<p><b>${esc(i.product)} · ${esc(i.keyword)}</b><br>${esc(i.angle)} · ${esc(i.priority)}（${i.score}分）<br><span class="meta">${esc(i.metrics.map(m => `${m.name} ${m.raw}（${m.date || '日期未知'}）`).join('；') || '没有该平台的指标，仅作需求素材')}</span><br>${esc(i.consultation)}<br><span class="meta">${esc(i.reasons.join("；"))} ${esc(i.gaps.join("；"))}</span></p>`).join('')}</details>`).join('')}
-    <details><summary>优先选题与待补依据 · 展示${board.items.length}/${board.total}项</summary>${board.items.map(item => `<div class="keyword-batch"><b>${esc(item.keyword)}</b> · ${esc(item.priority)} · ${item.score}分<p>${esc(item.scope.name)} / ${esc(item.platform)} · ${esc(item.types.join('、'))}</p><p>${esc(item.angle)}</p><p class="meta">${esc(item.reasons.join('；'))}</p><p>${esc(item.consultation)}</p><p class="meta">${esc(item.evidenceNeeded)} ${esc(item.gaps.join('；'))}</p>${item.trends.map(t => `<p class="meta">${esc(t.platform)} ${esc(t.metric)}：${t.previous} → ${t.current}（${esc(t.from)} 至 ${esc(t.to)}${t.change === null ? '，零基数不算涨幅' : `，变化${Math.round(t.change*100)}%`}）</p>`).join('')}</div>`).join('')}</details>`;
+    <details><summary>优先选题与待补依据 · 展示${board.items.length}/${board.total}项</summary><p class="meta">导入词与指数仅作选题参考，发布需结合本业务可核验资料。先回答具体问题，再邀请用户补充条件。</p>${board.items.map(item => `<div class="keyword-opportunity-row"><b>${esc(item.keyword)}</b> · ${esc(item.priority)} · ${item.score}分<p>${esc(item.scope.name)} / ${esc(item.platform)} · ${esc(item.types.join('、'))}</p><p>${esc(item.angle)}</p><p class="meta">${esc(item.reasons.join('；'))}</p><p class="meta">${esc(item.gaps.join('；'))}</p>${item.trends.map(t => `<p class="meta">${esc(t.platform)} ${esc(t.metric)}：${t.previous} → ${t.current}（${esc(t.from)} 至 ${esc(t.to)}${t.change === null ? '，零基数不算涨幅' : `，变化${Math.round(t.change*100)}%`}）</p>`).join('')}</div>`).join('')}</details>`;
 }

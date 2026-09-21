@@ -387,6 +387,13 @@ async function handleApi(req, res, url) {
     }
   }
 
+  if (req.method === "GET" && url.pathname === "/api/jobs") {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const space = sweepStaleJobs(user.email);
+    return json(res, 200, { customers: space.customers.map(({id,name,job,lastFail}) => ({id,name,job:job || null,lastFail:lastFail || null})) });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/workspace") {
     const user = requireUser(req, res);
     if (!user) return;
