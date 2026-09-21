@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { customerStage } from './customer-stage.js';
 import {
   artifactsForCustomer,
   canExportJudgment,
@@ -9,6 +10,12 @@ import {
 } from "./customer-view.js";
 
 describe("客户档案在不同用户路径里的边界", () => {
+  it('历史客户按已有记录归类，显式的新客户阶段不因生成报告而提前变成跟进', () => {
+    expect(customerStage({track:'存量', packs:[]})).toBe('cooperating');
+    expect(customerStage({track:'拓新', packs:[{id:'p'}]})).toBe('following');
+    expect(customerStage({track:'拓新', stage:'new', packs:[{id:'p'}]})).toBe('new');
+    expect(customerStage({track:'拓新', packs:[]})).toBe('new');
+  });
   const retained = {
     track: "存量",
     drops: [{ id: "today" }],

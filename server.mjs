@@ -3,6 +3,7 @@ import { saveKeywordLibrary, removeKeywordLibrary } from './lib/workspace.mjs';
 import { crawlerInstalled, readPublicSource, queryRsshub } from "./lib/native-sources.mjs";
 import { publicResearchConfig, saveResearchConfig, readResearchConfig, queryKeywords, queryWeb, querySearxng } from "./lib/research.mjs";
 import { setGrowthDirection } from "./lib/workspace.mjs";
+import { setCustomerStage, updateCustomerBusiness } from "./lib/workspace.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -360,7 +361,7 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const body = await readBody(req);
-    const out = replaceCustomerMaterials(user.email, body.customerId, body.batchId);
+    const out = replaceCustomerMaterials(user.email, body.customerId, body.batchId, { append: body.append === true });
     if (out.error) return json(res, 400, { error: out.error });
     return json(res, 200, publicWorkspace(out.workspace));
   }
@@ -572,6 +573,24 @@ async function handleApi(req, res, url) {
     } catch (err) {
       return json(res, 400, { error: err.message || "出今日失败" });
     }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/customer-business') {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const result = updateCustomerBusiness(user.email, body.customerId, body);
+    if (result.error) return json(res, 400, { error: result.error });
+    return json(res, 200, publicWorkspace(result.workspace));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/customer-stage') {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const body = await readBody(req);
+    const result = setCustomerStage(user.email, body.customerId, body.stage);
+    if (result.error) return json(res, 400, { error: result.error });
+    return json(res, 200, publicWorkspace(result.workspace));
   }
 
   if (req.method === "POST" && url.pathname === "/api/track") {

@@ -1,4 +1,4 @@
-let customerId='', active='content';
+let customerId='', customerTrack='', active='content';
 const titles={content:'内容',research:'需求研究',materials:'业务资料',overview:'全部待办'};
 export function arrangeWorkspace(customer, pack) {
   const root=document.getElementById('owned-today');
@@ -36,10 +36,17 @@ export function arrangeWorkspace(customer, pack) {
     const history=document.getElementById('history');const archive=document.createElement('details');archive.className='workspace-history';
     const hs=document.createElement('summary');hs.textContent='查看历史批次';archive.append(hs,history);panels.content.prepend(archive);
   }
-  if(customerId!==customer.id){customerId=customer.id;active='content';}
+  if(customerId!==customer.id || customerTrack!==customer.track){customerId=customer.id;customerTrack=customer.track;active=customer.track==='存量' && !customer.drops?.length ? 'materials' : 'content';}
+  const cooperating = customer.track === '存量';
+  root.classList.toggle('is-prospect', !cooperating);
+  const contentButton = document.querySelector('[data-workspace-view="content"]');
+  contentButton.setAttribute('aria-label', cooperating ? '内容交付' : '诊断报告');
+  contentButton.querySelector('.workspace-tile-caption').textContent = cooperating ? '内容交付' : '诊断报告';
+  contentButton.querySelector('.workspace-tile-title').textContent = cooperating ? 'CONTENT' : 'DIAGNOSIS';
+  document.querySelector('[data-workspace-view="research"]').hidden = !cooperating;
   let empty=document.getElementById('workspace-materials-empty');
   if(!empty){empty=document.createElement('p');empty.id='workspace-materials-empty';empty.className='meta';empty.textContent='这里保留已上传的业务资料与历史跟进记录。可从客户页面补充资料。';document.getElementById('workspace-materials').prepend(empty);}
-  const values={content:pack ? `${Object.values(pack.copies||{}).flat().length} 篇` : '待创建',research:`${(customer.keywordLibraries||[]).reduce((n,b)=>n+(b.items?.length||0),0)} 词`,materials:customer.materialReady ? '已读取' : '待补充',overview:customer.job ? '生成中' : '查看待办'};
+  const values={content:cooperating ? (pack ? `${Object.values(pack.copies||{}).flat().length} 篇` : '待出首批') : `${customer.packs?.length || 0} 份报告`,research:`${(customer.keywordLibraries||[]).reduce((n,b)=>n+(b.items?.length||0),0)} 词`,materials:customer.materialReady ? '已读取' : '可补充',overview:customer.job ? '生成中' : '查看待办'};
   for(const [key,value] of Object.entries(values))document.querySelector(`[data-workspace-view="${key}"] .workspace-tile-count`).textContent=value;
   show();
 }

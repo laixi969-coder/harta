@@ -10,7 +10,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260921h">
+  <link rel="stylesheet" href="css/app.css?v=20260921-stages">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -69,7 +69,7 @@
         <div class="who" id="who">正在确认登录…</div>
         <div class="tools">
           <button class="btn ghost" data-theme-toggle type="button" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-contrast"></use></svg>深浅</button>
-          <button class="btn gold" data-nav="customers"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>新建客户</button>
+          <button class="btn gold" data-customer-entry="new"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>诊断新客户</button>
         </div>
       </div>
       <div class="job-center hidden" id="job-center" aria-label="生成任务"></div>
@@ -83,19 +83,19 @@
         </div>
         <article class="card hidden" id="empty-today">
           <h2>还没有你的客户</h2>
-          <p class="meta">新建时请选择客户类型：已经合作的客户可直接生成内容；潜在客户先根据资料生成报告。</p>
-          <div class="acts"><button class="btn" data-nav="customers">新建客户</button></div>
+          <p class="meta">新客户先诊断，沟通后进入跟进，确定合作后再制定获客方案与内容。</p>
+          <div class="acts"><button class="btn" data-customer-entry="new">诊断新客户</button><button class="btn ghost" data-customer-entry="cooperating">录入已合作客户</button></div>
         </article>
         <article class="card" id="desk-card">
           <div class="desk-board">
             <div>
               <h2>今日该发</h2>
-              <p class="meta">已有客户。先发布排期内容，再按需要生成新内容。</p>
+              <p class="meta">已合作客户：发布排期内容，按获客方向继续交付。</p>
               <div id="desk-send" class="chase"></div>
             </div>
             <div>
               <h2>待生成报告</h2>
-              <p class="meta">潜在客户。根据资料生成获客建议报告。</p>
+              <p class="meta">新客户与在跟客户：补充资料、生成或更新诊断报告。</p>
               <div id="desk-judge" class="chase"></div>
             </div>
           </div>
@@ -152,7 +152,7 @@
               <p class="meta material-record-engine" id="material-record-engine"></p>
             </div>
             <div class="record-acts">
-              <button class="btn ghost" id="material-re-upload" type="button"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>重新上传</button>
+              <button class="btn ghost" id="material-re-upload" type="button"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>补充上传资料</button>
               <button class="btn ghost" id="material-record-clear" type="button"><svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>删除资料</button>
               <span class="folio-no" id="material-record-count"></span>
             </div>
@@ -311,24 +311,26 @@
           <p class="kicker">客户</p>
           <h1>客户与合作</h1>
         </div>
+        <nav id="customer-stage-nav" class="customer-stage-nav" aria-label="客户阶段入口"></nav>
+        <div class="customer-stage-heading"><div><h2 id="customer-stage-title">新客户</h2><p class="meta" id="customer-stage-description"></p></div><button class="btn" id="customer-stage-add" data-customer-entry="new">诊断新客户</button></div>
         <div id="customer-list" class="chase"></div>
-        <article class="card form customer-create" id="customer-create">
-          <details id="customer-create-panel"><summary>新建客户</summary>
+        <article class="card form customer-create hidden" id="customer-create">
+          <details id="customer-create-panel"><summary id="customer-create-title">诊断新客户</summary>
+          <p class="meta" id="customer-create-note">先填客户名称、行业和业务简介，即可开始诊断。现有资料可以附上，沟通后再逐步补充。</p>
           <div class="customer-create-grid">
           <fieldset class="form-section"><legend>客户与合作信息</legend>
           <label for="hunt">目标行业</label>
           <select id="hunt"></select>
           <label for="new-hunt" id="new-hunt-label" class="hidden">新行业叫什么</label>
           <input id="new-hunt" class="hidden" maxlength="24" placeholder="例如 月子中心。最多 24 字">
-          <p class="k">这份活是</p>
-          <div class="track-pick" role="radiogroup" aria-label="客户种类">
+          <div class="track-pick hidden" role="radiogroup" aria-label="客户种类">
             <label class="choice">
               <input type="radio" name="track" value="存量">
               <span class="choice-title">已有客户</span>
               <span class="choice-note">已经在合作，直接出一批内容，每次六篇</span>
             </label>
             <label class="choice">
-              <input type="radio" name="track" value="拓新">
+              <input type="radio" name="track" value="拓新" checked>
               <span class="choice-title">潜在客户</span>
               <span class="choice-note">根据资料生成获客建议报告</span>
             </label>
@@ -337,11 +339,11 @@
           <input id="cname" required maxlength="80" placeholder="公司 / 机构 / 诊所（最多 80 字）">
           <label for="city">城市</label>
           <input id="city" maxlength="40" placeholder="广州（最多 40 字）">
-          <label for="pitch">一句话卖点</label>
+          <label for="pitch">业务简介</label>
           <textarea id="pitch" class="short-textarea" rows="3" maxlength="300" aria-describedby="pitch-count" placeholder="他们卖什么；可直接粘贴，框会自动换行"></textarea>
           <p class="field-meta"><span>最多 300 字，内容会完整保存</span><span id="pitch-count" data-char-count="pitch">0 / 300</span></p>
           </fieldset>
-          <div class="customer-evidence">
+          <details class="customer-evidence"><summary>补充现有资料（可选）</summary>
           <div class="material-desk" id="material-desk">
             <div class="material-heading">
               <div>
@@ -390,11 +392,10 @@
           <label for="cmaterial">销售补充（可选）</label>
           <textarea id="cmaterial" class="long-textarea" rows="8" maxlength="12000" aria-describedby="cmaterial-count" placeholder="会议信息、客户原话、暂时没有文件的材料；可粘贴长文"></textarea>
           <p class="field-meta"><span>最多 12,000 字；全部保存，生成报告时会优先读取这段</span><span id="cmaterial-count" data-char-count="cmaterial">0 / 12,000</span></p>
-          <p class="meta">潜在客户：资料读取成功后生成报告；资料不足时只会给出待确认问题。已有客户：创建后直接生成一批内容，每次六篇，同一天可以继续生成。</p>
-          <div class="acts"><button class="btn" id="create-customer" type="button">创建客户</button></div>
           </div>
+          </details>
           </div>
-          </div>
+          <div class="acts"><button class="btn" id="create-customer" type="button">开始诊断</button></div>
           </details>
         </article>
       </section>
@@ -491,6 +492,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260921-scopes"></script>
+  <script type="module" src="js/app.js?v=20260921-stages"></script>
 </body>
 </html>

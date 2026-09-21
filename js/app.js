@@ -1,4 +1,5 @@
 import { arrangeWorkspace, arrangeContentReader } from './customer-workspace.js';
+import { CUSTOMER_STAGES, customerStage } from './customer-stage.js';
 import { deliveryFields, platformKind, titleCount } from './platform-content.js';
 import { keywordLibraryView } from './keyword-library-view.js';
 import { attributionEntries, customerAttributions, platformOutcomes, shellFeedbackKey } from "./acquisition.js";
@@ -23,6 +24,7 @@ import {
 
 const state = {
   view: "today",
+  customerStageFilter: 'new',
   theme: document.documentElement.getAttribute("data-theme") || "light",
   workspace: { customers: [], ledger: [], feedback: {}, usingId: "" },
   platformFields: {},
@@ -616,14 +618,27 @@ function renderMaterialAnalysis(batch) {
 function renderCustomerMaterialRecord(customer) {
   const panel = document.getElementById("material-record-card");
   if (!panel) return;
-  const analysis = customer?.materialAnalysis;
+  const analysis = customer?.materialAnalysis || {};
   const sources = customer?.materials || [];
   const hasRecord = Boolean(analysis && (analysis.overview || sources.length));
-  panel.classList.toggle("hidden", !hasRecord);
-  if (!hasRecord) return;
+  panel.classList.toggle("hidden", !customer);
+  if (!customer) return;
+  document.getElementById('material-record-clear').disabled = !hasRecord;
+  let business = document.getElementById('customer-business');
+  if (!business) {
+    business = document.createElement('div'); business.id = 'customer-business';
+    business.innerHTML = '<h3>业务信息与沟通补充</h3><label for="business-pitch">业务简介</label><textarea id="business-pitch" maxlength="300" rows="3"></textarea><label for="business-city">服务城市</label><input id="business-city" maxlength="40"><label for="business-notes">客户补充、合作范围与目标</label><textarea id="business-notes" maxlength="12000" rows="5" placeholder="记录客户提供的信息、确认的服务范围及获客目标"></textarea><button class="btn" type="button" id="save-customer-business">保存业务信息</button><p class="meta">保存后用于下一次诊断和内容生成。</p>';
+    panel.prepend(business);
+  }
+  if (business.dataset.customer !== customer.id) {
+    business.dataset.customer = customer.id;
+    document.getElementById('business-pitch').value = customer.pitch || '';
+    document.getElementById('business-city').value = customer.city || '';
+    document.getElementById('business-notes').value = customer.salesMaterial || '';
+  }
   document.getElementById("material-record-count").textContent = `附件 / ${String(sources.length).padStart(2, "0")}`;
   document.getElementById("material-record-engine").textContent = materialEngineText(analysis);
-  document.getElementById("material-record-overview").textContent = analysis.overview || "资料已归档，尚未形成总览。";
+  document.getElementById("material-record-overview").textContent = analysis.overview || '可以在此上传客户补充的资料，再更新诊断或制定获客方向。';
   const pitch = document.getElementById("material-record-pitch");
   pitch.textContent = analysis.suggestedPitch ? `一句话卖点：${analysis.suggestedPitch}` : "";
   pitch.classList.toggle("hidden", !analysis.suggestedPitch);
@@ -909,6 +924,7 @@ function renderToday() {
   renderJobCenter();
   const mine = usingCustomer();
   document.querySelector(".workspace-primary-actions")?.classList.toggle("hidden", !mine);
+  renderCustomerJourney(mine);
   renderAcquisition(mine);
   const empty = document.getElementById("empty-today");
   const owned = document.getElementById("owned-today");
@@ -919,7 +935,7 @@ function renderToday() {
   if (!mine) {
     empty.classList.remove("hidden");
     owned.classList.add("hidden");
-    document.getElementById("hook-line").textContent = "先新建一个客户。已经合作的选“已有客户”，还没合作的选“潜在客户”。";
+    document.getElementById("hook-line").textContent = '从诊断新客户开始，也可以直接录入已合作客户。';
     document.getElementById("hook-facts").innerHTML = "";
     document.getElementById("hook-gate").textContent = "";
     return;
@@ -952,7 +968,7 @@ function renderToday() {
   const headCount = nGap ? `${nGap} 个可利用的机会` : nAsk ? `${nAsk} 个待确认问题` : "";
   const deskHook = state.workspace.desk?.hook;
   document.getElementById("hook-line").textContent = mine.name;
-  const facts = [mine.hunt, mine.track === "存量" ? "已有客户" : "潜在客户"].filter(Boolean);
+  const facts = [mine.hunt, CUSTOMER_STAGES[customerStage(mine)]].filter(Boolean);
   if (pack) {
     facts.push(`${pack.deliveredAt || pack.createdAt || pack.date || "历史批次"} 出的`);
     if (headCount) facts.push(headCount);
@@ -1022,7 +1038,7 @@ function renderToday() {
     repack.disabled = busy;
     repack.innerHTML = busy
       ? `${icon("refresh")}正在${jobLabel(mine.job.kind)}…`
-      : `${icon("refresh")}${pack ? "重新生成报告" : "重新生成"}`;
+      : `${icon("refresh")}${pack ? "更新诊断报告" : "开始诊断"}`;
   }
 
   const goToday = document.getElementById("go-today");
@@ -1043,7 +1059,7 @@ function renderToday() {
     const noPackTitle = noPack.querySelector("h2");
     if (noPackTitle) {
       noPackTitle.textContent =
-        mine.track === "存量" ? "今天还没有生成内容" : mine.track === "拓新" ? "还没有为这位潜在客户生成报告" : "请先选择这家是已有客户还是潜在客户";
+        mine.track === "存量" ? '完善业务资料与获客方向后，生成首批内容' : mine.track === "拓新" ? '开始诊断，形成第一份沟通报告' : '可查看历史报告，纳入跟进后继续更新';
     }
     body.classList.add("hidden");
     renderCustomers();
@@ -1056,7 +1072,7 @@ function renderToday() {
 
   // 客户名两行之前刚在大标题里说过，这里不重复：这行只留猎场，档位交给右边的章
   const trackEl = document.getElementById("using-track");
-  if (trackEl) trackEl.textContent = mine.track || "未标明种类";
+  if (trackEl) trackEl.textContent = CUSTOMER_STAGES[customerStage(mine)];
   document.getElementById("using-hunt").textContent = mine.hunt;
   document.getElementById("using-stamp").textContent =
     pack.tier === "今日"
@@ -1522,20 +1538,28 @@ function renderCustomers() {
   const desk = state.workspace.desk || {};
   const order = [...(desk.unmarked || []), ...(desk.send || []), ...(desk.judge || []), ...(desk.done || [])];
   const priority = new Map(order.map((row, index) => [row.id, index]));
-  const list = [...(state.workspace.customers || [])].sort((a, b) => (priority.get(a.id) ?? Infinity) - (priority.get(b.id) ?? Infinity));
+  const all = state.workspace.customers || [];
+  const descriptions = { new: '初次接触：先出诊断报告，用报告开启沟通。', following: '继续洽谈：查看报告、补充资料、记录反馈，推进合作。', cooperating: '持续交付：完善业务资料与获客方向，再生成平台内容。' };
+  document.getElementById('customer-stage-nav').innerHTML = Object.entries(CUSTOMER_STAGES).map(([key, label], index) => `<button type="button" data-stage-filter="${key}" aria-pressed="${state.customerStageFilter === key}"><span class="meta">0${index + 1}</span><strong>${label}<span>${all.filter(c => customerStage(c) === key).length}</span></strong><span>${descriptions[key]}</span></button>`).join('');
+  document.getElementById('customer-stage-title').textContent = CUSTOMER_STAGES[state.customerStageFilter];
+  document.getElementById('customer-stage-description').textContent = descriptions[state.customerStageFilter];
+  const add = document.getElementById('customer-stage-add');
+  add.dataset.customerEntry = state.customerStageFilter === 'cooperating' ? 'cooperating' : 'new';
+  add.textContent = state.customerStageFilter === 'cooperating' ? '录入已合作客户' : '诊断新客户';
+  const list = [...all].filter(c => customerStage(c) === state.customerStageFilter).sort((a, b) => (priority.get(a.id) ?? Infinity) - (priority.get(b.id) ?? Infinity));
   box.innerHTML = list.length
     ? list
         .map((c) => {
           const packs = packsOf(c);
           const latest = packs[0];
           const using = c.id === usingCustomer()?.id;
-          const kindChip = c.track === "存量" ? chip("已有客户", "chip-stock") : c.track === "拓新" ? chip("潜在客户", "chip-new") : chip("未选择类型", "chip-warn");
+          const stage = customerStage(c);
+          const kindChip = chip(CUSTOMER_STAGES[stage], stage === 'cooperating' ? 'chip-stock' : 'chip-new');
           const actions = c.job
             ? `<button type="button" class="go" data-using="${c.id}">查看进度</button>`
             : c.track
-            ? `<button type="button" class="go" data-using="${c.id}">${packs.length ? "打开内容与历史" : "打开"}</button>`
-            : `<button type="button" class="go" data-track="${c.id}|存量">设为已有客户</button>
-                <button type="button" class="go" data-track="${c.id}|拓新">设为潜在客户</button>`;
+            ? `<button type="button" class="go" data-using="${c.id}">${stage === 'cooperating' ? '进入内容交付' : stage === 'following' ? '继续跟进' : '查看诊断'}</button>`
+            : `<button type="button" class="go" data-using="${c.id}">查看历史诊断</button><button type="button" class="go" data-customer-stage="following" data-customer="${c.id}">纳入跟进</button>`;
           return rowCard({
             title: c.name,
             chips: `${kindChip}${c.hunt ? chip(c.hunt) : ""}${c.job ? chip(`生成中 ${jobPercent(c.job)}%`, "chip-running") : ""}${using && c.track ? chip("当前", "chip-hot") : ""}`,
@@ -1546,7 +1570,35 @@ function renderCustomers() {
           });
         })
         .join("")
-    : `<p class="meta">本子还是空的。</p>`;
+    : `<p class="meta">暂无${CUSTOMER_STAGES[state.customerStageFilter]}。${state.customerStageFilter === 'following' ? '新客户完成初步沟通后，点击“开始跟进”移入这里。' : state.customerStageFilter === 'cooperating' ? '确定合作后转入，或直接录入已合作客户。' : '点击“诊断新客户”，从名称、行业与业务简介开始。'}</p>`;
+}
+
+function openCustomerEntry(stage) {
+  state.customerStageFilter = stage;
+  document.querySelector(`input[name="track"][value="${stage === 'cooperating' ? '存量' : '拓新'}"]`).checked = true;
+  document.getElementById('customer-create-title').textContent = stage === 'cooperating' ? '录入已合作客户' : '诊断新客户';
+  document.getElementById('customer-create-note').textContent = stage === 'cooperating' ? '保存后进入业务资料，补充获客目标和平台方向，再启动首批内容。' : '先填客户名称、行业和业务简介，即可开始诊断。现有资料可以附上，沟通后再逐步补充。';
+  document.getElementById('create-customer').textContent = stage === 'cooperating' ? '保存并完善业务资料' : '开始诊断';
+  renderCustomers(); nav('customers');
+  document.getElementById('customer-create').classList.remove('hidden');
+  document.getElementById('customer-create-panel').open = true;
+  document.getElementById('customer-create').scrollIntoView({block:'start'});
+  document.getElementById('cname').focus({preventScroll:true});
+}
+
+function renderCustomerJourney(customer) {
+  let panel = document.getElementById('customer-journey');
+  if (!panel) {
+    panel = document.createElement('section'); panel.id = 'customer-journey'; panel.className = 'customer-journey';
+    document.getElementById('owned-today').before(panel);
+  }
+  panel.hidden = !customer;
+  if (!customer) return;
+  const stage = customerStage(customer), busy = customer.job ? 'disabled' : '';
+  const label = {new:'用诊断报告开启第一次沟通', following:'围绕报告继续沟通，补资料并推进合作', cooperating:'完善业务与获客方向，开始内容交付'}[stage];
+  panel.innerHTML = `<p class="meta">${Object.entries(CUSTOMER_STAGES).map(([key, value]) => key === stage ? `<strong aria-current="step">${value}</strong>` : value).join(' → ')}</p><h2>${label}</h2><div class="acts"><button class="btn ghost" data-workspace-open="materials">${stage === 'cooperating' ? '完善业务资料' : '补充客户资料'}</button>${stage === 'cooperating' ? '<button class="btn ghost" data-workspace-open="research">设置获客方向</button>' : `<button class="btn ghost" data-customer-follow="${customer.id}">记录跟进</button><button class="btn" data-customer-stage="${stage === 'new' ? 'following' : 'cooperating'}" data-customer="${customer.id}" ${busy}>${stage === 'new' ? '开始跟进' : '确认合作，进入建档'}</button>`}</div>`;
+  const records = (state.workspace.ledger || []).filter(r => r.customerId === customer.id || (!r.customerId && r.client === customer.name)).slice(0,3);
+  if (stage !== 'cooperating' && records.length) panel.innerHTML += `<details><summary>最近跟进 · ${records.length} 条</summary>${records.map(r => `<p>${esc(r.date)} · ${esc(r.result)}<br>${esc(r.talk)}</p>`).join('')}</details>`;
 }
 
 function renderPackIndex() {
@@ -2249,7 +2301,7 @@ async function boot() {
     const { hunts = [] } = got.ok ? await got.json() : {};
     // 行业不止这些。选「其他行业」就现场长一份包，存下来，下次它就在列表里了。
     huntSel.innerHTML =
-      hunts.map((h) => `<option>${h}</option>`).join("") +
+      '<option value="">请选择客户行业</option>' + hunts.map((h) => `<option>${esc(h)}</option>`).join("") +
       `<option value="__new__">其他行业…</option>`;
     const newLabel = document.getElementById("new-hunt-label");
     const newInput = document.getElementById("new-hunt");
@@ -2584,7 +2636,7 @@ document.getElementById("material-queue")?.addEventListener("click", (event) => 
 
 /* 资料底稿卡：删掉整批资料，或换一批新的。历史出档不动。 */
 document.getElementById("material-record-clear")?.addEventListener("click", async () => {
-  const customerId = state.openedId;
+  const customerId = usingCustomer()?.id;
   if (!customerId) return;
   if (!confirm("删除这批资料？原文件、读取的正文、语音转写和资料摘要都会清除；之后生成内容和报告时不会再使用这些资料。历史报告不受影响。")) return;
   const btn = document.getElementById("material-record-clear");
@@ -2614,7 +2666,7 @@ document.getElementById("material-re-upload")?.addEventListener("click", () => {
 document.getElementById("material-replace-files")?.addEventListener("change", async (e) => {
   const files = [...(e.target.files || [])];
   e.target.value = "";
-  const customerId = state.openedId;
+  const customerId = usingCustomer()?.id;
   if (!files.length || !customerId) return;
   const btn = document.getElementById("material-re-upload");
   btn.disabled = true;
@@ -2630,13 +2682,13 @@ document.getElementById("material-replace-files")?.addEventListener("change", as
     const res = await fetch("/api/materials/replace", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ customerId, batchId: batch.id }),
+      body: JSON.stringify({ customerId, batchId: batch.id, append: true }),
     });
     const data = await res.json();
     if (!res.ok) return toast(data.error || "新资料没换上");
     state.workspace = data;
     renderToday();
-    toast("新资料已替换，之后生成内容和报告会使用新资料");
+    toast("补充资料已保存，之后生成内容和报告会结合全部资料");
   } catch {
     toast("网络不通，请再试");
   } finally {
@@ -2795,6 +2847,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
         material: document.getElementById("cmaterial")?.value || "",
         materialBatchId: state.materials.batch?.id || "",
         track,
+        startContent: false,
       }),
     });
     const data = await res.json();
@@ -2807,8 +2860,8 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     state.workspace = data;
     state.packId = "";
     state.openedId = data.usingId || "";
-    toast(track === "存量" ? "客户已创建，正在生成第一批 六篇内容" : "客户已创建，正在生成报告");
-    watchJob(data.usingId);
+    toast(track === "存量" ? "已保存合作客户，请完善业务资料和获客方向" : "正在生成初步诊断，客户记录已自动保存");
+    if (track !== '存量') watchJob(data.usingId);
     const sel = document.getElementById("hunt");
     if (sel && sel.value === "__new__") {
       const got = await fetch("/api/hunts");
@@ -2829,6 +2882,7 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
     state.materials = { files: [], links: [], batch: null, busy: false, editing: false };
     document.getElementById("material-analysis")?.classList.add("hidden");
     renderMaterialQueue();
+    document.getElementById('customer-create').classList.add('hidden');
     renderToday();
     renderLedger();
     renderLedgerForm();
@@ -2906,6 +2960,47 @@ document.getElementById("change-pass")?.addEventListener("click", async () => {
 });
 
 document.body.addEventListener("click", async (e) => {
+  const businessSave = e.target.closest('#save-customer-business');
+  if (businessSave) {
+    businessSave.disabled = true;
+    try {
+      const response = await fetch('/api/customer-business', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({customerId:document.getElementById('customer-business').dataset.customer, pitch:document.getElementById('business-pitch').value, city:document.getElementById('business-city').value, salesMaterial:document.getElementById('business-notes').value})});
+      const data = await response.json(); if (!response.ok) throw Error(data.error || '保存失败');
+      state.workspace = data; renderToday(); toast('业务信息已保存');
+    } catch (error) { toast(error.message); } finally { businessSave.disabled = false; }
+    return;
+  }
+  const entry = e.target.closest('[data-customer-entry]');
+  if (entry) { e.preventDefault(); openCustomerEntry(entry.dataset.customerEntry); return; }
+  const filter = e.target.closest('[data-stage-filter]');
+  if (filter) {
+    state.customerStageFilter = filter.dataset.stageFilter;
+    document.getElementById('customer-create-panel').open = false;
+    document.getElementById('customer-create').classList.add('hidden');
+    renderCustomers(); return;
+  }
+  const pane = e.target.closest('[data-workspace-open]');
+  if (pane) { document.querySelector(`[data-workspace-view="${pane.dataset.workspaceOpen}"]`)?.click(); return; }
+  const follow = e.target.closest('[data-customer-follow]');
+  if (follow) {
+    renderLedger(); renderLedgerForm(); nav('ledger');
+    document.getElementById('ledger-client').value = follow.dataset.customerFollow;
+    renderLedgerLines(); renderLedgerPlatform(); setLedgerForm(true); return;
+  }
+  const stageButton = e.target.closest('[data-customer-stage]');
+  if (stageButton && !stageButton.disabled) {
+    stageButton.disabled = true;
+    try {
+      const response = await fetch('/api/customer-stage', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({customerId:stageButton.dataset.customer, stage:stageButton.dataset.customerStage})});
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || '阶段更新失败');
+      state.workspace = data; state.packId = ''; state.customerStageFilter = stageButton.dataset.customerStage;
+      renderToday(); renderCustomers();
+      if (stageButton.dataset.customerStage === 'cooperating') document.querySelector('[data-workspace-view="materials"]')?.click();
+      toast(`已转为${CUSTOMER_STAGES[stageButton.dataset.customerStage]}，资料与历史报告已保留`);
+    } catch (error) { toast(error.message); stageButton.disabled = false; }
+    return;
+  }
   const trackBtn = e.target.closest("[data-track]");
   if (trackBtn) {
     e.preventDefault();
@@ -2920,7 +3015,7 @@ document.body.addEventListener("click", async (e) => {
     state.workspace = data;
     renderToday();
     renderCustomers();
-    toast(track === "存量" ? "已设为已有客户，每次可生成一批 六篇内容" : "已设为潜在客户，补充资料后可生成报告");
+    toast(track === "存量" ? '已转为合作客户，可完善资料并生成内容' : '已进入诊断，可补充资料并生成报告');
     return;
   }
   const using = e.target.closest("[data-using]");
