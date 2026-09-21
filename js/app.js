@@ -1300,7 +1300,7 @@ function renderToday() {
             <div class="slip-bar">
               <div class="slip-step">
                 ${copyButton(text, "复制这条", isContentPack ? meta.key : "")}
-                <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
+                <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">编辑</button>
                 ${isContentPack ? contentStateMark(meta.workflow) : ""}
               </div>
               <div class="slip-step">
@@ -1420,7 +1420,7 @@ function renderToday() {
               ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}</div>
               <div class="acts-inline">
                 ${copyButton(text, "复制", isContentPack ? meta.key : "")}
-                <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">改</button>
+                <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">编辑</button>
                 ${isContentPack ? contentStateMark(meta.workflow) : ""}
               </div>
               ${isContentPack ? "</div>" : ""}
@@ -1584,16 +1584,20 @@ document.getElementById("pack-list")?.addEventListener("click", async (e) => {
   }
 });
 
+function setLedgerForm(open) {
+  document.getElementById("ledger-form-card").classList.toggle("hidden", !open);
+  document.getElementById("ledger-new").setAttribute("aria-expanded", String(open));
+  if (open) document.getElementById("ledger-talk").focus();
+}
 function renderLedger() {
   const rows = state.workspace.ledger || [];
-  document.getElementById("ledger-body").innerHTML = rows.length
-    ? rows.map(
-    (r) => `<tr>
-      <td>${esc(r.date)}</td><td>${esc(r.client)}${r.demo ? ' <span class="tag">演示</span>' : ""}</td><td>${esc(r.hunt)}</td>
-      <td>${esc(r.result)}${r.platform ? `<span class="meta"> · ${esc(r.platform)}</span>` : ""}</td><td class="num">${esc(r.quote)}</td><td>${esc(r.talk)}${r.content ? `<details class="ledger-source"><summary>查看来源内容${r.platform ? ` · ${esc(r.platform)}` : ""}</summary><p class="asis">${esc(r.content)}</p></details>` : ""}</td>
-    </tr>`,
-  ).join("")
-    : `<tr><td colspan="6">还没有跟进记录。</td></tr>`;
+  document.getElementById("ledger-count").textContent = `共 ${rows.length} 条记录${rows.some(r=>r.demo) ? "（含演示记录）" : ""}`;
+  document.getElementById("ledger-body").innerHTML = rows.length ? rows.map(r => `<article class="ledger-entry">
+    <header><div><h2>${esc(r.client)}</h2><span class="ledger-result">${esc(r.result)}</span>${r.demo ? '<span class="tag">演示</span>' : ''}</div><time>${esc(r.date)}</time></header>
+    <p class="ledger-quote">${esc(r.talk || "未记录原话")}</p>
+    <footer><span>${esc(r.hunt)}</span>${r.platform ? `<span>${esc(r.platform)}</span>` : ""}${r.quote ? `<span>报价：${esc(r.quote)}</span>` : ""}</footer>
+    ${r.content ? `<details class="ledger-source"><summary>查看来源内容</summary><p class="asis">${esc(r.content)}</p></details>` : ""}
+  </article>`).join("") : '<div class="ledger-empty"><h2>还没有跟进记录</h2><p>从上方新增跟进，记录客户原话与进展。</p></div>';
 }
 
 /* 台账没有录入入口就是死胡同：销售真去记的时候，一张永远空着的表只会让他再也不点进来 */
@@ -1604,9 +1608,11 @@ function renderLedgerForm() {
   const list = state.workspace.customers || [];
   if (!list.length) {
     card.classList.add("hidden");
+    document.getElementById("ledger-new").disabled = true;
+    document.getElementById("ledger-count").textContent += " · 请先新建客户";
     return;
   }
-  card.classList.remove("hidden");
+  document.getElementById("ledger-new").disabled = false;
   const current = sel.value;
   sel.innerHTML = list
     .map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`)
@@ -1646,6 +1652,8 @@ function bind() {
     if (record) {
       const customer = usingCustomer();
       nav("ledger");
+      setLedgerForm(true);
+      document.getElementById("ledger-extra").open = true;
       document.getElementById("ledger-client").value = customer?.id || "";
       renderLedgerLines();
       document.getElementById("ledger-line").value = record.dataset.recordOutcome || "";
@@ -1745,6 +1753,11 @@ function bind() {
     if (navEl) {
       e.preventDefault();
       nav(navEl.dataset.nav);
+      if (navEl.tagName === "BUTTON" && navEl.dataset.nav === "customers") {
+        document.getElementById("customer-create-panel").open = true;
+        document.getElementById("customer-create").scrollIntoView({block: "start"});
+        document.getElementById("cname").focus({preventScroll: true});
+      }
       return;
     }
     if (e.target.closest("[data-theme-toggle]")) {
@@ -2793,6 +2806,9 @@ document.getElementById("create-customer")?.addEventListener("click", async () =
   btn.innerHTML = old;
 });
 
+document.getElementById("ledger-new")?.addEventListener("click", () => setLedgerForm(true));
+document.getElementById("ledger-close")?.addEventListener("click", () => { setLedgerForm(false); document.getElementById("ledger-new").focus(); });
+
 document.getElementById("add-ledger")?.addEventListener("click", async () => {
   const customerId = document.getElementById("ledger-client")?.value || "";
   const customer = (state.workspace.customers || []).find((c) => c.id === customerId);
@@ -2829,6 +2845,8 @@ document.getElementById("add-ledger")?.addEventListener("click", async () => {
   renderLedgerLines();
   // 刚记的这笔可能让「上次有效」冒出来，今天那一页要跟着变
   renderToday();
+  setLedgerForm(false);
+  document.getElementById("ledger-new").focus();
   toast(data.marked ? "已记录，这条已标为有客户反馈" : "已记录");
   } catch { toast("连接中断，记录未确认保存，原话已保留"); }
   finally { submit.disabled = false; }
@@ -3263,6 +3281,8 @@ function renderGrowthResearch(customer, pack) {
   if (!input) return;
   if (input.dataset.customer !== customer.id) { input.value = customer.growthDirection || ""; input.dataset.customer = customer.id; }
   const research = pack?.research;
+  const editPanel = document.getElementById("growth-edit-panel");
+  if (editPanel.dataset.customer !== customer.id) { editPanel.open = !research; editPanel.dataset.customer = customer.id; }
   const output = document.getElementById("growth-research");
   if (!research) { output.innerHTML = '<p class="meta">下一次生成将研究客户需求、平台机制与内容偏好，并给出获客打法。</p>'; return; }
   const strategy = research.strategy || {};
@@ -3315,6 +3335,8 @@ document.getElementById("test-research-config")?.addEventListener("click", async
 let keywordImportBusy = false;
 function keywordCustomer() { return state.workspace?.customers?.find(c => c.id === document.getElementById('keyword-card')?.dataset.customer); }
 function renderKeywordLibrary(customer) {
+  const importPanel = document.getElementById("keyword-import-panel");
+  if (importPanel.dataset.customer !== customer.id) { importPanel.open = !(customer.keywordLibraries || []).length; importPanel.dataset.customer = customer.id; }
   const card = document.getElementById('keyword-card');
   if (card.dataset.customer !== customer.id) {
     clearTimeout(keywordSearchTimer);

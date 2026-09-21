@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260921g">
+  <link rel="stylesheet" href="css/app.css?v=20260921h">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -98,7 +98,7 @@
         <div id="owned-today">
         <div id="history" class="history"></div>
         <article class="card form" id="keyword-card">
-          <div class="keyword-intake">
+          <details class="keyword-intake" id="keyword-import-panel" open><summary>导入关键词资料</summary>
           <p class="kicker">业务关键词库</p><h2>导入领域、品类或品牌关键词</h2>
           <p class="meta">自动去重、拆解需求与咨询意图，梳理内容主题。原表中的指数和备注会保留来源；下一批研究和内容会自动参考。每次研究按归属和意图轮流选取最多80个词，随内容批次轮换。</p>
           <div class="keyword-scope">
@@ -109,7 +109,7 @@
           <p class="meta">支持 XLSX、CSV、TSV、TXT、Markdown、DOCX、文字型 PDF。最多5个文件，单个10MB、合计20MB；每批3000条。表格建议有“关键词”列。XLS/DOC 请先另存为新格式。</p>
           <div class="acts"><button class="btn" type="button" id="import-keywords">导入并自动梳理</button><a class="btn ghost" href="/api/keywords/template" download>下载表格模板</a></div>
           <p id="keyword-import-status" class="meta" role="status" aria-live="polite"></p>
-          </div>
+          </details>
           <div class="keyword-results">
           <h2>关键词资料库</h2>
           <label for="keyword-filter">查找已导入的词</label><input id="keyword-filter" type="search" placeholder="搜索关键词、归属、品类或品牌">
@@ -119,14 +119,14 @@
           </div>
         </article>
         <article class="card form" id="growth-card">
-          <div class="growth-input">
+          <details class="growth-input" id="growth-edit-panel" open><summary>调整内容方向</summary>
           <p class="kicker">零投流内容获客</p><h2>获客打法与调整方向</h2>
           <p class="meta">结合业务资料、行业知识和外部研究出内容。按你的实际体验随时调整，无需逐篇填写反馈。</p>
           <label for="growth-direction">接下来希望怎样调整？</label>
           <textarea id="growth-direction" rows="3" maxlength="2000" placeholder="例如：优先做小红书，吸引更重视品质的客户；每周能拍两条视频，不方便出镜。"></textarea>
           <p class="meta">最多 2000 字。保存后用于下一批，历史内容保持原样。</p>
           <div class="acts"><button class="btn" type="button" id="save-growth-direction">保存方向</button></div>
-          </div>
+          </details>
           <div id="growth-research" aria-live="polite"></div>
         </article>
         <div class="win hidden" id="win"></div>
@@ -307,7 +307,7 @@
         </div>
         <div id="customer-list" class="chase"></div>
         <article class="card form customer-create" id="customer-create">
-          <h2>新建客户</h2>
+          <details id="customer-create-panel"><summary>新建客户</summary>
           <div class="customer-create-grid">
           <fieldset class="form-section"><legend>客户与合作信息</legend>
           <label for="hunt">目标行业</label>
@@ -389,6 +389,7 @@
           </div>
           </div>
           </div>
+          </details>
         </article>
       </section>
 
@@ -404,41 +405,28 @@
       <section class="hidden" data-view="ledger">
         <div class="hook">
           <p class="kicker">跟进记录</p>
-          <h1>每一次进展</h1>
+          <h1>跟进记录</h1>
+          <p class="meta" id="ledger-count"></p>
+          <button class="btn" id="ledger-new" type="button" aria-controls="ledger-form-card" aria-expanded="false">新增跟进</button>
         </div>
         <article class="card form hidden" id="ledger-form-card">
-          <h2>记一笔</h2>
-          <label for="ledger-client">客户</label>
-          <select id="ledger-client"></select>
-          <label for="ledger-result">结果</label>
-          <select id="ledger-result">
-            <option>问了价</option>
-            <option>有兴趣</option>
-            <option>成交</option>
-            <option>没下文</option>
-          </select>
-          <label for="ledger-line">哪条带来的（可选）</label>
-          <select id="ledger-line"></select>
-          <label for="ledger-platform">来源平台（可选）</label>
-          <select id="ledger-platform"><option value="">尚未确定平台</option></select>
-          <p class="meta">记录问价、有兴趣或成交时选了哪条内容，这条会自动标为“有客户反馈”，不用再回去点一遍。</p>
-          <label for="ledger-quote">报价</label>
-          <input id="ledger-quote" maxlength="120" placeholder="没报就留空（最多 120 字）">
-          <label for="ledger-talk">他原话怎么说</label>
-          <textarea id="ledger-talk" class="ledger-textarea" rows="6" maxlength="4000" aria-describedby="ledger-talk-count" placeholder="贴原话，不改写，不总结；长内容会自动换行"></textarea>
-          <p class="field-meta"><span>最多 4,000 字，框可向下拉高</span><span id="ledger-talk-count" data-char-count="ledger-talk">0 / 4,000</span></p>
-          <div class="acts"><button class="btn" id="add-ledger" type="button">记下</button></div>
-        </article>
-        <article class="card">
-          <div class="table-scroll" tabindex="0" aria-label="跟进记录表格，可横向滚动">
-          <table>
-            <thead>
-              <tr><th>日期</th><th>客户</th><th>目标行业</th><th>结果</th><th>报价</th><th>原话</th></tr>
-            </thead>
-            <tbody id="ledger-body"></tbody>
-          </table>
+          <div class="ledger-form-head"><h2>新增跟进</h2><button class="btn ghost" id="ledger-close" type="button">收起</button></div>
+          <div class="ledger-fields">
+          <div><label for="ledger-client">客户</label><select id="ledger-client"></select></div>
+          <div><label for="ledger-result">结果</label><select id="ledger-result"><option>问了价</option><option>有兴趣</option><option>成交</option><option>没下文</option></select></div>
           </div>
+          <label for="ledger-talk">客户原话</label>
+          <textarea id="ledger-talk" class="ledger-textarea" rows="6" maxlength="4000" aria-describedby="ledger-talk-count" placeholder="记录对方说了什么"></textarea>
+          <p class="field-meta"><span>最多 4,000 字</span><span id="ledger-talk-count" data-char-count="ledger-talk">0 / 4,000</span></p>
+          <details id="ledger-extra"><summary>报价与来源关联（可选）</summary>
+          <label for="ledger-quote">报价</label><input id="ledger-quote" maxlength="120" placeholder="没报就留空">
+          <label for="ledger-line">关联内容</label><select id="ledger-line"></select>
+          <label for="ledger-platform">来源平台</label><select id="ledger-platform"><option value="">尚未确定平台</option></select>
+          <p class="meta">关联内容后，有兴趣、问价或成交会同步记录到对应内容。</p>
+          </details>
+          <div class="acts"><button class="btn" id="add-ledger" type="button">保存跟进</button></div>
         </article>
+        <div id="ledger-body" class="ledger-feed" aria-label="跟进记录列表"></div>
       </section>
 
       <section class="hidden" data-view="crew">
