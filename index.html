@@ -103,7 +103,7 @@
           <p class="meta">自动去重、拆解需求与咨询意图，梳理内容主题。原表中的指数和备注会保留来源；下一批研究和内容会自动参考。每次研究按归属和意图轮流选取最多80个词，随内容批次轮换。</p>
           <div class="keyword-scope">
             <div><label for="keyword-scope-type">归属类型</label><select id="keyword-scope-type"><option>领域</option><option>产品品类</option><option>品牌</option></select></div>
-            <div><label for="keyword-scope-name">归属名称</label><input id="keyword-scope-name" maxlength="100" placeholder="例如：家装 / 隔音窗 / 品牌名称"></div>
+            <div><label for="keyword-scope-name">归属名称</label><select id="keyword-scope-name"></select><div id="keyword-scope-new-wrap" hidden><label for="keyword-scope-new">新增归属名称</label><input id="keyword-scope-new" maxlength="100" placeholder="填写新的名称，已有名称请从上方选择"></div><p class="meta" id="keyword-scope-hint"></p></div>
           </div>
           <label for="keyword-files">关键词文档或表格</label><input id="keyword-files" type="file" multiple accept=".xlsx,.csv,.tsv,.txt,.md,.docx,.pdf">
           <p class="meta">支持 XLSX、CSV、TSV、TXT、Markdown、DOCX、文字型 PDF。最多5个文件，单个10MB、合计20MB；每批3000条。表格建议有“关键词”列。XLS/DOC 请先另存为新格式。</p>
@@ -485,6 +485,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260921-platform2"></script>
+  <script type="module" src="js/app.js?v=20260921-scopes"></script>
 </body>
 </html>

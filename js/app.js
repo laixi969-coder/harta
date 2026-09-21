@@ -3367,6 +3367,49 @@ document.getElementById("test-research-config")?.addEventListener("click", async
 });
 
 let keywordImportBusy = false;
+let keywordHunts = [], keywordHuntsLoading = false, keywordHuntsLoaded = false;
+function renderKeywordScope(customer, reset = false) {
+  const type = document.getElementById('keyword-scope-type').value;
+  const select = document.getElementById('keyword-scope-name');
+  const groups = new Map();
+  const seen = new Set();
+  const add = (group, raw) => {
+    const name = String(raw || '').trim();
+    const key = name.normalize('NFKC').toLocaleLowerCase();
+    if (!name || seen.has(key)) return;
+    seen.add(key); if (!groups.has(group)) groups.set(group, []); groups.get(group).push(name);
+  };
+  if (type === '领域') {
+    keywordHunts.forEach(name => add('行业包', name));
+    (state.workspace?.customers || []).forEach(c => add('已有客户行业', c.hunt));
+  }
+  for (const c of state.workspace?.customers || []) {
+    for (const batch of c.keywordLibraries || []) {
+      if (batch.scope?.type === type) add('已有归属', batch.scope.name);
+    }
+  }
+  const previous = reset ? '' : select.value;
+  select.innerHTML = '<option value="">请选择归属名称</option>' + [...groups].map(([group, names]) => `<optgroup label="${esc(group)}">${names.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('')}</optgroup>`).join('') + '<option value="__new__">＋ 新增归属名称</option>';
+  const preferred = previous || (type === '领域' ? customer.hunt : (customer.keywordLibraries || []).find(b => b.scope?.type === type)?.scope.name) || '';
+  if ([...select.options].some(o => o.value === preferred)) select.value = preferred;
+  document.getElementById('keyword-scope-new-wrap').hidden = select.value !== '__new__';
+  document.getElementById('keyword-scope-hint').textContent = type === '领域' ? '复用行业包和已有行业，保持归属标签一致。' : '复用已有归属；新增名称将在导入成功后保留。';
+  if (!keywordHuntsLoaded && !keywordHuntsLoading) {
+    keywordHuntsLoading = true;
+    fetch('/api/hunts').then(async response => {
+      if (!response.ok) throw Error('行业列表加载失败');
+      keywordHunts = (await response.json()).hunts || []; keywordHuntsLoaded = true;
+      const current = keywordCustomer(); if (current) renderKeywordScope(current);
+    }).catch(() => { document.getElementById('keyword-scope-hint').textContent = '行业包暂未加载，当前显示已有归属；重新打开页面可重试。'; }).finally(() => { keywordHuntsLoading = false; });
+  }
+}
+document.getElementById('keyword-scope-type')?.addEventListener('change', () => {
+  document.getElementById('keyword-scope-new').value = '';
+  const customer = keywordCustomer(); if (customer) renderKeywordScope(customer, true);
+});
+document.getElementById('keyword-scope-name')?.addEventListener('change', event => {
+  document.getElementById('keyword-scope-new-wrap').hidden = event.target.value !== '__new__';
+});
 function keywordCustomer() { return state.workspace?.customers?.find(c => c.id === document.getElementById('keyword-card')?.dataset.customer); }
 function renderKeywordLibrary(customer) {
   const importPanel = document.getElementById("keyword-import-panel");
@@ -3376,11 +3419,13 @@ function renderKeywordLibrary(customer) {
     clearTimeout(keywordSearchTimer);
     card.dataset.customer = customer.id;
     document.getElementById('keyword-scope-type').value = '领域';
-    document.getElementById('keyword-scope-name').value = customer.hunt || '';
+    document.getElementById('keyword-scope-name').value = '';
+    document.getElementById('keyword-scope-new').value = '';
     document.getElementById('keyword-filter').value = '';
     document.getElementById('keyword-files').value = '';
     if (!keywordImportBusy) document.getElementById('keyword-import-status').textContent = '';
   }
+  renderKeywordScope(customer);
   const libraries = customer.keywordLibraries || [];
   const signature = JSON.stringify([customer.id,libraries]);
   if (signature !== keywordViewSignature) {
@@ -3398,8 +3443,12 @@ document.getElementById('keyword-filter')?.addEventListener('input', event => {
 document.getElementById('import-keywords')?.addEventListener('click', async event => {
   const customer = keywordCustomer(); if (!customer || keywordImportBusy) return;
   const files = [...document.getElementById('keyword-files').files];
-  const scopeName = document.getElementById('keyword-scope-name').value.trim();
-  if (!scopeName || !files.length) { toast('请填写归属名称并选择文件'); return; }
+  const scopeSelect = document.getElementById('keyword-scope-name');
+  let scopeName = (scopeSelect.value === '__new__' ? document.getElementById('keyword-scope-new').value : scopeSelect.value).trim();
+  const nameKey = name => name.normalize('NFKC').toLocaleLowerCase();
+  const existing = [...scopeSelect.options].find(o => o.value && o.value !== '__new__' && nameKey(o.value) === nameKey(scopeName));
+  if (existing) scopeName = existing.value;
+  if (!scopeName || !files.length) { toast('请选择归属名称并选择文件；新增归属需要填写名称'); return; }
   if (files.length > 5 || files.some(f => f.size > 10 * 1024 * 1024) || files.reduce((n,f) => n + f.size, 0) > 20 * 1024 * 1024) { toast('最多5个文件，单个10MB，合计20MB'); return; }
   const form = new FormData(); form.append('customerId', customer.id); form.append('scopeType', document.getElementById('keyword-scope-type').value); form.append('scopeName', scopeName); files.forEach(f => form.append('files', f));
   const button = event.currentTarget; button.disabled = true; keywordImportBusy = true;
