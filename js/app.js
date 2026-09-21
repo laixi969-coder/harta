@@ -20,11 +20,13 @@ import {
   clientPacksForCustomer,
   hardBlockCount,
   isJudgmentPack,
+  selectedCustomerPack,
 } from "./customer-view.js";
 
 const state = {
   view: "today",
   customerStageFilter: 'new',
+  businessDrafts: new Map(),
   theme: document.documentElement.getAttribute("data-theme") || "light",
   workspace: { customers: [], ledger: [], feedback: {}, usingId: "" },
   platformFields: {},
@@ -632,9 +634,10 @@ function renderCustomerMaterialRecord(customer) {
   }
   if (business.dataset.customer !== customer.id) {
     business.dataset.customer = customer.id;
-    document.getElementById('business-pitch').value = customer.pitch || '';
-    document.getElementById('business-city').value = customer.city || '';
-    document.getElementById('business-notes').value = customer.salesMaterial || '';
+    const values = state.businessDrafts.get(customer.id) || customer;
+    document.getElementById('business-pitch').value = values.pitch || '';
+    document.getElementById('business-city').value = values.city || '';
+    document.getElementById('business-notes').value = values.salesMaterial || '';
   }
   document.getElementById("material-record-count").textContent = `附件 / ${String(sources.length).padStart(2, "0")}`;
   document.getElementById("material-record-engine").textContent = materialEngineText(analysis);
@@ -717,12 +720,7 @@ function packsOf(customer) {
 }
 
 function currentPack() {
-  const mine = usingCustomer();
-  const packs = packsOf(mine);
-  if (mine?.track === "存量" && !state.packId) {
-    return (mine.drops || [])[0] || null;
-  }
-  return packs.find((p) => p.id === state.packId) || packs[0] || null;
+  return selectedCustomerPack(usingCustomer(), state.packId);
 }
 
 function copyCount(pack) {
@@ -1947,24 +1945,33 @@ function bind() {
   });
 }
 
+let customerOpenRequest = 0;
 async function useCustomer(id, packId) {
-  state.openedId = id;
+  const request = ++customerOpenRequest;
+  try {
   const res = await fetch("/api/using", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id }),
   });
   const data = await res.json();
+  if (request !== customerOpenRequest) return false;
   if (!res.ok) {
     toast(data.error || "切不过去");
-    return;
+    return false;
   }
+  state.openedId = id;
   state.workspace = data;
   state.packId = packId || "";
   renderToday();
   renderLedger();
   renderLedgerForm();
   nav("today");
+  return true;
+  } catch {
+    if (request === customerOpenRequest) toast('打开客户失败，请重试');
+    return false;
+  }
 }
 
 /* ——— 模型接口：一个渠道一张卡。密钥地址一行一事，模型按能力分四栏、一行一个开关 ——— */
@@ -2959,13 +2966,22 @@ document.getElementById("change-pass")?.addEventListener("click", async () => {
   }
 });
 
+document.body.addEventListener('input', event => {
+  if (!event.target.closest('#customer-business')) return;
+  const id = document.getElementById('customer-business').dataset.customer;
+  state.businessDrafts.set(id, {pitch:document.getElementById('business-pitch').value, city:document.getElementById('business-city').value, salesMaterial:document.getElementById('business-notes').value});
+});
+
 document.body.addEventListener("click", async (e) => {
   const businessSave = e.target.closest('#save-customer-business');
   if (businessSave) {
     businessSave.disabled = true;
+    const customerId = document.getElementById('customer-business').dataset.customer;
+    const values = {pitch:document.getElementById('business-pitch').value, city:document.getElementById('business-city').value, salesMaterial:document.getElementById('business-notes').value};
     try {
-      const response = await fetch('/api/customer-business', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({customerId:document.getElementById('customer-business').dataset.customer, pitch:document.getElementById('business-pitch').value, city:document.getElementById('business-city').value, salesMaterial:document.getElementById('business-notes').value})});
+      const response = await fetch('/api/customer-business', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({customerId, ...values})});
       const data = await response.json(); if (!response.ok) throw Error(data.error || '保存失败');
+      if (JSON.stringify(state.businessDrafts.get(customerId)) === JSON.stringify(values)) state.businessDrafts.delete(customerId);
       state.workspace = data; renderToday(); toast('业务信息已保存');
     } catch (error) { toast(error.message); } finally { businessSave.disabled = false; }
     return;
@@ -2994,9 +3010,10 @@ document.body.addEventListener("click", async (e) => {
       const response = await fetch('/api/customer-stage', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({customerId:stageButton.dataset.customer, stage:stageButton.dataset.customerStage})});
       const data = await response.json();
       if (!response.ok) throw Error(data.error || '阶段更新失败');
-      state.workspace = data; state.packId = ''; state.customerStageFilter = stageButton.dataset.customerStage;
+      const isCurrent = usingCustomer()?.id === stageButton.dataset.customer;
+      state.workspace = data; if (isCurrent) state.packId = ''; state.customerStageFilter = stageButton.dataset.customerStage;
       renderToday(); renderCustomers();
-      if (stageButton.dataset.customerStage === 'cooperating') document.querySelector('[data-workspace-view="materials"]')?.click();
+      if (isCurrent && stageButton.dataset.customerStage === 'cooperating') document.querySelector('[data-workspace-view="materials"]')?.click();
       toast(`已转为${CUSTOMER_STAGES[stageButton.dataset.customerStage]}，资料与历史报告已保留`);
     } catch (error) { toast(error.message); stageButton.disabled = false; }
     return;
@@ -3026,7 +3043,7 @@ document.body.addEventListener("click", async (e) => {
     } else if (state.openedId !== using.dataset.using || state.packId !== (using.dataset.pack || "")) {
       state.contentFilter = { query: "", status: "all", kind: "all", group: "all", platform: "all", plan: "all" };
     }
-    await useCustomer(using.dataset.using, using.dataset.pack || "");
+    if (!await useCustomer(using.dataset.using, using.dataset.pack || "")) return;
     if (using.dataset.act === "scheduled") document.getElementById("content-console")?.scrollIntoView({ behavior: "smooth", block: "start" });
     if (using.dataset.act === "today") {
       document.getElementById("go-today")?.click();

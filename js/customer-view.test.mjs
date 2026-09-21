@@ -7,9 +7,17 @@ import {
   clientPacksForCustomer,
   hardBlockCount,
   latestAttributablePack,
+  selectedCustomerPack,
 } from "./customer-view.js";
 
 describe("客户档案在不同用户路径里的边界", () => {
+  it('跨客户或已删除的报告 ID 不能使合作工作区退回诊断报告', () => {
+    const customer={track:'存量',packs:[{id:'report'}],drops:[]};
+    expect(selectedCustomerPack(customer,'other-customer-report')).toBeNull();
+    expect(selectedCustomerPack(customer,'report').id).toBe('report');
+    customer.drops=[{id:'content'}];
+    expect(selectedCustomerPack(customer,'deleted').id).toBe('content');
+  });
   it('历史客户按已有记录归类，显式的新客户阶段不因生成报告而提前变成跟进', () => {
     expect(customerStage({track:'存量', packs:[]})).toBe('cooperating');
     expect(customerStage({track:'拓新', packs:[{id:'p'}]})).toBe('following');

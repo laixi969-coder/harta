@@ -11,6 +11,12 @@ export function clientPacksForCustomer(customer) {
   return customer?.packs || [];
 }
 
+export function selectedCustomerPack(customer, packId = '') {
+  const selected = packId && artifactsForCustomer(customer).find(pack => pack.id === packId);
+  if (selected) return selected;
+  return customer?.track === '存量' ? customer.drops?.[0] || null : customer?.packs?.[0] || null;
+}
+
 export function latestAttributablePack(customer) {
   return artifactsForCustomer(customer)[0] || null;
 }
