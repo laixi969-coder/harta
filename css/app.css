@@ -2367,3 +2367,63 @@ td:last-child { color: var(--ink-2); }
   .keyword-table td::before { content: attr(data-label) '：'; color: var(--ink-2); }
   .keyword-table td:has(details)::before { display: none; }
 }
+
+/* 开放式工作区：靠排版和留白分区，只让正文成为独立阅读底面。 */
+section[data-view] > .card, #owned-today .card { border: 0; border-radius: 0; box-shadow: none; background: transparent; padding: 0; margin-top: 32px; }
+#owned-today .kicker, #owned-today .record-k, #owned-today .chapter-name { display: none; }
+.workspace-panel[hidden] { display: none !important; }
+.workspace-nav { display: flex; gap: 28px; border-bottom: 1px solid var(--border); margin: 24px 0 32px; overflow-x: auto; }
+.workspace-nav button { flex-shrink: 0; min-height: 48px; padding: 12px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-2); font: inherit; cursor: pointer; }
+.workspace-nav button[aria-pressed="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.workspace-primary-actions { justify-content: flex-end; margin: 0 !important; }
+.workspace-context, .workspace-history { margin: 12px 0; max-width: 72ch; }
+.workspace-context summary, .workspace-history summary { min-height: 44px; padding: 10px 0; cursor: pointer; color: var(--ink-2); }
+#owned-today .chapter { display: block; margin: 24px 0 0; padding: 0; background: transparent; border: 0; }
+#owned-today .card-id { margin-top: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+#owned-today .content-console { margin: 28px 0; }
+#owned-today .content-filters { gap: 12px; }
+.content-reader { display: grid; grid-template-columns: minmax(200px, 0.32fr) minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 24px; }
+#content-reader-nav { display: grid; gap: 4px; position: sticky; top: 24px; }
+#content-reader-nav button { text-align: left; padding: 14px 16px; min-height: 44px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-2); cursor: pointer; font: inherit; }
+#content-reader-nav button strong { display: block; font-size: 14px; font-weight: 600; }
+#content-reader-nav button span { display: block; margin-top: 8px; font-size: 13px; line-height: 1.6; }
+#content-reader-nav button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink-1); }
+#content-reader-nav button:hover { color: var(--accent); }
+#owned-today .reader-paper { background: var(--bg); padding: clamp(20px, 3vw, 44px); border-radius: 8px; min-height: 360px; }
+.reader-hidden { display: none !important; }
+#owned-today .reader-paper .sleeve, #owned-today .reader-paper .slip { display: block; background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+#owned-today .reader-paper .sleeve-tab { background: transparent; border: 0; padding: 0 0 24px; font-size: 20px; }
+#owned-today .reader-paper .sleeve-body { padding: 0; }
+#owned-today .reader-paper .line-text { font-size: 16px; line-height: 1.95; white-space: pre-wrap; max-width: 68ch; }
+#owned-today .reader-paper .sleeve-num { display: none; }
+#owned-today .reader-paper .group-actions { margin-top: 12px; font-size: 12px; }
+#owned-today .folio, #owned-today .sleeve, #owned-today .plat { border-radius: 0; box-shadow: none; }
+#workspace-research { max-width: 1080px; }
+#workspace-research #growth-card { max-width: 72ch; padding-top: 32px; border-top: 1px solid var(--border); }
+#workspace-overview .desk-board > div, #workspace-overview #desk-unmarked { border: 0; box-shadow: none; border-radius: 0; background: transparent; padding: 0; }
+#workspace-overview .desk-board { gap: 48px; }
+#history { display: flex; flex-direction: column; gap: 0; }
+#history button { border: 0; border-bottom: 1px solid var(--border); box-shadow: none; background: transparent; border-radius: 0; padding: 12px 0; }
+#history button.on { color: var(--accent); }
+@media (max-width: 860px) {
+  .content-reader { grid-template-columns: 1fr; gap: 20px; }
+  #content-reader-nav { position: static; display: flex; overflow-x: auto; padding-bottom: 8px; }
+  #content-reader-nav button { flex: 0 0 190px; }
+  #content-reader-nav button span { display: none; }
+  .workspace-nav { gap: 24px; margin-bottom: 24px; }
+  .workspace-primary-actions { justify-content: flex-start; }
+  #owned-today .reader-paper { padding: 20px; }
+}
+.workspace-tools > summary { min-height: 44px; padding: 10px 0; color: var(--ink-2); cursor: pointer; }
+.workspace-tools[open] { padding-bottom: 20px; }
+#owned-today.is-content-preview .card-id { display: none; }
+#owned-today.is-content-preview #copies-title, #owned-today.is-content-preview #copies-note { display: none; }
+/* 保留有意义的卡片：完整内容与独立任务。目录和辅助信息保持开放。 */
+#owned-today .reader-paper { border: 1px solid color-mix(in oklch, var(--border) 60%, transparent); box-shadow: var(--paper-shadow); border-radius: 12px; }
+#workspace-overview .desk-board > div { padding: 24px; border-radius: 12px; background: var(--bg); box-shadow: var(--paper-shadow); }
+#workspace-materials .material-record { padding: 24px; border-radius: 12px; background: var(--bg); }
+.workspace-history, .workspace-context { margin: 4px 0; }
+#content-reader-nav button strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+#content-reader-nav button span { color: var(--ink-3); }
+#owned-today .reader-paper .sleeve-tab { display: block; line-height: 1.5; }
+#owned-today .reader-paper .group-actions { justify-content: flex-start; }

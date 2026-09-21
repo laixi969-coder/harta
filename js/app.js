@@ -1,3 +1,4 @@
+import { arrangeWorkspace, arrangeContentReader } from './customer-workspace.js';
 import { keywordLibraryView } from './keyword-library-view.js';
 import { attributionEntries, customerAttributions, platformOutcomes, shellFeedbackKey } from "./acquisition.js";
 import { bindEyes } from "./eyes.js";
@@ -701,6 +702,7 @@ function packsOf(customer) {
 
 function currentPack() {
   const mine = usingCustomer();
+  arrangeWorkspace(mine);
   const packs = packsOf(mine);
   if (mine?.track === "存量" && !state.packId) {
     return (mine.drops || [])[0] || null;
@@ -943,16 +945,8 @@ function renderToday() {
   const nAsk = pack?.questions?.length || 0;
   const headCount = nGap ? `${nGap} 个可利用的机会` : nAsk ? `${nAsk} 个待确认问题` : "";
   const deskHook = state.workspace.desk?.hook;
-  document.getElementById("hook-line").textContent = deskHook?.line
-    ? deskHook.line
-    : pack
-      ? `${mine.name} · 已生成${packLabel(pack.tier)}`
-      : mine.job
-        ? `${mine.name} 正在${mine.job.kind}，出好了这一页自己会刷新，不用守着。`
-        : mine.lastFail
-          ? `${mine.name} 这次没有生成成功：${mine.lastFail}。点“重新生成”再试一次。`
-          : `${mine.name} 还没有生成过${mine.track === "存量" ? "今日内容" : "报告"}`;
-  const facts = [...(deskHook?.facts || [])];
+  document.getElementById("hook-line").textContent = mine.name;
+  const facts = [mine.hunt, mine.track === "存量" ? "已有客户" : "潜在客户"].filter(Boolean);
   if (pack) {
     facts.push(`${pack.deliveredAt || pack.createdAt || pack.date || "历史批次"} 出的`);
     if (headCount) facts.push(headCount);
@@ -1484,6 +1478,7 @@ function renderToday() {
     <p class="meta">出价和定向让代运营定，我们负责让他们有好素材可投。</p>`;
 
   renderContentConsole(pack, mine, hardRows);
+  arrangeContentReader(pack);
 
   renderCustomers();
   renderPackIndex();
