@@ -1,4 +1,5 @@
 import { arrangeWorkspace, arrangeContentReader } from './customer-workspace.js';
+import { deliveryFields, platformKind, titleCount } from './platform-content.js';
 import { keywordLibraryView } from './keyword-library-view.js';
 import { attributionEntries, customerAttributions, platformOutcomes, shellFeedbackKey } from "./acquisition.js";
 import { bindEyes } from "./eyes.js";
@@ -752,8 +753,8 @@ function syncContentExportControls() {
   const isGroup = scope?.value === "group";
   if (group) group.disabled = !isGroup;
   if (kind) {
-    if (isGroup) kind.value = "copies";
-    kind.disabled = isGroup;
+    if (currentPack()?.origin?.mode==='organic') {kind.value='shells';kind.disabled=true;}
+    else {if (isGroup) kind.value = "copies";kind.disabled = isGroup;}
   }
 }
 
@@ -808,6 +809,10 @@ function renderContentConsole(pack, customer, hardRows) {
   if (!groups.includes(state.contentFilter.group)) state.contentFilter.group = "all";
   if (!platforms.includes(state.contentFilter.platform)) state.contentFilter.platform = "all";
   const counts = contentStateCounts(pack, state.workspace.contentStates, state.workspace.feedback);
+  const organic=pack.origin?.mode==='organic';
+  const kindFilter=document.getElementById('content-kind-filter');
+  if(organic && state.contentFilter.kind==='copy') state.contentFilter.kind='all';
+  if(kindFilter) {kindFilter.querySelector('option[value="copy"]').disabled=organic;kindFilter.querySelector('option[value="all"]').textContent=organic?'完整平台内容':'文案与平台版本';}
   const platformsInBatch = platformOutcomes({ id: customer.id, drops: [pack] }, state.workspace.contentStates, state.workspace.feedback);
   const itemRisks = [...document.querySelectorAll("[data-content-item][data-risk=\"1\"]")].length;
   document.getElementById("content-batch-title").textContent = `${pack.date || pack.deliveredAt || pack.createdAt || "本次"} · ${pack.batch ? `第 ${pack.batch} 批` : "内容批次"}`;
@@ -817,7 +822,7 @@ function renderContentConsole(pack, customer, hardRows) {
     ["平台已发", platformsInBatch.reduce((sum, row) => sum + row.published, 0)],
     ["平台反馈", platformsInBatch.reduce((sum, row) => sum + row.replied, 0)],
     ["风险", itemRisks],
-  ].filter(([label]) => pack.origin?.mode !== "organic" || label !== "平台反馈").map(([label, value]) => `<span><b>${value}</b>${label}</span>`).join("");
+  ].filter(([label]) => !organic || !['平台反馈','基础已发'].includes(label)).map(([label, value]) => `<span><b>${value}</b>${organic && label==='基础文案'?'完整内容':label}</span>`).join("");
   document.getElementById("content-learning").textContent = pack.origin?.mode === "organic" ? "按本批研究与用户保存的方向生成。需要调整时，在上方保存新的方向即可。" : learningSummary(customer, pack, state.workspace.feedback);
   replaceOptions(document.getElementById("content-group-filter"), groups, "全部方向", state.contentFilter.group);
   replaceOptions(document.getElementById("content-platform-filter"), platforms, "全部平台", state.contentFilter.platform);
@@ -988,7 +993,7 @@ function renderToday() {
   const batchQualityFail = (pack?.checks?.quality || []).some((row) => row.level === "hard" && row.scope === "batch");
   const publishBlocked = hardRows.length > 0;
   const copyButton = (text, label = "复制", contentKey = "") =>
-    batchQualityFail || blockedTexts.has(String(text || ""))
+    !text || batchQualityFail || blockedTexts.has(String(text || ""))
       ? `<button type="button" class="do" disabled title="这句存在质量或发布风险，请先修改或重新生成">先改再复制</button>`
       : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}"${contentKey ? ` data-content-copy="${esc(contentKey)}"` : ""}>${icon("copy")}${label}</button>`;
   const win = document.getElementById("win");
@@ -1403,20 +1408,23 @@ function renderToday() {
   // 一个「复制这条」按钮解决不了，那是把三个字段当成一句话。
   const outcomesByKey = new Map(attributionEntries(pack).map((entry) => [entry.key, entry]));
   const platBlock = (s, kind) => {
-    const fields = state.platformFields[s.name] || [{ key: "title", label: "文案" }];
+    const specific = deliveryFields(s.name);
+    const fields = specific.length ? specific : state.platformFields[s.name] || [{ key: "title", label: "文案" }];
     const items = s.lines
-      .map((raw, idx) => {
+      .map((raw, localIndex) => {
+        const idx=(s.offset || 0)+localIndex;
         const item = typeof raw === "string" ? { title: raw } : raw || {};
-        const present = fields.filter((f) => item[f.key]);
+        const present = fields.filter((f) => item[f.key] || editOf(pack,shellKey(s.name,idx,f.key)) || f.required || (pack.origin?.deliveryVersion>=2 && f.completeOnly));
         // 只有一个字段时不用标名字，那是废话
         const rows = present
           .map((f) => {
             const k = shellKey(s.name, idx, f.key);
-            const text = edited(pack, k, item[f.key]);
+            const text = edited(pack, k, item[f.key] || '');
             const was = editOf(pack, k)?.was;
-            const meta = contentItemMeta(pack, k, { kind: "shell", platform: s.name, text, risky: contentRisk(pack, text, hardRows) });
+            const meta = contentItemMeta(pack, k, { kind: "shell", group:pack.origin?.mode==='organic'?Object.keys(pack.copies||{})[idx]||'':'', platform: s.name, text, risky: !text || contentRisk(pack, text, hardRows) });
+            const meter=platformKind(s.name)==='xiaohongshu' && f.key==='title' ? ` · ${titleCount(text)}/20字` : '';
             return `<div class="line-row${isContentPack ? " content-shell-row" : ""}"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}" data-field="${esc(f.key)}" ${isContentPack ? meta.attrs : ""}>
-              ${isContentPack ? `<div class="content-shell-main">${contentPick(meta, `选择 ${s.name} 第 ${idx + 1} 条${f.label}`)}<div>` : "<div>"}${present.length > 1 ? `<p class="field-k">${esc(f.label)}</p>` : ""}<p class="line-text${f.key === "body" ? " asis" : ""}">${esc(text)}</p>
+              ${isContentPack ? `<div class="content-shell-main">${contentPick(meta, `选择 ${s.name} 第 ${idx + 1} 条${f.label}`)}<div>` : "<div>"}<p class="field-k">${esc(f.label)}${esc(meter)}</p>${f.note ? `<p class="meta">${esc(f.note)}</p>` : ''}<p class="line-text asis">${esc(text)}</p>${!text ? '<p class="meta">缺少此字段，请补齐或重新生成。</p>' : ''}
               ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}</div>
               <div class="acts-inline">
                 ${copyButton(text, "复制", isContentPack ? meta.key : "")}
@@ -1465,6 +1473,18 @@ function renderToday() {
     const only = mains.length ? mains : extras;
     const kind = mains.length ? "is-main" : "is-shell";
     platBox.innerHTML = `<div class="field-col">${only.map((s) => platBlock(s, kind)).join("")}</div>`;
+  }
+
+  // A natural-content batch is read as complete posts, with all platform fields together.
+  const organic=pack.origin?.mode==='organic';
+  document.getElementById('platform-card')?.classList.toggle('hidden',organic);
+  if(organic) {
+    document.getElementById('copies').innerHTML=`<div class="sleeves">${shells.flatMap(s=>s.lines.map((raw,index)=>{
+      const item=typeof raw==='string'?{title:raw}:raw || {};
+      const title=edited(pack,shellKey(s.name,index,'title'),item.title || '缺少标题');
+      return `<article class="sleeve sleeve-across" data-content-container><div class="sleeve-tab"><span><i class="sleeve-num">${index+1}</i>${esc(title)}</span><span>${esc(s.name)} · 完整内容</span></div><div class="sleeve-body">${platBlock({...s,lines:[raw],offset:index},'is-main')}</div></article>`;
+    })).join('')}</div>`;
+    platBox.innerHTML='';
   }
 
   const hasDelivery = Boolean(pack.testPath || pack.supply || pack.honest || (pack.next || []).length);
@@ -1779,6 +1799,14 @@ function bind() {
       ta.maxLength = LINE_EDIT_MAX;
       ta.title = `最多 ${LINE_EDIT_MAX.toLocaleString("zh-CN")} 字`;
       p.replaceWith(ta);
+      const keyParts=key.split('|');
+      const xhsTitle=keyParts.length===3 && platformKind(keyParts[0])==='xiaohongshu' && keyParts[2]==='title';
+      if(xhsTitle) {
+        ta.title='小红书标题最多20字（含英文、数字、标点）';
+        const meter=document.createElement('p');meter.className='meta';meter.setAttribute('aria-live','polite');
+        const update=()=>{const n=titleCount(ta.value.trim());meter.textContent=`${n}/20字 · 英文、数字、标点均计入${n>20?'，超限无法保存':''}`;ta.setAttribute('aria-invalid',String(n>20));};
+        ta.after(meter);ta.addEventListener('input',update);update();
+      }
       ta.focus();
       const save = async (text) => {
         const res = await fetch("/api/edit", {
@@ -1809,7 +1837,13 @@ function bind() {
         renderToday();
       };
       let cancelled = false;
-      ta.addEventListener("blur", () => { if (!cancelled) save(ta.value.trim()); }, { once: true });
+      let saving = false;
+      ta.addEventListener("blur", async () => {
+        if(cancelled || saving) return;
+        if(xhsTitle && titleCount(ta.value.trim())>20) {toast('小红书标题超过20字，请缩短后保存');ta.focus();return;}
+        saving=true;
+        try {await save(ta.value.trim());} catch {toast('连接中断，改稿仍保留在输入框中');} finally {saving=false;}
+      });
       ta.addEventListener("keydown", (ev) => {
         if (ev.key === "Escape") { cancelled = true; renderToday(); }
         if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) ta.blur();

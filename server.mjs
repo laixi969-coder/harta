@@ -274,8 +274,8 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const fields = {};
-    for (const p of ["巨量信息流", "朋友圈", "小红书", "百度", "视频号", "快手", "短视频", "千川"]) {
-      fields[p] = fieldsFor(p).map((f) => ({ key: f.key, label: f.label }));
+    for (const p of ["巨量信息流", "朋友圈", "小红书", "百度", "抖音", "视频号", "快手", "短视频", "B站", "公众号", "知乎", "千川"]) {
+      fields[p] = fieldsFor(p);
     }
     return json(res, 200, { fields });
   }

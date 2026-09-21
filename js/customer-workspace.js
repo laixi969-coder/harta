@@ -70,7 +70,7 @@ export function arrangeContentReader(pack) {
     const button=document.createElement('button');button.type='button';
     const name=(g.querySelector('.sleeve-tab > span')?.textContent || `内容 ${i+1}`).replace(/^[一二三四五六七八九]/,'');
     const heading=document.createElement('strong');heading.textContent=name;
-    const excerpt=document.createElement('span');excerpt.textContent=(g.querySelector('.line-text')?.textContent||'').slice(0,52);
+    const excerpt=document.createElement('span');excerpt.textContent=(g.querySelector('[data-field="body"] .line-text')?.textContent||g.querySelector('.line-text')?.textContent||'').slice(0,52);
     button.append(heading,excerpt);button.addEventListener('click',()=>select(i));list.append(button);
   });
   select(0);

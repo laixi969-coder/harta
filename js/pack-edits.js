@@ -8,6 +8,8 @@
  * 反馈的 key 是「组名 + 下标」，跟文字本身无关。所以只要不动数组结构，
  * 改文字反馈自动跟着走，不用重新对齐。 */
 
+import { CONTENT_FIELDS } from './platform-content.js';
+
 export function copyKey(group, i) {
   return `${group}|${i}`;
 }
@@ -42,8 +44,8 @@ export function packAsSent(pack) {
   for (const [plat, items] of Object.entries(pack?.shells || {})) {
     shells[plat] = (items || []).map((raw, i) => {
       const item = typeof raw === "string" ? { title: raw } : { ...(raw || {}) };
-      for (const f of ["cover", "title", "body"]) {
-        if (item[f]) item[f] = edited(pack, shellKey(plat, i, f), item[f]);
+      for (const f of CONTENT_FIELDS) {
+        if (item[f] || pack?.edits?.[shellKey(plat, i, f)]) item[f] = edited(pack, shellKey(plat, i, f), item[f] || '');
       }
       return item;
     });

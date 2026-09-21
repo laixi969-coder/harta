@@ -130,7 +130,7 @@
       "engine_type": "留资型 / 种草",
       "title_max": 20,
       "title_confidence": "medium",
-      "title_note": "标题超出会截断；小红书的标题即封面大字，权重极高",
+      "title_note": "笔记标题与图片封面文案是独立字段；工作台标题按保守计数最多20字，超限必须修改，不能只依赖显示截断。",
       "body_max": 1000,
       "body_confidence": "medium",
       "image_ratio": [

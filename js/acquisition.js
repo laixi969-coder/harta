@@ -1,5 +1,6 @@
 import { copyKey, edited, shellKey } from "./pack-edits.js";
 import { contentItemKey, contentStateOf } from "./content-workflow.js";
+import { CONTENT_FIELDS } from './platform-content.js';
 
 export const shellFeedbackKey = (packId, platform, index) => `${packId}-平台-${platform}-${index}`;
 
@@ -16,7 +17,7 @@ export function attributionEntries(pack) {
   for (const [platform, items] of Object.entries(pack?.shells || {})) {
     items.forEach((raw, i) => {
       const item = typeof raw === "string" ? { title: raw } : raw || {};
-      const fields = ["cover", "title", "body"].filter((field) => item[field]);
+      const fields = CONTENT_FIELDS.filter((field) => item[field] || pack?.edits?.[shellKey(platform,i,field)]);
       if (!fields.length) return;
       entries.push({
         key: shellFeedbackKey(pack.id, platform, i), packId: pack.id,
