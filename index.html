@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260921d">
+  <link rel="stylesheet" href="css/app.css?v=20260921e">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -98,6 +98,7 @@
         <div id="owned-today">
         <div id="history" class="history"></div>
         <article class="card form" id="keyword-card">
+          <div class="keyword-intake">
           <p class="kicker">业务关键词库</p><h2>导入领域、品类或品牌关键词</h2>
           <p class="meta">自动去重、拆解需求与咨询意图，梳理内容主题。原表中的指数和备注会保留来源；下一批研究和内容会自动参考。每次研究按归属和意图轮流选取最多80个词，随内容批次轮换。</p>
           <div class="keyword-scope">
@@ -108,18 +109,24 @@
           <p class="meta">支持 XLSX、CSV、TSV、TXT、Markdown、DOCX、文字型 PDF。最多5个文件，单个10MB、合计20MB；每批3000条。表格建议有“关键词”列。XLS/DOC 请先另存为新格式。</p>
           <div class="acts"><button class="btn" type="button" id="import-keywords">导入并自动梳理</button><a class="btn ghost" href="/api/keywords/template" download>下载表格模板</a></div>
           <p id="keyword-import-status" class="meta" role="status" aria-live="polite"></p>
+          </div>
+          <div class="keyword-results">
+          <h2>关键词资料库</h2>
           <label for="keyword-filter">查找已导入的词</label><input id="keyword-filter" type="search" placeholder="搜索关键词、归属、品类或品牌">
           <p id="keyword-search-status" class="meta" role="status" aria-live="polite" aria-atomic="true"></p>
           <div id="keyword-opportunities"></div>
           <div id="keyword-library-list"></div>
+          </div>
         </article>
         <article class="card form" id="growth-card">
+          <div class="growth-input">
           <p class="kicker">零投流内容获客</p><h2>获客打法与调整方向</h2>
           <p class="meta">结合业务资料、行业知识和外部研究出内容。按你的实际体验随时调整，无需逐篇填写反馈。</p>
           <label for="growth-direction">接下来希望怎样调整？</label>
           <textarea id="growth-direction" rows="3" maxlength="2000" placeholder="例如：优先做小红书，吸引更重视品质的客户；每周能拍两条视频，不方便出镜。"></textarea>
           <p class="meta">最多 2000 字。保存后用于下一批，历史内容保持原样。</p>
           <div class="acts"><button class="btn" type="button" id="save-growth-direction">保存方向</button></div>
+          </div>
           <div id="growth-research" aria-live="polite"></div>
         </article>
         <div class="win hidden" id="win"></div>
@@ -299,8 +306,10 @@
           <h1>客户与合作</h1>
         </div>
         <div id="customer-list" class="chase"></div>
-        <article class="card form">
-          <h2>新建</h2>
+        <article class="card form customer-create" id="customer-create">
+          <h2>新建客户</h2>
+          <div class="customer-create-grid">
+          <fieldset class="form-section"><legend>客户与合作信息</legend>
           <label for="hunt">目标行业</label>
           <select id="hunt"></select>
           <label for="new-hunt" id="new-hunt-label" class="hidden">新行业叫什么</label>
@@ -325,6 +334,8 @@
           <label for="pitch">一句话卖点</label>
           <textarea id="pitch" class="short-textarea" rows="3" maxlength="300" aria-describedby="pitch-count" placeholder="他们卖什么；可直接粘贴，框会自动换行"></textarea>
           <p class="field-meta"><span>最多 300 字，内容会完整保存</span><span id="pitch-count" data-char-count="pitch">0 / 300</span></p>
+          </fieldset>
+          <div class="customer-evidence">
           <div class="material-desk" id="material-desk">
             <div class="material-heading">
               <div>
@@ -369,11 +380,15 @@
               <p class="meta analysis-warning hidden" id="analysis-warning"></p>
             </div>
           </div>
+          <div class="customer-create-footer">
           <label for="cmaterial">销售补充（可选）</label>
           <textarea id="cmaterial" class="long-textarea" rows="8" maxlength="12000" aria-describedby="cmaterial-count" placeholder="会议信息、客户原话、暂时没有文件的材料；可粘贴长文"></textarea>
           <p class="field-meta"><span>最多 12,000 字；全部保存，生成报告时会优先读取这段</span><span id="cmaterial-count" data-char-count="cmaterial">0 / 12,000</span></p>
           <p class="meta">潜在客户：资料读取成功后生成报告；资料不足时只会给出待确认问题。已有客户：创建后直接生成一批内容，每次六篇，同一天可以继续生成。</p>
           <div class="acts"><button class="btn" id="create-customer" type="button">创建客户</button></div>
+          </div>
+          </div>
+          </div>
         </article>
       </section>
 
@@ -473,10 +488,7 @@
           <h2>需求研究数据源</h2>
           <p class="meta">SearXNG 或 Brave Search 查询平台规则和公开内容；5118 可补充需求词与相关指数。密钥仅保存在服务器，空白表示保留。</p>
           <p><a href="https://www.5118.com/apistore/detail/8cf3d6ed-2b12-ed11-8da8-e43d1a103141" target="_blank" rel="noopener noreferrer">开通 5118 长尾词 API</a> · <a href="https://api-dashboard.search.brave.com/" target="_blank" rel="noopener noreferrer">开通 Brave Search API</a></p>
-          <label for="research-searxng-url">SearXNG 自建搜索地址（开源，可替代 Brave）</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">配置后优先使用 SearXNG，需在服务端启用 JSON 搜索。清空地址可切回 Brave。</p>
-          <label for="research-rsshub-url">RSSHub 行业资讯地址（开源）</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">当前从 36 氪最新快讯匹配业务词，补充行业动向；不是全网历史搜索或平台流量指数。</p>
-          <label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password">
-          <label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password">
+          <div class="research-fields"><div class="research-field"><label for="research-searxng-url">SearXNG 自建搜索地址（开源，可替代 Brave）</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">配置后优先使用 SearXNG，需在服务端启用 JSON 搜索。清空地址可切回 Brave。</p></div><div class="research-field"><label for="research-rsshub-url">RSSHub 行业资讯地址（开源）</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">当前从 36 氪最新快讯匹配业务词，补充行业动向；不是全网历史搜索或平台流量指数。</p></div><div class="research-field"><label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password"></div><div class="research-field"><label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password"></div></div>
           <div class="acts"><button class="btn" type="button" id="save-research-config">保存数据源</button><button class="btn ghost" type="button" id="test-research-config">测试连接</button></div>
           <p class="meta">连接测试使用已保存配置，各执行一次小查询，会计入相应 API 额度。</p><p class="meta" id="research-config-status" role="status"></p>
         </article>

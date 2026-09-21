@@ -3271,7 +3271,7 @@ function renderGrowthResearch(customer, pack) {
   output.innerHTML = `<p class="meta">研究时间：${esc(research.checkedAt || "")} · ${research.reused ? "复用24小时内研究" : "本批研究"} · ${research.sources?.length || 0} 个网页来源 / ${research.keywords?.length || 0} 条需求词 / ${research.importedKeywords?.length || 0} 条导入参考词</p>
     ${research.direction !== (customer.growthDirection || "") ? '<p class="meta">方向已更新，这份历史研究仍保留当时的依据；下一批采用新方向。</p>' : ""}
     ${(research.warnings || []).map((w) => `<p class="meta">${esc(w)}</p>`).join("")}
-    ${Object.entries(labels).filter(([key]) => strategy[key]).map(([key, label]) => `<p><b>${label}</b>：${esc(strategy[key])}</p>`).join("")}
+    <div class="research-strategy">${Object.entries(labels).filter(([key]) => strategy[key]).map(([key, label]) => `<div><h3>${label}</h3><p>${esc(strategy[key])}</p></div>`).join("")}</div>
     ${(strategy.opportunities || []).length ? `<details><summary>需求与选题机会</summary>${strategy.opportunities.map((o) => `<p><b>${esc(o.need)}</b> · ${esc(o.intent)}<br>${esc(o.angle)}<br><span class="meta">${esc(o.reason)} ${esc((o.sourceIds || []).join("、"))}</span></p>`).join("")}</details>` : ""}
     ${(strategy.assumptions || []).length ? `<details><summary>待核实假设</summary>${strategy.assumptions.map((a) => `<p>${esc(a)}</p>`).join("")}</details>` : ""}
     ${(pack.execution || []).length ? `<details open><summary>六篇内容的发布顺序与制作建议</summary>${pack.execution.map((item) => `<p><b>${item.order}. ${esc(item.purpose)}</b><br>${esc(item.visual)}<br><span class="meta">${esc(item.reason)}</span></p>`).join("")}<p class="meta">完整文案与平台版本在下方内容库，可编辑、复制、排期和导出。</p></details>` : ""}
