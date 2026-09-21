@@ -2,6 +2,12 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <script>
+    // 双击本地入口时进入工作台服务，确保模块、登录与行业资料正常加载。
+    if (location.protocol === 'file:') {
+      location.replace('http://127.0.0.1:5173/' + location.search + location.hash);
+    }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
   <link rel="stylesheet" href="css/app.css?v=20260921h">
