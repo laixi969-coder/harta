@@ -702,7 +702,6 @@ function packsOf(customer) {
 
 function currentPack() {
   const mine = usingCustomer();
-  arrangeWorkspace(mine);
   const packs = packsOf(mine);
   if (mine?.track === "存量" && !state.packId) {
     return (mine.drops || [])[0] || null;
@@ -904,6 +903,7 @@ function renderAcquisition(customer) {
 function renderToday() {
   renderJobCenter();
   const mine = usingCustomer();
+  document.querySelector(".workspace-primary-actions")?.classList.toggle("hidden", !mine);
   renderAcquisition(mine);
   const empty = document.getElementById("empty-today");
   const owned = document.getElementById("owned-today");
@@ -924,6 +924,7 @@ function renderToday() {
 
   const packs = packsOf(mine);
   const pack = currentPack();
+  arrangeWorkspace(mine, pack);
   if (pack && !state.packId) state.packId = pack.id;
   const isContentPack = pack?.tier === "今日";
   const chapterName = document.getElementById("content-chapter-name");
@@ -2174,8 +2175,8 @@ async function boot() {
   who.textContent = user.email;
   // 设置人人都有。销售那页只有密码，超管多出名单和模型两块。
   document.getElementById("settings-line").textContent = user.isAdmin
-    ? "密钥和谁能进这个台子，只有你能定。"
-    : "这台子上你能设的只有密码。别的都跟着客户走。";
+    ? "工作台设置"
+    : "账号设置";
   if (user.isAdmin) {
     document.getElementById("whitelist-card").classList.remove("hidden");
     document.getElementById("research-settings").classList.remove("hidden");

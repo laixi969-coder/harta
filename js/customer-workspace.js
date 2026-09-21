@@ -1,13 +1,18 @@
 let customerId='', active='content';
 const titles={content:'内容',research:'需求研究',materials:'业务资料',overview:'全部待办'};
-export function arrangeWorkspace(customer) {
+export function arrangeWorkspace(customer, pack) {
   const root=document.getElementById('owned-today');
   if(!document.getElementById('workspace-nav')) {
     const nav=document.createElement('nav');nav.id='workspace-nav';nav.className='workspace-nav';nav.setAttribute('aria-label','客户工作区');
     root.prepend(nav);
     const panels={};
     for(const [key,label] of Object.entries(titles)) {
-      const button=document.createElement('button');button.type='button';button.textContent=label;button.dataset.workspaceView=key;button.setAttribute('aria-controls','workspace-'+key);nav.append(button);
+      const button=document.createElement('button');button.type='button';button.setAttribute('aria-label',label);
+      const title=document.createElement('strong');title.className='workspace-tile-title';title.textContent={content:'CONTENT',research:'RESEARCH',materials:'MATERIAL',overview:'NEXT UP'}[key];
+      const caption=document.createElement('span');caption.className='workspace-tile-caption';caption.textContent=label;
+      const count=document.createElement('span');count.className='workspace-tile-count';
+      const arrow=document.createElement('span');arrow.className='workspace-tile-arrow';arrow.textContent='↗';arrow.setAttribute('aria-hidden','true');
+      button.append(title,caption,count,arrow);button.dataset.workspaceView=key;button.setAttribute('aria-controls','workspace-'+key);nav.append(button);
       const panel=document.createElement('div');panel.id='workspace-'+key;panel.className='workspace-panel';panels[key]=panel;root.append(panel);
       button.addEventListener('click',()=>{active=key;show();});
     }
@@ -16,7 +21,7 @@ export function arrangeWorkspace(customer) {
     for(const id of ['material-record-card','acquisition-card'])panels.materials.append(document.getElementById(id));
     panels.overview.append(document.getElementById('desk-card'));
     // 全局待办移到独立入口，客户内容页只呈现当前业务。
-    const actions=document.getElementById('go-today').parentElement;actions.classList.add('workspace-primary-actions');nav.before(actions);
+    const actions=document.getElementById('go-today').parentElement;actions.classList.add('workspace-primary-actions');document.getElementById('hook-line').parentElement.append(actions);
     const gate=document.getElementById('hook-gate');const details=document.createElement('details');details.className='workspace-context';
     const summary=document.createElement('summary');summary.textContent='本批依据与适用条件';details.append(summary,gate);panels.content.prepend(details);
     const consolePanel=document.getElementById('content-console');
@@ -34,6 +39,8 @@ export function arrangeWorkspace(customer) {
   if(customerId!==customer.id){customerId=customer.id;active='content';}
   let empty=document.getElementById('workspace-materials-empty');
   if(!empty){empty=document.createElement('p');empty.id='workspace-materials-empty';empty.className='meta';empty.textContent='这里保留已上传的业务资料与历史跟进记录。可从客户页面补充资料。';document.getElementById('workspace-materials').prepend(empty);}
+  const values={content:pack ? `${Object.values(pack.copies||{}).flat().length} 篇` : '待创建',research:`${(customer.keywordLibraries||[]).reduce((n,b)=>n+(b.items?.length||0),0)} 词`,materials:customer.materialReady ? '已读取' : '待补充',overview:customer.job ? '生成中' : '查看待办'};
+  for(const [key,value] of Object.entries(values))document.querySelector(`[data-workspace-view="${key}"] .workspace-tile-count`).textContent=value;
   show();
 }
 function show(){

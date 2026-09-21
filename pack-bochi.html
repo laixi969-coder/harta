@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>南洲柏齿｜获客素材提案</title>
-  <link rel="stylesheet" href="css/app.css?v=20260901a">
+  <link rel="stylesheet" href="css/app.css?v=20260921c">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
-      var t = q || localStorage.getItem("harta-theme") || "light";
+      var fresh = localStorage.getItem("harta-visual-version") !== "color-block-v1";
+      var t = q || (fresh ? "dark" : localStorage.getItem("harta-theme") || "dark");
+      if (fresh) { localStorage.setItem("harta-theme", t); localStorage.setItem("harta-visual-version", "color-block-v1"); }
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>

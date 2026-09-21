@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>登录 · 灵鹿增长</title>
-  <link rel="stylesheet" href="css/app.css?v=20260901a">
+  <link rel="stylesheet" href="css/app.css?v=20260921c">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
-      var t = q || localStorage.getItem("harta-theme") || "light";
+      var fresh = localStorage.getItem("harta-visual-version") !== "color-block-v1";
+      var t = q || (fresh ? "dark" : localStorage.getItem("harta-theme") || "dark");
+      if (fresh) { localStorage.setItem("harta-theme", t); localStorage.setItem("harta-visual-version", "color-block-v1"); }
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
@@ -16,7 +18,7 @@
 <body>
   <a class="skip" href="#form">跳到登录</a>
   <div class="gate">
-    <aside class="gate-panel">
+    <aside class="gate-panel"><div class="gate-statement"><span>HARTA / WORKSPACE</span><h2>MAKE<br>CONTENT<br>MATTER.</h2><p>让每一篇内容，都有明确的方向。</p></div>
       <div>
         <img class="logo" src="images/logo-harta-dark.png" width="989" height="390" alt="灵鹿线索 HARTA">
         <p class="brand-line">助力线索｜引流｜获客</p>

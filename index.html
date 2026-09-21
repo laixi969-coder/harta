@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260904a">
+  <link rel="stylesheet" href="css/app.css?v=20260921c">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
-      var t = q || localStorage.getItem("harta-theme") || "light";
+      var fresh = localStorage.getItem("harta-visual-version") !== "color-block-v1";
+      var t = q || (fresh ? "dark" : localStorage.getItem("harta-theme") || "dark");
+      if (fresh) { localStorage.setItem("harta-theme", t); localStorage.setItem("harta-visual-version", "color-block-v1"); }
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
@@ -294,7 +296,7 @@
       <section class="hidden" data-view="customers">
         <div class="hook">
           <p class="kicker">客户</p>
-          <h1>自己的客户。未标明种类的先选一次。</h1>
+          <h1>客户与合作</h1>
         </div>
         <div id="customer-list" class="chase"></div>
         <article class="card form">
@@ -378,7 +380,7 @@
       <section class="hidden" data-view="pack">
         <div class="hook">
           <p class="kicker">客户报告</p>
-          <h1>已生成、可发给客户的报告。</h1>
+          <h1>交付给客户</h1>
           <p class="meta">下载 PDF 后可直接发送；下载 Word 后可继续修改。内容批次请到「今天」的内容库筛选、安排和导出。</p>
         </div>
         <div id="pack-list" class="chase"></div>
@@ -387,7 +389,7 @@
       <section class="hidden" data-view="ledger">
         <div class="hook">
           <p class="kicker">跟进记录</p>
-          <h1>对方原话原样记。问价和成交，回头翻得出来。</h1>
+          <h1>每一次进展</h1>
         </div>
         <article class="card form hidden" id="ledger-form-card">
           <h2>记一笔</h2>
@@ -427,7 +429,7 @@
       <section class="hidden" data-view="crew">
         <div class="hook">
           <p class="kicker">全组</p>
-          <h1>全组的枪往哪边打准了。</h1>
+          <h1>团队概览</h1>
           <p class="meta" id="crew-line">只有你能看这一页。这里只有数，不拆到人。</p>
         </div>
         <article class="card">
