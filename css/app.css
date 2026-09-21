@@ -2890,3 +2890,10 @@ section[data-view="settings"] > #whitelist-card { border-top-color: var(--block-
  #customer-list .row, #pack-list .row { padding: 20px; }
  #customer-list .row strong, #pack-list .row strong { font-size: 21px; }
 }
+/* Short directory rows can carry full colour; long reading cards stay softly tinted. */
+#customer-list .row, #pack-list .row { --row-ink: var(--block-ink); --row-muted: #353943; background: var(--row-color); color: var(--row-ink); border: 0; }
+#pack-list .row { --row-ink: var(--block-light); --row-muted: #eee9ff; }
+#pack-list .row:nth-child(even) { --row-ink: var(--block-ink); --row-muted: #353039; }
+#customer-list .row .row-main, #pack-list .row .row-main, #customer-list .row strong, #pack-list .row strong { color: var(--row-ink); }
+#customer-list .row .meta, #pack-list .row .meta { color: var(--row-muted); }
+#customer-list .row:hover, #pack-list .row:hover { background: var(--row-color); box-shadow: 0 8px 24px #08090d22; }
