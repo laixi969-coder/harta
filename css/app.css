@@ -2628,3 +2628,49 @@ section[data-view="ledger"] > .card:last-child { border: 0; padding: 0; backgrou
  .mast { display: none; }
  .topbar { padding-top: 8px; padding-bottom: 8px; }
 }
+
+/* Long explanations: group the information, then share the available width. */
+#workspace-checks { max-width: none; width: 100%; }
+#workspace-checks > summary { padding: 16px 0; border-bottom: 1px solid var(--border); }
+#checks-card { padding: 24px 0; }
+#checks-card > h2 { margin-bottom: 24px; }
+.check-group { display: grid; grid-template-columns: 150px minmax(0,1fr); gap: 24px; padding: 24px 0; border-top: 1px solid var(--border); }
+.check-group > header { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.check-group h3 { margin: 0; font-size: 20px; font-weight: 700; color: var(--ink-1); }
+.check-count { padding: 5px 10px; background: var(--panel-2); border-radius: 999px; color: var(--ink-2); font: 13px var(--font-meta); }
+.check-items { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; min-width: 0; }
+#checks .check-items > .line { padding: 20px 22px; margin: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; min-width: 0; }
+#checks .check-items > .line:only-child { grid-column: 1 / -1; }
+#checks .line p { max-width: none; margin: 0; font-size: 15px; line-height: 1.85; overflow-wrap: anywhere; }
+#checks .line p + p { margin-top: 12px; }
+#checks .line b { font-family: var(--font-display); font-size: 15px; font-weight: 700; letter-spacing: 0; vertical-align: baseline; color: var(--ink-1); }
+.check-group[data-check-kind="redline"] > header, .check-group[data-check-kind="sensitive"] > header { border-left: 3px solid var(--down); padding-left: 12px; }
+.check-note { padding: 18px 22px; margin: 16px 0 0; background: var(--panel-2); border-radius: 12px; }
+#breaks > .notes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+#breaks .note { padding: 22px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; min-width: 0; }
+@media (max-width: 1100px) { .check-group { grid-template-columns: minmax(0,1fr); gap: 16px; } .check-group > header { flex-direction: row; align-items: center; } }
+@media (max-width: 640px) { .check-items, #breaks > .notes { grid-template-columns: minmax(0,1fr); } #checks .check-items > .line { padding: 18px; } }
+
+/* Platform packages use the full workspace; short fields sit beside the body. */
+#plats.field-grid-one { grid-template-columns: minmax(0,1fr); }
+#plats .field-col { min-width: 0; }
+#plats .plat { container-type: inline-size; padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg); }
+#plats .plat > h3 { margin: 0 0 24px; padding-bottom: 18px; border-bottom: 1px solid var(--border); font-size: 22px; }
+#plats .platform-post { display: grid; grid-template-columns: minmax(0,.75fr) minmax(0,1.25fr); gap: 16px 24px; padding: 24px 0; border-bottom: 1px solid var(--border); }
+#plats .platform-post:last-child { border-bottom: 0; }
+#plats .platform-post > .line-row { grid-column: 1; margin: 0 !important; padding: 20px; background: var(--panel-2); border-radius: 12px; min-width: 0; }
+#plats .platform-post > [data-field="body"] { grid-column: 2; grid-row: 1 / span 3; background: transparent; border-left: 1px solid var(--border); border-radius: 0; }
+#plats .platform-post:not(:has([data-field="body"])) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+#plats .platform-post:not(:has([data-field="body"])) > .line-row { grid-column: auto; }
+#plats .platform-post:not(:has(.line-row:not([data-field="body"]))) > [data-field="body"] { grid-column: 1 / -1; border-left: 0; }
+#plats .platform-outcome { grid-column: 1 / -1; margin: 0; padding: 16px 0 0; border-top: 1px solid var(--border); }
+#plats .field-k { margin-bottom: 12px; color: var(--ink-2); font-size: 13px; }
+#plats .line-text { max-width: none; font-size: 16px; line-height: 1.85; font-weight: 400; }
+#plats .acts-inline { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border); gap: 16px; }
+@container (max-width: 650px) {
+ #plats .platform-post, #plats .platform-post:not(:has([data-field="body"])) { grid-template-columns: minmax(0,1fr); }
+ #plats .platform-post > [data-field="body"] { grid-column: 1; grid-row: auto; border-left: 0; background: var(--panel-2); border-radius: 12px; }
+}
+@media (max-width: 640px) { #plats .plat { padding: 16px; } #plats .platform-post > .line-row { padding: 16px; } }
+#plats .platform-post > .line-row { display: block; align-self: stretch; }
+.check-items > .line:last-child:nth-child(odd) { grid-column: 1 / -1; }

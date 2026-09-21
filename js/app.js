@@ -1251,9 +1251,20 @@ function renderToday() {
       ),
     ];
     checksCard.classList.toggle("hidden", !rows.length);
-    document.getElementById("checks").innerHTML = rows.length
-      ? rows.join("") + `<p class="meta" style="margin-top:12px">${esc(c.note || "")}</p>`
-      : "";
+    const checkGroups = [
+      ["guardrails", "上线边界"], ["sensitive", "隐私风险"],
+      ["redline", "发布风险"], ["watch", "语境核查"],
+      ["hints", "镜头提示"], ["length", "平台长度"], ["quality", "内容质量"],
+    ];
+    let checkOffset = 0;
+    document.getElementById("checks").innerHTML = checkGroups.map(([key, title]) => {
+      const count = (c[key] || []).length;
+      const items = rows.slice(checkOffset, checkOffset + count);
+      checkOffset += count;
+      return count ? `<section class="check-group" data-check-kind="${key}" aria-labelledby="check-title-${key}">
+        <header><h3 id="check-title-${key}">${title}</h3><span class="check-count">${count} 项</span></header>
+        <div class="check-items">${items.join("")}</div></section>` : "";
+    }).join("") + (rows.length && c.note ? `<p class="check-note meta">${esc(c.note)}</p>` : "");
   }
 
   document.getElementById("gaps").innerHTML = `<div class="sleeves">${(pack.gaps || [])
@@ -1404,7 +1415,7 @@ function renderToday() {
             const text = edited(pack, k, item[f.key]);
             const was = editOf(pack, k)?.was;
             const meta = contentItemMeta(pack, k, { kind: "shell", platform: s.name, text, risky: contentRisk(pack, text, hardRows) });
-            return `<div class="line-row${isContentPack ? " content-shell-row" : ""}"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}" ${isContentPack ? meta.attrs : ""}>
+            return `<div class="line-row${isContentPack ? " content-shell-row" : ""}"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}" data-field="${esc(f.key)}" ${isContentPack ? meta.attrs : ""}>
               ${isContentPack ? `<div class="content-shell-main">${contentPick(meta, `选择 ${s.name} 第 ${idx + 1} 条${f.label}`)}<div>` : "<div>"}${present.length > 1 ? `<p class="field-k">${esc(f.label)}</p>` : ""}<p class="line-text${f.key === "body" ? " asis" : ""}">${esc(text)}</p>
               ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}</div>
               <div class="acts-inline">
@@ -1420,7 +1431,7 @@ function renderToday() {
         const outcome = state.workspace.feedback?.[outcomeKey];
         const entry = outcomesByKey.get(outcomeKey);
         const published = entry?.contentKeys.every((key) => contentStateOf(state.workspace.contentStates, key).status === "published");
-        return `<div class="line slip"${isContentPack ? " data-content-container" : ""}>${rows}
+        return `<div class="line slip platform-post"${isContentPack ? " data-content-container" : ""}>${rows}
           ${isContentPack ? `<div class="slip-bar platform-outcome"><div class="slip-step">
             <button type="button" class="textish" data-publish-post="${esc(outcomeKey)}" ${published ? "disabled" : ""}>${published ? "整条已发布" : "标记整条已发布"}</button>
             ${pack.origin?.mode !== "organic" ? `<button type="button" class="verdict ${outcome === "replied" ? "on-yes" : ""}" data-fb="${esc(outcomeKey)}" data-val="replied" aria-pressed="${outcome === "replied"}">有客户反馈</button>
