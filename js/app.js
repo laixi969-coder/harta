@@ -2519,7 +2519,7 @@ document.getElementById("pack-autofix")?.addEventListener("click", async (e) => 
     if (data.fixed && !left) toast(`已自动修复 ${data.fixed} 处，可以下载了`);
     else if (data.fixed) toast(`已自动修复 ${data.fixed} 处，还剩 ${left} 处。请打开「发出去之前」，点「改这条」`);
     else if (left > 0) toast("自动改写没通过。请打开「发出去之前」，点「改这条」");
-    else toast("剩下的要连起来看：同一句换了几个字，或几个平台写成了同一句。请在对应文案里改");
+    else toast("剩下的没有可以按句自动改的内容。请打开「发出去之前」看每一条的原因");
     if (!data.fixed || left > 0) {
       const checks = document.getElementById("workspace-checks");
       if (checks) checks.open = true;
