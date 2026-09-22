@@ -1326,14 +1326,11 @@ function renderToday() {
     .map((g, i) => {
       const items = g.rows
         .map((row) => {
-          // 显示、复制、发出去的都是改后那版。原句只在底下小字里留个底
           const k = copyKey(g.group, row.i);
           const text = edited(pack, k, row.text);
-          const was = editOf(pack, k)?.was;
           const meta = contentItemMeta(pack, k, { kind: "copy", group: g.group, text, risky: contentRisk(pack, text, hardRows) });
           return `<div class="line slip${isContentPack ? " content-line" : ""}" data-line="${encodeURIComponent(k)}" ${isContentPack ? meta.attrs : ""}>
             ${isContentPack ? contentPick(meta, `选择 ${g.group} 第 ${row.i + 1} 条`) + '<div class="content-line-main">' : ""}<p class="line-text">${esc(text)}</p>
-            ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}
             <div class="slip-bar">
               <div class="slip-step">
                 ${copyButton(text, "复制这条", isContentPack ? meta.key : "")}
@@ -1437,12 +1434,10 @@ function renderToday() {
           .map((f) => {
             const k = shellKey(s.name, idx, f.key);
             const text = edited(pack, k, item[f.key] || '');
-            const was = editOf(pack, k)?.was;
             const meta = contentItemMeta(pack, k, { kind: "shell", group:pack.origin?.mode==='organic'?Object.keys(pack.copies||{})[idx]||'':'', platform: s.name, text, risky: !text || contentRisk(pack, text, hardRows) });
             const meter=platformKind(s.name)==='xiaohongshu' && f.key==='title' ? ` · ${titleCount(text)}/20字` : '';
             return `<div class="line-row${isContentPack ? " content-shell-row" : ""}"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}" data-field="${esc(f.key)}" ${isContentPack ? meta.attrs : ""}>
-              ${isContentPack ? `<div class="content-shell-main">${contentPick(meta, `选择 ${s.name} 第 ${idx + 1} 条${f.label}`)}<div>` : "<div>"}<p class="field-k">${esc(f.label)}${esc(meter)}</p><p class="line-text asis">${esc(text)}</p>${!text ? '<p class="meta">缺少此字段，请补齐或重新生成。</p>' : ''}
-              ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}</div>
+              ${isContentPack ? `<div class="content-shell-main">${contentPick(meta, `选择 ${s.name} 第 ${idx + 1} 条${f.label}`)}<div>` : "<div>"}<p class="field-k">${esc(f.label)}${esc(meter)}</p><p class="line-text asis">${esc(text)}</p>${!text ? '<p class="meta">缺少此字段，请补齐或重新生成。</p>' : ''}</div>
               <div class="acts-inline">
                 ${copyButton(text, "复制", isContentPack ? meta.key : "")}
                 <button type="button" class="textish" data-edit="${encodeURIComponent(k)}">编辑</button>

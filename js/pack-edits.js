@@ -24,7 +24,7 @@ export function edited(pack, key, raw) {
   return cleanDeliverable(typeof now === "string" && now ? now : raw);
 }
 
-/** 改过没有，改之前是什么。给界面显示「改过 · 原句是 xxx」用。 */
+/** 改过没有。界面只展示最终句子，原句不印出来。 */
 export function editOf(pack, key) {
   return pack?.edits?.[key] || null;
 }
