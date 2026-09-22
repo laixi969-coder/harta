@@ -53,7 +53,7 @@ const MATERIAL_MAX_LINKS = 20;
 
 /* 图标统一从 index.html 顶部的 sprite 取，跟随文字颜色。只在导航、关键动作、回音状态用。 */
 const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
-const LINE_EDIT_MAX = 2000;
+const LINE_EDIT_MAX = 12000;
 const MATERIAL_EXTS = new Set([
   "pdf", "docx", "doc", "pptx", "ppt", "xlsx", "xls", "odt", "rtf",
   "txt", "md", "csv", "json", "html", "htm",
@@ -260,6 +260,13 @@ function hardRowLabel(row) {
   if (row.platform && row.field) return `${row.where} 有 ${row.n} 字（上限约 ${row.max} 字）`;
   if (row.words?.length) return `${row.where} 里的「${row.words.join("、")}」`;
   return `${row.where || "这一条"}：${row.why || "要先改"}`;
+}
+
+/** 检查区本身不改字。按钮跳到下方同一句，打开那一条的编辑框。 */
+function editThisButton(text) {
+  const body = String(text || "").trim();
+  if (!body) return "";
+  return `<button type="button" class="textish" data-check-edit="${encodeURIComponent(body)}">改这条</button>`;
 }
 
 function jobPercent(job) {
@@ -1010,6 +1017,17 @@ function renderToday() {
     !text || batchQualityFail || blockedTexts.has(String(text || ""))
       ? `<button type="button" class="do" disabled title="这句存在质量或发布风险，请先修改或重新生成">先改再复制</button>`
       : `<button type="button" class="do" data-copy="${encodeURIComponent(text)}"${contentKey ? ` data-content-copy="${esc(contentKey)}"` : ""}>${icon("copy")}${label}</button>`;
+  const landingLine = (key, text, label = "") => {
+    const encoded = encodeURIComponent(key);
+    return `<div class="line slip" data-line="${encoded}">
+      ${label ? `<p class="field-k">${esc(label)}</p>` : ""}
+      <p class="line-text">${esc(text || "")}</p>
+      <div class="slip-bar"><div class="slip-step">
+        ${copyButton(text || "", "复制")}
+        <button type="button" class="textish" data-edit="${encoded}">编辑</button>
+      </div></div>
+    </div>`;
+  };
   const win = document.getElementById("win");
   // 跨批次找：刚补的新批自己没反馈，别让他上周点过的回音凭空消失。
   // 只翻当前这位客户的档——别人的回音不挂到这位脸上
@@ -1149,7 +1167,7 @@ function renderToday() {
       if (publishBlocked) {
         const named = hardRows.slice(0, 3).map(hardRowLabel).join("；");
         const more = hardRows.length > 3 ? `等 ${hardRows.length} 处` : "";
-        exportNote.textContent = `还有 ${hardBlockCount(pack)} 处需要处理：${named}${more}。可点“自动修复”让系统修改，或在下方“发出去之前”手动修改；处理完成后才能下载报告。`;
+        exportNote.textContent = `还有 ${hardBlockCount(pack)} 处需要处理：${named}${more}。能按句改的点「自动修复」；没改掉的，打开下方「发出去之前」，点该条的「改这条」。处理完才能下载报告。`;
       } else {
         exportNote.textContent = "";
       }
@@ -1242,11 +1260,11 @@ function renderToday() {
       ...(c.sensitive || []).map(
         (r) => `<div class="line"><p><b>隐私风险</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
           <p class="meta">普通获客表单不能在第一步收医疗健康敏感信息，转入合规医疗流程再最小化收集</p>
-          <p class="meta">${esc(r.text)}</p></div>`,
+          <p class="meta">${esc(r.text)}</p>${editThisButton(r.text)}</div>`,
       ),
       ...(c.redline || []).map(
         (r) => `<div class="line"><p><b>发布风险</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
-          <p class="meta">${esc(r.text)}</p></div>`,
+          <p class="meta">${esc(r.text)}</p>${editThisButton(r.text)}</div>`,
       ),
       ...(c.watch || []).map(
         (r) => `<div class="line"><p><b>看一眼</b> ${esc(r.words.join("、"))} · ${esc(r.where)}</p>
@@ -1261,12 +1279,12 @@ function renderToday() {
       ...(c.length || []).map(
         (r) => `<div class="line"><p><b>${r.level === "hard" ? "发不出去" : "会有代价"}</b> ${esc(r.platform)} · ${esc(r.field)} 约 ${r.max} 字，这条 ${r.n} 字</p>
           <p class="meta">${esc(r.why || "")}</p>
-          <p class="meta">${esc(r.text)}</p></div>`,
+          <p class="meta">${esc(r.text)}</p>${r.level === "hard" ? editThisButton(r.text) : ""}</div>`,
       ),
       ...(c.quality || []).map(
         (r) => `<div class="line"><p><b>${r.level === "hard" ? "质量过不了" : "不像这个平台"}</b> ${esc(r.where)}</p>
           <p class="meta">${esc(r.why || "")}</p>
-          ${r.text ? `<p class="meta">${esc(r.text)}</p>` : ""}</div>`,
+          ${r.text ? `<p class="meta">${esc(r.text)}</p>` : ""}${r.level === "hard" ? editThisButton(r.text) : ""}</div>`,
       ),
     ];
     checksCard.classList.toggle("hidden", !rows.length);
@@ -1358,17 +1376,10 @@ function renderToday() {
         <article class="sleeve sleeve-across">
           <div class="sleeve-tab"><span><i class="sleeve-num">一</i>第一屏那句话</span><span>${esc(l.way || "")}</span></div>
           <div class="sleeve-body">
-            <div class="line slip">
-              <p class="line-text">${esc(l.firstScreen)}</p>
-              <div class="slip-bar"><div class="slip-step">
-                ${copyButton(l.firstScreen, "复制这句")}
-              </div></div>
-            </div>
-            <div class="sleeve-fields">
-              <div class="full"><p class="field-k">留了资立刻给</p><p>${esc(l.reward || "")}</p></div>
-              <div class="${l.leak ? "" : "full"}"><p class="field-k">表单只问</p><p>${esc((l.form || []).join("；") || "没写")}</p></div>
-              ${l.leak ? `<div><p class="field-k">最常漏在这</p><p>${esc(l.leak)}</p></div>` : ""}
-            </div>
+            ${landingLine("landing|firstScreen", l.firstScreen)}
+            ${l.leak ? `<div class="sleeve-fields"><div><p class="field-k">最常漏在这</p><p>${esc(l.leak)}</p></div></div>` : ""}
+            ${(l.form || []).map((item, i) => landingLine(`landing|form|${i}`, item, `表单第 ${i + 1} 项`)).join("") || `<p class="meta">表单没写</p>`}
+            ${l.reward ? landingLine("landing|reward", l.reward, "留资后给") : ""}
           </div>
         </article>
         ${
@@ -1377,22 +1388,14 @@ function renderToday() {
           <div class="sleeve-tab"><span><i class="sleeve-num">二</i>线索来了第一句</span><span>先兑现，不推销</span></div>
           <div class="sleeve-body">
             ${l.firstTouch.open
-              .map(
-                (o) => `<div class="line slip">
-              ${o.from ? `<p class="field-k">${esc(o.from)}</p>` : ""}
-              <p class="line-text">${esc(o.say)}</p>
-              <div class="slip-bar"><div class="slip-step">
-                ${copyButton(o.say)}
-              </div></div>
-            </div>`,
-              )
+              .map((o, i) => landingLine(`landing|open|${i}`, o.say, o.from || ""))
               .join("")}
             ${
               l.firstTouch.pushback?.length
                 ? `<div class="sleeve-fields" style="margin-top:12px">${l.firstTouch.pushback
                     .map(
-                      (p) =>
-                        `<div class="full"><p class="field-k">他说「${esc(p.said)}」</p><p>${esc(p.reply)}</p></div>`,
+                      (p, i) =>
+                        `<div class="full"><p class="field-k">他说「${esc(p.said)}」</p>${landingLine(`landing|pushback|${i}`, p.reply)}</div>`,
                     )
                     .join("")}</div>`
                 : ""
@@ -1405,9 +1408,9 @@ function renderToday() {
           l.rewardOutline?.length
             ? `<article class="sleeve sleeve-across">
           <div class="sleeve-tab"><span><i class="sleeve-num">三</i>那份东西怎么做</span><span>${l.rewardOutline.length} 栏</span></div>
-          <div class="sleeve-body"><div class="sleeve-fields">${l.rewardOutline
-            .map((x, i) => `<div class="full"><p class="field-k">第 ${i + 1} 栏</p><p>${esc(x)}</p></div>`)
-            .join("")}</div></div>
+          <div class="sleeve-body">${l.rewardOutline
+            .map((x, i) => landingLine(`landing|rewardOutline|${i}`, x, `第 ${i + 1} 栏`))
+            .join("")}</div>
         </article>`
             : ""
         }
@@ -1833,6 +1836,21 @@ function bind() {
     if (e.target.closest("[data-theme-toggle]")) {
       state.theme = state.theme === "light" ? "dark" : "light";
       applyTheme();
+      return;
+    }
+    const checkEdit = e.target.closest("[data-check-edit]");
+    if (checkEdit) {
+      const want = decodeURIComponent(checkEdit.dataset.checkEdit).trim();
+      const lines = [...document.querySelectorAll("[data-line]")].filter((el) => (el.querySelector(".line-text")?.textContent || "").trim() === want);
+      if (!lines.length) {
+        toast("这条不在下方正文里。承接表单请在承接那一栏改；其余请用页面搜索找到这句话");
+        return;
+      }
+      document.querySelectorAll(".sleeve.reader-hidden").forEach((el) => el.classList.remove("reader-hidden"));
+      const line = lines[0];
+      line.scrollIntoView({ behavior: "smooth", block: "center" });
+      line.querySelector("[data-edit]")?.click();
+      if (lines.length > 1) toast(`这句话还有 ${lines.length - 1} 处相同，改完这一处再改下一处`);
       return;
     }
     const edit = e.target.closest("[data-edit]");
@@ -2497,11 +2515,16 @@ document.getElementById("pack-autofix")?.addEventListener("click", async (e) => 
     }
     state.workspace = data.workspace;
     renderToday();
-    toast(
-      data.fixed
-        ? `已自动修复 ${data.fixed} 处，剩余的看检查区`
-        : "这几处机器改不了（要通篇看的），得在检查区手动改",
-    );
+    const left = Number(data.repairable);
+    if (data.fixed && !left) toast(`已自动修复 ${data.fixed} 处，可以下载了`);
+    else if (data.fixed) toast(`已自动修复 ${data.fixed} 处，还剩 ${left} 处。请打开「发出去之前」，点「改这条」`);
+    else if (left > 0) toast("自动改写没通过。请打开「发出去之前」，点「改这条」");
+    else toast("剩下的要连起来看：同一句换了几个字，或几个平台写成了同一句。请在对应文案里改");
+    if (!data.fixed || left > 0) {
+      const checks = document.getElementById("workspace-checks");
+      if (checks) checks.open = true;
+      document.getElementById("checks-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   } catch {
     toast("网络不通，请再试");
   } finally {
