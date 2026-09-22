@@ -5,6 +5,28 @@ export const FIELD_LABELS = { cover: '封面文案', title: '标题 / 发布文�
 // Conservative product limit: letters, digits, spaces and punctuation all count.
 // Do not claim this reproduces every platform's emoji/Latin counting algorithm.
 export const titleCount = (text) => Array.from(String(text || '')).length;
+
+const EXTRA_INSTRUCTION = [
+  "不同版位不同，30 字内较稳妥；前 10 字最关键，信息流会截断显示",
+  "不是发不出去，是超了会折叠成「全文」。最要紧的话压在折叠线之前",
+  "可留空。展开才看得到，不放关键信息",
+];
+
+/** 写给模型和检查器的字数、版位说明。成稿里不该出现。 */
+export function instructionPhrases() {
+  const notes = [...EXTRA_INSTRUCTION];
+  for (const name of ["小红书", "抖音", "视频号", "快手"]) {
+    for (const field of deliveryFields(name)) if (field.note) notes.push(field.note);
+  }
+  return [...new Set(notes)];
+}
+
+/** 去掉夹在成稿里的写作说明，只留能直接发出去的句子。 */
+export function cleanDeliverable(text) {
+  let out = String(text || "");
+  for (const phrase of instructionPhrases()) out = out.split(phrase).join("");
+  return out.split(/\n+/).map((line) => line.trim()).filter(Boolean).join("\n");
+}
 export function platformKind(name) {
   const value = String(name || '');
   if (value.includes('小红书')) return 'xiaohongshu';
@@ -53,4 +75,5 @@ export const PLATFORM_DELIVERY_BRIEF = `按平台分别制作，不是把同一�
 视频号：同样交付上述7个字段，但hook先说明说给谁听和要解决什么；body用完整上下文、事实依据与适用边界讲清楚，让转发后第一次看到的人也能理解。语气平实，不强造反转；cta给出合规咨询渠道或可转述的总结，不诱导转发。45—90秒只是制作建议，不把平台用户一概当中老年。
 快手/B站：仍须封面、独立发布文案、开场、完整口播、分镜和收尾，根据研究里的受众与用途决定节奏，不沿用抖音套路。
 shots必须为至少3行的字符串，每行是时间段｜画面｜对应口播/字幕，顺序与body一致；不要只写“拍现场”。口播必须包含开场和收尾，hook/cta是给拍摄者的定位提示，不是缺失正文的替代。
-朋友圈提供title外层文案与body展开内容；公众号/知乎提供独立title和完整body。封面字数、时长、比例都是编辑建议；除已明确的小红书标题产品上限，不编造其他平台硬限制或算法权重。`;
+朋友圈提供title外层文案与body展开内容；公众号/知乎提供独立title和完整body。封面字数、时长、比例都是编辑建议；除已明确的小红书标题产品上限，不编造其他平台硬限制或算法权重。
+字数口径、版位截断、计数方式、折叠说明、排版建议都只约束你自己。禁止把这些说明写进 title、cover、body 或任何交付字段。每个字段只留能直接复制发出去的那句话。`;

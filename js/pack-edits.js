@@ -8,7 +8,7 @@
  * 反馈的 key 是「组名 + 下标」，跟文字本身无关。所以只要不动数组结构，
  * 改文字反馈自动跟着走，不用重新对齐。 */
 
-import { CONTENT_FIELDS } from './platform-content.js';
+import { CONTENT_FIELDS, cleanDeliverable } from './platform-content.js';
 
 export function copyKey(group, i) {
   return `${group}|${i}`;
@@ -21,7 +21,7 @@ export function shellKey(platform, i, field) {
 /** 这一条最终是什么样。没改过就是原样。 */
 export function edited(pack, key, raw) {
   const now = pack?.edits?.[key]?.now;
-  return typeof now === "string" && now ? now : raw;
+  return cleanDeliverable(typeof now === "string" && now ? now : raw);
 }
 
 /** 改过没有，改之前是什么。给界面显示「改过 · 原句是 xxx」用。 */

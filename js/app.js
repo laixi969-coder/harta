@@ -1441,7 +1441,7 @@ function renderToday() {
             const meta = contentItemMeta(pack, k, { kind: "shell", group:pack.origin?.mode==='organic'?Object.keys(pack.copies||{})[idx]||'':'', platform: s.name, text, risky: !text || contentRisk(pack, text, hardRows) });
             const meter=platformKind(s.name)==='xiaohongshu' && f.key==='title' ? ` · ${titleCount(text)}/20字` : '';
             return `<div class="line-row${isContentPack ? " content-shell-row" : ""}"${present.length > 1 ? ' style="margin-top:8px"' : ""} data-line="${encodeURIComponent(k)}" data-field="${esc(f.key)}" ${isContentPack ? meta.attrs : ""}>
-              ${isContentPack ? `<div class="content-shell-main">${contentPick(meta, `选择 ${s.name} 第 ${idx + 1} 条${f.label}`)}<div>` : "<div>"}<p class="field-k">${esc(f.label)}${esc(meter)}</p>${f.note ? `<p class="meta">${esc(f.note)}</p>` : ''}<p class="line-text asis">${esc(text)}</p>${!text ? '<p class="meta">缺少此字段，请补齐或重新生成。</p>' : ''}
+              ${isContentPack ? `<div class="content-shell-main">${contentPick(meta, `选择 ${s.name} 第 ${idx + 1} 条${f.label}`)}<div>` : "<div>"}<p class="field-k">${esc(f.label)}${esc(meter)}</p><p class="line-text asis">${esc(text)}</p>${!text ? '<p class="meta">缺少此字段，请补齐或重新生成。</p>' : ''}
               ${was ? `<p class="meta">改过 · 原句是「${esc(was)}」</p>` : ""}</div>
               <div class="acts-inline">
                 ${copyButton(text, "复制", isContentPack ? meta.key : "")}
