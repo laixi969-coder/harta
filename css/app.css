@@ -870,6 +870,9 @@ section[data-view] { padding: 0 56px; }
   line-height: 1.4;
 }
 .sleeve-body { padding: 16px 0 0; min-width: 0; }
+.content-brief { margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.content-brief > summary { min-height: 44px; align-content: center; cursor: pointer; color: var(--ink-2); }
+.content-brief > p { margin: 10px 0; overflow-wrap: anywhere; }
 .sleeve-body > h3 {
   font-family: var(--font-display);
   font-size: var(--t-3);
@@ -2966,3 +2969,18 @@ section[data-view="ledger"] > .hook > :not(button) { grid-column: 1; }
  .workspace-nav [data-workspace-view] .workspace-tile-count { font-size: 15px; padding-top: 4px; }
  .workspace-nav [data-workspace-view] .workspace-tile-arrow { width: 24px; height: 24px; font-size: 17px; right: 12px; bottom: 12px; }
 }
+
+/* Goal, evidence and optional results remain beside the content they explain. */
+.post-growth { padding: 12px 0; }
+.post-growth > details, #growth-settings details { margin: 12px 0; border-top: 1px solid var(--line, #7775); padding-top: 12px; }
+.growth-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+.post-growth label, #growth-settings label { display: grid; gap: 6px; margin: 10px 0; }
+.post-growth input, .post-growth textarea, #growth-settings input, #growth-settings select, #growth-settings textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.growth-fact, .rewrite-preview { padding: 12px; margin: 12px 0; border: 1px solid var(--line, #7775); border-radius: 8px; }
+@media(max-width: 600px) { .growth-fields { grid-template-columns: 1fr; } }
+
+.quick-growth-control { display:grid; gap:6px; min-width:170px; font-size:13px; }
+.quick-growth-control[hidden] { display:none; }
+.quick-growth-control select { width:100%; min-height:42px; }
+.rewrite-shortcuts { flex-wrap:wrap; }
+.post-advanced { font-size:14px; }

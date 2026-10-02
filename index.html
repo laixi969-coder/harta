@@ -125,15 +125,16 @@
           </div>
         </article>
         <article class="card form" id="growth-card">
-          <details class="growth-input" id="growth-edit-panel" open><summary>调整内容方向</summary>
-          <p class="kicker">零投流内容获客</p><h2>获客打法与调整方向</h2>
-          <p class="meta">结合业务资料、行业知识和外部研究出内容。按你的实际体验随时调整，无需逐篇填写反馈。</p>
+          <details class="growth-input" id="growth-edit-panel" open><summary>补充偏好（选填）</summary>
+          <h2>有特别要求，告诉我就好</h2>
+          <p class="meta">不填也能生成。平台怎么选、内容怎么写，由 Harta 帮你安排。</p>
+          <div id="growth-settings"></div>
           <label for="growth-direction">接下来希望怎样调整？</label>
           <textarea id="growth-direction" rows="3" maxlength="2000" placeholder="例如：优先做小红书，吸引更重视品质的客户；每周能拍两条视频，不方便出镜。"></textarea>
           <p class="meta">最多 2000 字。保存后用于下一批，历史内容保持原样。</p>
           <div class="acts"><button class="btn" type="button" id="save-growth-direction">保存方向</button></div>
           </details>
-          <div id="growth-research" aria-live="polite"></div>
+          <details class="research-advanced"><summary>查看参考资料</summary><div id="growth-research" aria-live="polite"></div></details>
         </article>
         <div class="win hidden" id="win"></div>
         <article class="card hidden" id="acquisition-card">
@@ -173,6 +174,7 @@
              按钮跟着藏了，正好在最需要它的时候点不到 -->
         <div class="pack-job hidden" id="pack-job" aria-label="当前客户的生成进度"></div>
         <div class="acts" style="margin:0 0 20px">
+          <label id="quick-growth-control" class="quick-growth-control" hidden>我想要<select id="quick-growth-goal" aria-label="我想要"></select></label>
           <button class="btn hidden" id="go-today" type="button"><svg class="icon" aria-hidden="true"><use href="#i-bolt"></use></svg>出一批（每次六篇）</button>
           <button class="btn ghost hidden" id="go-repack" type="button"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>重新生成报告</button>
         </div>
@@ -473,10 +475,11 @@
         </article>
         <article class="card form hidden" id="whitelist-card">
           <h2>开通账号</h2>
-          <p class="meta">开通之后让他自己去注册页设密码。密码你也看不到。</p>
+          <p class="meta">开通后，将生成的激活码私下发给本人，让对方完成注册。</p>
           <label for="white-email">他的邮箱</label>
           <input id="white-email" type="email" maxlength="254" placeholder="name@company.com">
           <div class="acts"><button class="btn" id="add-white" type="button">开通</button></div>
+          <div id="activation-result" class="hidden" role="status"></div>
           <div id="white-list" class="chase" style="margin-top:14px"></div>
         </article>
         <article class="card form hidden" id="research-settings">

@@ -1,3 +1,6 @@
+import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, validHost, sameOriginMutation, sessionCookie, readJsonBody } from './lib/request-guard.mjs';
+import { proposeFactCards, saveGrowthSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
+import { rewriteOrganicPost } from './lib/generate.mjs';
 import { receiveKeywordBatch, prepareKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
 import { saveKeywordLibrary, removeKeywordLibrary } from './lib/workspace.mjs';
 import { crawlerInstalled, readPublicSource, queryRsshub } from "./lib/native-sources.mjs";
@@ -7,11 +10,12 @@ import { setCustomerStage, updateCustomerBusiness } from "./lib/workspace.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import {
   addToWhitelist,
   changePassword,
   isAdmin,
+  isWhitelisted,
+  findUser,
   listUsersPublic,
   listWhitelist,
   loginOrBootstrap,
@@ -47,19 +51,11 @@ const keywordImports = new Set();
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
 
-function parseCookies(header) {
-  const out = {};
-  String(header || "")
-    .split(";")
-    .forEach((part) => {
-      const [k, ...rest] = part.trim().split("=");
-      if (k) out[k] = decodeURIComponent(rest.join("=") || "");
-    });
-  return out;
-}
-
 function currentUser(req) {
-  return readSession(parseCookies(req.headers.cookie).harta_sid);
+  const user = readSession(parseCookies(req.headers.cookie).harta_sid);
+  if (!user || !isWhitelisted(user.email)) return null;
+  const account = findUser(user.email);
+  return account?.passwordHash ? { email: account.email, role: account.role } : null;
 }
 
 function requireUser(req, res) {
@@ -82,21 +78,18 @@ function requireAdmin(req, res) {
 }
 
 const MAX_BODY = 64 * 1024;
-const buckets = new Map();
-
-function clientIp(req) {
-  return req.socket?.remoteAddress || "unknown";
+const requestLimits = createRateLimiter();
+const expensiveRequests = createConcurrencyGuard();
+const PUBLIC_ORIGIN = process.env.HARTA_PUBLIC_ORIGIN || '';
+// Trust only a loopback reverse proxy explicitly configured to overwrite X-Real-IP.
+const TRUST_PROXY = process.env.HARTA_TRUST_PROXY === 'loopback';
+function rateLimit(req, key, max, windowMs, identity) {
+  const result = requestLimits.consume(`${identity || clientIp(req, TRUST_PROXY)}:${key}`, max, windowMs);
+  req.rateRetryAfter = result.retryAfter;
+  return result.allowed;
 }
-
-function rateLimit(req, key, max, windowMs) {
-  const id = `${clientIp(req)}:${key}`;
-  const now = Date.now();
-  let b = buckets.get(id);
-  if (!b || now > b.reset) b = { n: 0, reset: now + windowMs };
-  b.n += 1;
-  buckets.set(id, b);
-  return b.n <= max;
-}
+const EXPENSIVE_ROUTES = new Set(['/api/materials/analyze', '/api/keywords/import', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
+const JOB_ROUTES = new Set(['/api/customers', '/api/repack', '/api/refill', '/api/today']);
 
 function securityHeaders(extra = {}) {
   const { cache, ...rest } = extra;
@@ -104,12 +97,18 @@ function securityHeaders(extra = {}) {
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
     "referrer-policy": "same-origin",
+    "content-security-policy": "base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'",
+    "permissions-policy": "camera=(), microphone=(), geolocation=()",
+    "x-robots-tag": "noindex, nofollow, noarchive",
     "cache-control": cache || "no-store",
     ...rest,
   };
 }
 
 function json(res, code, body, extra = {}) {
+  if (res.destroyed || res.writableEnded) return;
+  if (res.headersSent) { res.destroy(); return; }
+  if (code >= 400 && !res.req?.complete) extra = { connection: "close", ...extra };
   res.writeHead(code, {
     "content-type": "application/json; charset=utf-8",
     ...securityHeaders(),
@@ -149,33 +148,7 @@ function customerForUser(email, customerId) {
   return customer ? { space, customer } : null;
 }
 
-function readBody(req) {
-  const declared = Number(req.headers["content-length"] || 0);
-  if (declared > MAX_BODY) return Promise.reject(Object.assign(new Error("一次粘贴的内容太多，请按输入框标注的上限缩短"), { statusCode: 413 }));
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let size = 0;
-    req.on("data", (c) => {
-      size += c.length;
-      if (size > MAX_BODY) {
-        reject(Object.assign(new Error("一次粘贴的内容太多，请按输入框标注的上限缩短"), { statusCode: 413 }));
-        req.destroy();
-        return;
-      }
-      chunks.push(c);
-    });
-    req.on("end", () => {
-      const raw = Buffer.concat(chunks).toString("utf8");
-      if (!raw) return resolve({});
-      try {
-        resolve(JSON.parse(raw));
-      } catch {
-        reject(new Error("JSON 不对"));
-      }
-    });
-    req.on("error", reject);
-  });
-}
+const readBody = readJsonBody;
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -202,15 +175,26 @@ const ALLOW_FILES = new Set([
 const ALLOW_DIRS = ["/css/", "/js/", "/images/"];
 
 function safeFile(urlPath) {
-  let clean = decodeURIComponent(urlPath.split("?")[0]);
+  let clean;
+  try { clean = decodeURIComponent(urlPath.split("?")[0]); } catch { return null; }
   if (clean === "/") clean = "/index.html";
-  if (clean.includes("..") || clean.includes("\0")) return null;
+  if (clean.includes("..") || clean.includes("\0") || clean.split('/').some(part => part.startsWith('.'))) return null;
   const allowed =
     ALLOW_FILES.has(clean) || ALLOW_DIRS.some((dir) => clean.startsWith(dir));
   if (!allowed) return null;
   const abs = path.normalize(path.join(ROOT, clean));
   if (!abs.startsWith(ROOT + path.sep) && abs !== ROOT) return null;
-  return abs;
+  // Public directories must never expose symlinked data or source/config backups.
+  const ext = path.extname(abs).toLowerCase();
+  if (!['.html', '.css', '.js', '.mjs', '.jpg', '.jpeg', '.png', '.webp', '.svg', '.ico', '.woff', '.woff2'].includes(ext)) return null;
+  try {
+    const real = fs.realpathSync(abs);
+    if (!real.startsWith(ROOT + path.sep)) return null;
+    const relative = '/' + path.relative(ROOT, real).split(path.sep).join('/');
+    if (!ALLOW_FILES.has(relative) && !ALLOW_DIRS.some(dir => relative.startsWith(dir))) return null;
+    if (relative.split('/').some(part => part.startsWith('.'))) return null;
+    return real;
+  } catch { return null; }
 }
 
 async function handleApi(req, res, url) {
@@ -221,37 +205,37 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/login") {
-    if (!rateLimit(req, "login", 8, 10 * 60 * 1000)) {
-      return json(res, 429, { error: "试的次数太多，过几分钟再来" });
+    if (!rateLimit(req, "login", 8, 10 * 60 * 1000) || !rateLimit(req, 'auth-global', 60, 60 * 1000, 'global')) {
+      return json(res, 429, { error: "试的次数太多，过几分钟再来" }, { "retry-after": String(req.rateRetryAfter) });
     }
     const body = await readBody(req);
     const result = loginOrBootstrap(body.email, body.password);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     const sid = createSession(result.user);
     return json(
       res,
       200,
       { ...result.user, isAdmin: isAdmin(result.user), bootstrapped: result.bootstrapped },
       {
-        "set-cookie": `harta_sid=${sid}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
+        "set-cookie": sessionCookie(sid, req, PUBLIC_ORIGIN),
       },
     );
   }
 
   if (req.method === "POST" && url.pathname === "/api/register") {
-    if (!rateLimit(req, "register", 5, 10 * 60 * 1000)) {
-      return json(res, 429, { error: "试的次数太多，过几分钟再来" });
+    if (!rateLimit(req, "register", 5, 10 * 60 * 1000) || !rateLimit(req, 'auth-global', 60, 60 * 1000, 'global')) {
+      return json(res, 429, { error: "试的次数太多，过几分钟再来" }, { "retry-after": String(req.rateRetryAfter) });
     }
     const body = await readBody(req);
-    const result = register(body.email, body.password);
-    if (result.error) return json(res, 400, { error: result.error });
+    const result = register(body.email, body.password, body.activationCode);
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     const sid = createSession(result.user);
     return json(
       res,
       200,
       { ...result.user, isAdmin: false },
       {
-        "set-cookie": `harta_sid=${sid}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
+        "set-cookie": sessionCookie(sid, req, PUBLIC_ORIGIN),
       },
     );
   }
@@ -259,10 +243,12 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/password") {
     const user = requireUser(req, res);
     if (!user) return;
+    if (!rateLimit(req, "password", 8, 10 * 60 * 1000, user.email)) return json(res, 429, { error: "尝试太频繁，请稍后重试" }, { "retry-after": String(req.rateRetryAfter) });
     const body = await readBody(req);
     const result = changePassword(user.email, body.oldPassword, body.newPassword);
-    if (result.error) return json(res, 400, { error: result.error });
-    return json(res, 200, { ok: true });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    const sid = createSession(user);
+    return json(res, 200, { ok: true }, { "set-cookie": sessionCookie(sid, req, PUBLIC_ORIGIN) });
   }
 
   if (req.method === "GET" && url.pathname === "/api/hunts") {
@@ -290,7 +276,7 @@ async function handleApi(req, res, url) {
       batch = customer?.keywordLibraries?.find(b => b.id === url.searchParams.get("batchId"));
       if (!batch) return json(res, 404, { error: "没有这批关键词，或不属于当前账号" });
     }
-    res.writeHead(200, { "content-type": "text/csv; charset=utf-8", "content-disposition": attachmentName(batch ? `${batch.scope.name}-整理关键词.csv` : "Harta关键词导入模板.csv"), "cache-control": "no-store" });
+    res.writeHead(200, { "content-type": "text/csv; charset=utf-8", "content-disposition": attachmentName(batch ? `${batch.scope.name}-整理关键词.csv` : "Harta关键词导入模板.csv"), ...securityHeaders() });
     return res.end(keywordCsv(batch));
   }
 
@@ -515,7 +501,24 @@ async function handleApi(req, res, url) {
     if (!requireAdmin(req, res)) return;
     try {
       return json(res, 200, req.method === "GET" ? publicResearchConfig() : saveResearchConfig(await readBody(req)));
-    } catch (err) { return json(res, 400, { error: err.message }); }
+    } catch (err) { return json(res, err.statusCode || 400, { error: err.message }); }
+  }
+
+  if (req.method === "POST" && ['/api/growth-facts/extract', '/api/growth-goal', '/api/growth-outcomes', '/api/growth-facts', '/api/post-rewrite', '/api/post-version'].includes(url.pathname)) {
+    const user = requireUser(req, res);
+    if (!user) return;
+    try {
+      const body = await readBody(req, url.pathname === '/api/growth-facts' ? 256 * 1024 : MAX_BODY);
+      const actions = {
+        '/api/growth-facts/extract': () => proposeFactCards(user.email, body),
+        '/api/growth-goal': () => saveGrowthSettings(user.email, body),
+        '/api/growth-outcomes': () => saveOutcomes(user.email, body),
+        '/api/growth-facts': () => saveFactCards(user.email, body),
+        '/api/post-rewrite': () => preparePostRewrite(user.email, body, rewriteOrganicPost),
+        '/api/post-version': () => applyPostVersion(user.email, body),
+      };
+      return json(res, 200, publicWorkspace(await actions[url.pathname]()));
+    } catch (error) { return json(res, error.statusCode || 400, { error: error.message || '保存失败' }); }
   }
 
   if (req.method === "POST" && url.pathname === "/api/growth-direction") {
@@ -523,7 +526,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const result = setGrowthDirection(user.email, body.customerId, body.direction);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, publicWorkspace(result.workspace));
   }
 
@@ -532,7 +535,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const result = addCustomer(user.email, body);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, publicWorkspace(result.workspace));
   }
 
@@ -542,7 +545,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     try {
       const result = repack(user.email, body.customerId, { material: body.material });
-      if (result.error) return json(res, 400, { error: result.error });
+      if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
       return json(res, 200, publicWorkspace(result.workspace));
     } catch (err) {
       return json(res, 400, { error: err.message || "重出失败" });
@@ -555,7 +558,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     try {
       const result = refillPack(user.email, body.customerId);
-      if (result.error) return json(res, 400, { error: result.error });
+      if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
       return json(res, 200, publicWorkspace(result.workspace));
     } catch (err) {
       return json(res, 400, { error: err.message || "补货失败" });
@@ -568,7 +571,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     try {
       const result = dropToday(user.email, body.customerId);
-      if (result.error) return json(res, 400, { error: result.error });
+      if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
       return json(res, 200, publicWorkspace(result.workspace));
     } catch (err) {
       return json(res, 400, { error: err.message || "出今日失败" });
@@ -580,7 +583,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const result = updateCustomerBusiness(user.email, body.customerId, body);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, publicWorkspace(result.workspace));
   }
 
@@ -589,7 +592,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const result = setCustomerStage(user.email, body.customerId, body.stage);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, publicWorkspace(result.workspace));
   }
 
@@ -598,7 +601,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const result = setTrack(user.email, body.id, body.track);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, publicWorkspace(result.workspace));
   }
 
@@ -608,7 +611,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     try {
       const result = await upgradeToFull(user.email, body.packId);
-      if (result.error) return json(res, 400, { error: result.error });
+      if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
       return json(res, 200, publicWorkspace(result.workspace));
     } catch (err) {
       return json(res, 400, { error: err.message || "出全档失败" });
@@ -620,7 +623,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const result = editLine(user.email, body.packId, body.key, body.text);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, publicWorkspace(result.workspace));
   }
 
@@ -636,7 +639,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const result = setContentState(user.email, body);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, { workspace: publicWorkspace(result.workspace), updated: result.updated });
   }
 
@@ -645,7 +648,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     const result = setUsing(user.email, body.id);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, publicWorkspace(result.workspace));
   }
 
@@ -661,7 +664,7 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/logout") {
     const sid = parseCookies(req.headers.cookie).harta_sid;
     if (sid) destroySession(sid);
-    return json(res, 200, { ok: true }, { "set-cookie": "harta_sid=; HttpOnly; Path=/; Max-Age=0" });
+    return json(res, 200, { ok: true }, { "set-cookie": sessionCookie("", req, PUBLIC_ORIGIN) });
   }
 
   if (req.method === "GET" && url.pathname === "/api/users") {
@@ -679,8 +682,8 @@ async function handleApi(req, res, url) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const result = resetPassword(body.email);
-    if (result.error) return json(res, 400, { error: result.error });
-    return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist() });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist(), activationCode: result.activationCode, activationExpiresAt: result.activationExpiresAt });
   }
 
   if (req.method === "GET" && url.pathname === "/api/whitelist") {
@@ -688,11 +691,11 @@ async function handleApi(req, res, url) {
     return json(res, 200, { whitelist: listWhitelist() });
   }
 
-  if (req.method === "POST" && url.pathname === "/api/whitelist") {
+  if (req.method === "POST" && ["/api/whitelist", "/api/users/activation"].includes(url.pathname)) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const result = addToWhitelist(body.email);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, result);
   }
 
@@ -700,7 +703,7 @@ async function handleApi(req, res, url) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const result = removeFromWhitelist(body.email);
-    if (result.error) return json(res, 400, { error: result.error });
+    if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     return json(res, 200, result);
   }
 
@@ -716,7 +719,7 @@ async function handleApi(req, res, url) {
       const config = saveProvider(body.id, body);
       return json(res, 200, config);
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -726,7 +729,7 @@ async function handleApi(req, res, url) {
     try {
       return json(res, 200, addCustomProvider(body.name));
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -736,7 +739,7 @@ async function handleApi(req, res, url) {
     try {
       return json(res, 200, removeProvider(body.id));
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -746,7 +749,7 @@ async function handleApi(req, res, url) {
     try {
       return json(res, 200, setActive(body.id));
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -762,7 +765,7 @@ async function handleApi(req, res, url) {
       else throw new Error("没有这个操作");
       return json(res, 200, config);
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -772,7 +775,7 @@ async function handleApi(req, res, url) {
     try {
       return json(res, 200, reorderProviders(body.ids));
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -782,7 +785,7 @@ async function handleApi(req, res, url) {
     try {
       return json(res, 200, await syncModels(body.id));
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -792,7 +795,7 @@ async function handleApi(req, res, url) {
     try {
       return json(res, 200, await testConnection(body.id));
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -802,7 +805,7 @@ async function handleApi(req, res, url) {
     try {
       return json(res, 200, await testVisionConnection(body.id));
     } catch (err) {
-      return json(res, 400, { error: err.message });
+      return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
@@ -811,12 +814,25 @@ async function handleApi(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (!validHost(req, { publicOrigin: PUBLIC_ORIGIN, port: PORT })) return json(res, 421, { error: "访问地址不正确" });
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
+    try { decodeURIComponent(url.pathname); } catch { return json(res, 400, { error: "访问地址格式不正确" }); }
     if (url.pathname.startsWith("/api/")) {
       if (!rateLimit(req, "api", 240, 60 * 1000)) {
-        return json(res, 429, { error: "请求太频繁，请等一会儿再试" });
+        return json(res, 429, { error: "请求太频繁，请等一会儿再试" }, { "retry-after": String(req.rateRetryAfter) });
       }
-      await handleApi(req, res, url);
+      if (!sameOriginMutation(req, PUBLIC_ORIGIN)) return json(res, 403, { error: "请从 Harta 页面提交操作" });
+      const expensive = (req.method === 'POST' && EXPENSIVE_ROUTES.has(url.pathname)) || (req.method === 'GET' && /^\/api\/reports\/[^/]+\/export\//.test(url.pathname));
+      const startsJob = req.method === 'POST' && JOB_ROUTES.has(url.pathname);
+      let release;
+      if (expensive || startsJob) {
+        const user = requireUser(req, res);
+        if (!user) return;
+        if (!rateLimit(req, 'expensive', 30, 60 * 60 * 1000, user.email)) return json(res, 429, { error: "处理次数较多，请稍后再试" }, { 'retry-after': String(req.rateRetryAfter) });
+        release = expensiveRequests.acquire(user.email);
+        if (!release) return json(res, 429, { error: "已有任务正在处理，请完成后再试" }, { 'retry-after': '10' });
+      }
+      try { await handleApi(req, res, url); } finally { release?.(); }
       return;
     }
     if (!rateLimit(req, "static", 600, 60 * 1000)) {
@@ -827,8 +843,10 @@ const server = http.createServer(async (req, res) => {
       res.end("请求太频繁，请等一会儿再试");
       return;
     }
+    if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: "这个地址只支持读取" }, { allow: 'GET, HEAD' });
     // 甲方那一页：不进后台，只凭链接。链接不对就是 404，不提示"存在但没权限"。
     if (url.pathname.startsWith("/p/")) {
+      if (!rateLimit(req, 'share', 30, 60 * 1000) || !rateLimit(req, 'share-global', 120, 60 * 1000, 'global')) return json(res, 429, { error: "读取太频繁，请稍后再试" }, { 'retry-after': String(req.rateRetryAfter) });
       const found = findShared(url.pathname.slice(3));
       if (!found) {
         res.writeHead(404, { "content-type": "text/plain; charset=utf-8", ...securityHeaders() });
@@ -865,21 +883,42 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const ext = path.extname(file);
-    // 图片长缓存；样式和脚本每次回源核对，改完销售刷新就能看到，不用等一天。
-    const cache = [".jpg", ".jpeg", ".png", ".webp", ".svg"].includes(ext)
-      ? "public, max-age=86400"
-      : [".css", ".js"].includes(ext)
-        ? "no-cache"
-        : "no-store";
+    const stat = fs.statSync(file);
+    // Assets without content hashes must revalidate, so deployments cannot retain stale scripts/images.
+    const cache = 'no-cache';
+    const etag = `W/"${stat.size.toString(16)}-${stat.mtimeMs.toString(16)}"`;
+    const modified = stat.mtime.toUTCString();
+    const candidates = String(req.headers['if-none-match'] || '').split(',').map(value => value.trim());
+    const matches = candidates.includes('*') || candidates.some(value => value.replace(/^W\//, '') === etag.replace(/^W\//, ''));
+    const since = req.headers['if-modified-since'];
+    if (matches || (!req.headers['if-none-match'] && since && Math.floor(stat.mtimeMs / 1000) * 1000 <= Date.parse(since))) {
+      res.writeHead(304, { etag, 'last-modified': modified, ...securityHeaders({ cache }) });
+      return res.end();
+    }
     res.writeHead(200, {
+      etag,
+      'last-modified': modified,
+      'content-length': stat.size,
       "content-type": TYPES[ext] || "application/octet-stream",
       ...securityHeaders({ cache }),
     });
-    fs.createReadStream(file).pipe(res);
+    if (req.method === 'HEAD') return res.end();
+    const stream = fs.createReadStream(file);
+    stream.on('error', () => res.destroy());
+    res.on('close', () => stream.destroy());
+    stream.pipe(res);
   } catch (err) {
     json(res, err.statusCode || 500, { error: err.message || "服务器出错" });
   }
 });
+
+// Bound slow headers/body uploads and idle keep-alive sockets; completed LLM requests may run longer.
+server.headersTimeout = 15000;
+server.requestTimeout = 120000;
+server.keepAliveTimeout = 5000;
+server.maxRequestsPerSocket = 100;
+server.maxConnections = 256;
+server.maxHeadersCount = 100;
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`HARTA http://127.0.0.1:${PORT}/`);

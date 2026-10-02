@@ -1,5 +1,5 @@
 let customerId='', customerTrack='', active='content';
-const titles={content:'内容',research:'需求研究',materials:'业务资料',overview:'全部待办'};
+const titles={content:'内容',research:'更多设置',materials:'业务资料',overview:'全部待办'};
 export function arrangeWorkspace(customer, pack) {
   const root=document.getElementById('owned-today');
   if(!document.getElementById('workspace-nav')) {
@@ -8,7 +8,7 @@ export function arrangeWorkspace(customer, pack) {
     const panels={};
     for(const [key,label] of Object.entries(titles)) {
       const button=document.createElement('button');button.type='button';button.setAttribute('aria-label',label);
-      const title=document.createElement('strong');title.className='workspace-tile-title';title.textContent={content:'CONTENT',research:'RESEARCH',materials:'MATERIAL',overview:'NEXT UP'}[key];
+      const title=document.createElement('strong');title.className='workspace-tile-title';title.textContent={content:'CONTENT',research:'SETTINGS',materials:'MATERIAL',overview:'NEXT UP'}[key];
       const caption=document.createElement('span');caption.className='workspace-tile-caption';caption.textContent=label;
       const count=document.createElement('span');count.className='workspace-tile-count';
       const arrow=document.createElement('span');arrow.className='workspace-tile-arrow';arrow.textContent='↗';arrow.setAttribute('aria-hidden','true');
@@ -17,13 +17,14 @@ export function arrangeWorkspace(customer, pack) {
       button.addEventListener('click',()=>{active=key;show();});
     }
     for(const node of [...root.children])if(node!==nav && !node.classList.contains('workspace-panel'))panels.content.append(node);
-    for(const id of ['keyword-card','growth-card'])panels.research.append(document.getElementById(id));
+    panels.research.append(document.getElementById('growth-card'));
+    const keywordTools=document.createElement('details');keywordTools.className='workspace-context';const keywordTitle=document.createElement('summary');keywordTitle.textContent='补充选题资料（选填）';keywordTools.append(keywordTitle,document.getElementById('keyword-card'));panels.research.append(keywordTools);
     for(const id of ['material-record-card','acquisition-card'])panels.materials.append(document.getElementById(id));
     panels.overview.append(document.getElementById('desk-card'));
     // 全局待办移到独立入口，客户内容页只呈现当前业务。
     const actions=document.getElementById('go-today').parentElement;actions.classList.add('workspace-primary-actions');document.getElementById('hook-line').parentElement.append(actions);
     const gate=document.getElementById('hook-gate');const details=document.createElement('details');details.className='workspace-context';
-    const summary=document.createElement('summary');summary.textContent='本批依据与适用条件';details.append(summary,gate);panels.content.prepend(details);
+    const summary=document.createElement('summary');summary.textContent='使用提醒';details.append(summary,gate);panels.content.prepend(details);
     const consolePanel=document.getElementById('content-console');
     const tools=document.createElement('details');tools.className='workspace-tools';
     const toolTitle=document.createElement('summary');toolTitle.textContent='筛选、排期与导出';tools.append(toolTitle);
@@ -46,7 +47,7 @@ export function arrangeWorkspace(customer, pack) {
   document.querySelector('[data-workspace-view="research"]').hidden = !cooperating;
   let empty=document.getElementById('workspace-materials-empty');
   if(!empty){empty=document.createElement('p');empty.id='workspace-materials-empty';empty.className='meta';empty.textContent='这里保留已上传的业务资料与历史跟进记录。可从客户页面补充资料。';document.getElementById('workspace-materials').prepend(empty);}
-  const values={content:cooperating ? (pack ? `${Object.values(pack.copies||{}).flat().length} 篇` : '待出首批') : `${customer.packs?.length || 0} 份报告`,research:`${(customer.keywordLibraries||[]).reduce((n,b)=>n+(b.items?.length||0),0)} 词`,materials:customer.materialReady ? '已读取' : '可补充',overview:customer.job ? '生成中' : '查看待办'};
+  const values={content:cooperating ? (pack ? `${Object.values(pack.copies||{}).flat().length} 篇` : '待出首批') : `${customer.packs?.length || 0} 份报告`,research:'选填',materials:customer.materialReady ? '已读取' : '可补充',overview:customer.job ? '生成中' : '查看待办'};
   for(const [key,value] of Object.entries(values))document.querySelector(`[data-workspace-view="${key}"] .workspace-tile-count`).textContent=value;
   show();
 }

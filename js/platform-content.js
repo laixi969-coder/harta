@@ -52,9 +52,18 @@ export function deliveryFields(platform) {
     { key: 'shots', label: '分镜与字幕', completeOnly: true, note: '至少3个镜头，每行给出时间段、画面、口播/字幕；与完整脚本一致。' },
     { key: 'cta', label: '收尾与咨询承接', completeOnly: true },
   ];
+  if (['公众号', '知乎'].includes(platform)) return [
+    { key: 'title', label: '文章标题', required: true },
+    { key: 'body', label: '完整正文', required: true },
+  ];
+  if (platform === '朋友圈') return [
+    { key: 'title', label: '外层文案', required: true, advise: 40, note: '不是发不出去，是超了会折叠成「全文」。最要紧的话压在折叠线之前' },
+    { key: 'body', label: '展开内容', completeOnly: true },
+  ];
   return [];
 }
 export function deliveryIssues(platform, item = {}, { complete = false } = {}) {
+  item = Object.fromEntries(CONTENT_FIELDS.map(key => [key, typeof item?.[key] === 'string' ? item[key].trim() : '']));
   const issues=[];
   for (const f of deliveryFields(platform)) {
     const text = typeof item?.[f.key] === 'string' ? item[f.key].trim() : '';

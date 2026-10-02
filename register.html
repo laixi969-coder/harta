@@ -27,7 +27,7 @@
     <main class="gate-form">
       <div class="hook">
         <h1>注册账号</h1>
-        <p class="meta">邮箱要管理员先开通过才能注册。注册后只看得见自己的客户。</p>
+        <p class="meta">请使用管理员发给你的邮箱和激活码。注册后只看得见自己的客户。</p>
       </div>
       <div class="tabs">
         <a href="login.html">登录</a>
@@ -36,6 +36,9 @@
       <form class="form" id="form">
         <label for="email">邮箱</label>
         <input id="email" name="email" type="email" autocomplete="username" maxlength="254" required>
+        <label for="activation-code">激活码</label>
+        <input id="activation-code" name="activationCode" autocomplete="one-time-code" maxlength="128" required placeholder="粘贴管理员发给你的激活码">
+        <p class="meta">激活码 24 小时内有效。没有收到或已过期，请联系管理员重新发送。</p>
         <label for="password">密码</label>
         <div class="pass-wrap">
           <input id="password" name="password" type="password" autocomplete="new-password" required minlength="6" maxlength="128" placeholder="6–128 位">
@@ -58,6 +61,7 @@
       e.preventDefault();
       const err = document.getElementById("err");
       const btn = e.target.querySelector("[type=submit]");
+      if (btn.disabled) return;
       err.textContent = "";
       const password = document.getElementById("password").value;
       const password2 = document.getElementById("password2").value;
@@ -75,6 +79,7 @@
           body: JSON.stringify({
             email: document.getElementById("email").value,
             password,
+            activationCode: document.getElementById("activation-code").value.trim(),
           }),
         });
         const data = await res.json();

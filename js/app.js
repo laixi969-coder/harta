@@ -1,3 +1,5 @@
+import { renderGrowthSettings, renderPostGrowth, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
+import { GROWTH_GOALS, growthGoal } from './growth.js';
 import { arrangeWorkspace, arrangeContentReader } from './customer-workspace.js';
 import { CUSTOMER_STAGES, customerStage } from './customer-stage.js';
 import { deliveryFields, platformKind, titleCount } from './platform-content.js';
@@ -1061,10 +1063,15 @@ function renderToday() {
   if (goToday) {
     goToday.classList.toggle("hidden", mine.track !== "存量");
     goToday.dataset.customer = mine.id || "";
-    goToday.disabled = busy;
+    const quick=document.getElementById('quick-growth-goal');
+    document.getElementById('quick-growth-control').hidden=mine.track !== '存量';
+    quick.dataset.customer=mine.id;
+    if(!quick.dataset.saving) {quick.innerHTML=Object.entries(SIMPLE_GOALS).map(([key,label])=>`<option value="${key}">${label}</option>`).join('');quick.value=growthGoal(mine);}
+    quick.disabled=busy || Boolean(quick.dataset.saving);
+    goToday.disabled = busy || Boolean(quick.dataset.saving);
     goToday.innerHTML = busy
       ? `${icon("bolt")}正在${jobLabel(mine.job?.kind)}…`
-      : `${icon("bolt")}${pack?.tier === "今日" ? "再出六篇内容" : "生成六篇起步内容"}`;
+      : `${icon("bolt")}${pack?.tier === "今日" ? "再帮我写六篇" : "帮我写六篇"}`;
   }
 
   const noPack = document.getElementById("no-pack");
@@ -1494,7 +1501,10 @@ function renderToday() {
     document.getElementById('copies').innerHTML=`<div class="sleeves">${shells.flatMap(s=>s.lines.map((raw,index)=>{
       const item=typeof raw==='string'?{title:raw}:raw || {};
       const title=edited(pack,shellKey(s.name,index,'title'),item.title || '缺少标题');
-      return `<article class="sleeve sleeve-across" data-content-container><div class="sleeve-tab"><span><i class="sleeve-num">${index+1}</i>${esc(title)}</span><span>${esc(s.name)} · 完整内容</span></div><div class="sleeve-body">${platBlock({...s,lines:[raw],offset:index},'is-main')}</div></article>`;
+      const fullText=[title,edited(pack,shellKey(s.name,index,'body'),item.body || '')].filter(Boolean).join('\n\n');
+      const copyPost=publishBlocked ? '<button type="button" class="btn" disabled>修改后可复制</button>' : `<button type="button" class="btn" data-copy="${encodeURIComponent(fullText)}" data-copy-whole-post="${esc(shellFeedbackKey(pack.id,s.name,index))}">复制标题和正文</button>`;
+
+      return `<article class="sleeve sleeve-across" data-content-container><div class="sleeve-tab"><span><i class="sleeve-num">${index+1}</i>${esc(title)}</span><span>${esc(s.name)} · 完整内容</span></div><div class="sleeve-body"><div class="acts">${copyPost}</div>${platBlock({...s,lines:[raw],offset:index},'is-main')}${renderPostGrowth(mine.id,pack,s.name,index)}</div></article>`;
     })).join('')}</div>`;
     platBox.innerHTML='';
   }
@@ -1574,7 +1584,7 @@ function openCustomerEntry(stage) {
   document.querySelector(`input[name="track"][value="${stage === 'cooperating' ? '存量' : '拓新'}"]`).checked = true;
   document.getElementById('customer-create-title').textContent = stage === 'cooperating' ? '录入已合作客户' : '诊断新客户';
   document.getElementById('customer-create-note').textContent = stage === 'cooperating' ? '保存后进入业务资料，补充获客目标和平台方向，再启动首批内容。' : '先填客户名称、行业和业务简介，即可开始诊断。现有资料可以附上，沟通后再逐步补充。';
-  document.getElementById('create-customer').textContent = stage === 'cooperating' ? '保存并完善业务资料' : '开始诊断';
+  document.getElementById('create-customer').textContent = stage === 'cooperating' ? '保存并补充业务资料' : '开始诊断';
   renderCustomers(); nav('customers');
   document.getElementById('customer-create').classList.remove('hidden');
   document.getElementById('customer-create-panel').open = true;
@@ -1591,8 +1601,8 @@ function renderCustomerJourney(customer) {
   panel.hidden = !customer;
   if (!customer) return;
   const stage = customerStage(customer), busy = customer.job ? 'disabled' : '';
-  const label = {new:'用诊断报告开启第一次沟通', following:'围绕报告继续沟通，补资料并推进合作', cooperating:'完善业务与获客方向，开始内容交付'}[stage];
-  panel.innerHTML = `<p class="meta">${Object.entries(CUSTOMER_STAGES).map(([key, value]) => key === stage ? `<strong aria-current="step">${value}</strong>` : value).join(' → ')}</p><h2>${label}</h2><div class="acts"><button class="btn ghost" data-workspace-open="materials">${stage === 'cooperating' ? '完善业务资料' : '补充客户资料'}</button>${stage === 'cooperating' ? '<button class="btn ghost" data-workspace-open="research">设置获客方向</button>' : `<button class="btn ghost" data-customer-follow="${customer.id}">记录跟进</button><button class="btn" data-customer-stage="${stage === 'new' ? 'following' : 'cooperating'}" data-customer="${customer.id}" ${busy}>${stage === 'new' ? '开始跟进' : '确认合作，进入建档'}</button>`}</div>`;
+  const label = {new:'用诊断报告开启第一次沟通', following:'围绕报告继续沟通，补资料并推进合作', cooperating:'资料交给我，内容帮你写'}[stage];
+  panel.innerHTML = `<p class="meta">${Object.entries(CUSTOMER_STAGES).map(([key, value]) => key === stage ? `<strong aria-current="step">${value}</strong>` : value).join(' → ')}</p><h2>${label}</h2><div class="acts"><button class="btn ghost" data-workspace-open="materials">${stage === 'cooperating' ? '补充业务资料' : '补充客户资料'}</button>${stage === 'cooperating' ? '<button class="btn ghost" data-workspace-open="research">补充偏好</button>' : `<button class="btn ghost" data-customer-follow="${customer.id}">记录跟进</button><button class="btn" data-customer-stage="${stage === 'new' ? 'following' : 'cooperating'}" data-customer="${customer.id}" ${busy}>${stage === 'new' ? '开始跟进' : '确认合作，进入建档'}</button>`}</div>`;
   const records = (state.workspace.ledger || []).filter(r => r.customerId === customer.id || (!r.customerId && r.client === customer.name)).slice(0,3);
   if (stage !== 'cooperating' && records.length) panel.innerHTML += `<details><summary>最近跟进 · ${records.length} 条</summary>${records.map(r => `<p>${esc(r.date)} · ${esc(r.result)}<br>${esc(r.talk)}</p>`).join('')}</details>`;
 }
@@ -1920,6 +1930,8 @@ function bind() {
         .writeText(decodeURIComponent(copy.dataset.copy))
         .then(async () => {
           toast("已复制");
+          const entry=copy.dataset.copyWholePost && attributionEntries(currentPack()).find(row=>row.key===copy.dataset.copyWholePost);
+          if(entry){const pending=entry.contentKeys.filter(key=>contentStateOf(state.workspace.contentStates,key).status==='pending');if(pending.length){await updateContentState(pending,'selected');renderToday();}return;}
           const key = copy.dataset.contentCopy;
           if (key && contentStateOf(state.workspace.contentStates, key).status === "pending") {
             await updateContentState([key], "selected");
@@ -2224,22 +2236,24 @@ async function loadUsers() {
   const data = await res.json();
   // 一份名单就够。开通了没注册、和已经在用，是同一个人的两种状态，
   // 不是两张表。原来并排挂两份，谁看都要愣一下。
-  const registered = new Map((data.users || []).map((u) => [u.email, u.role]));
+  const registered = new Map((data.users || []).map((u) => [u.email, u]));
   const adminEmail = (data.users || []).find((u) => u.role === "admin")?.email || "";
   if (list) {
     list.innerHTML = (data.whitelist || [])
       .map((email) => {
-        const role = registered.get(email);
+        const account = registered.get(email);
+        const role = account?.role;
         const state = role
           ? role === "admin"
             ? "管理员 · 在用"
-            : "已注册 · 在用"
+            : account.hasPassword ? "已注册 · 在用" : "等待重新激活"
           : "已开通，还没注册";
         const locked = email === adminEmail;
         return rowCard({
           title: email,
           chips: chip(state, role ? "chip-hot" : ""),
           actions: `${role && !locked ? `<button type="button" class="go" data-white-reset="${esc(email)}">重设密码</button>` : ""}
+          ${!locked && !account?.hasPassword ? `<button type="button" class="go" data-white-activation="${esc(email)}">重新生成激活码</button>` : ""}
           ${locked ? "" : `<button type="button" class="go" data-white-del="${esc(email)}">移出</button>`}`,
         });
       })
@@ -2358,9 +2372,9 @@ async function boot() {
     document.getElementById("nav-crew")?.classList.remove("hidden");
     loadCrew();
   }
-  // 管理员第一次登录，刚输的密码就是以后的密码，得让他知道这事定下来了
+  // 管理员首次完成预设密码验证。
   if (new URLSearchParams(location.search).get("first") === "1") {
-    toast("首次登录完成。刚输入的密码就是以后的密码，记牢。");
+    toast("首次登录完成。可以开始开通账号和配置工作台。");
     history.replaceState(null, "", "/");
   }
 }
@@ -2371,15 +2385,41 @@ document.getElementById("nav-logout")?.addEventListener("click", async (e) => {
   location.href = "/login.html";
 });
 
-document.getElementById("add-white")?.addEventListener("click", async () => {
-  const res = await fetch("/api/whitelist", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: document.getElementById("white-email").value }),
+function showActivation(email, data) {
+  const result = document.getElementById("activation-result");
+  result.classList.remove("hidden");
+  result.replaceChildren();
+  const message = document.createElement("p");
+  message.textContent = `请将 ${email} 的激活码私下发送给本人。24 小时内有效，只能使用一次。`;
+  const code = document.createElement("input");
+  code.readOnly = true;
+  code.setAttribute("aria-label", "本次激活码");
+  code.value = data.activationCode || "";
+  const copy = document.createElement("button");
+  copy.type = "button"; copy.className = "btn ghost"; copy.textContent = "复制激活码";
+  copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(code.value); toast("已复制，请私下发给本人"); }
+    catch { code.focus(); code.select(); toast("请复制已选中的激活码"); }
   });
-  const data = await res.json();
-  toast(res.ok ? "已加入" : data.error || "加入失败");
-  if (res.ok) loadUsers();
+  result.append(message, code, copy);
+}
+async function issueActivation(url, email, button) {
+  button.disabled = true;
+  try {
+    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "开通失败，请重试");
+    if (data.activationCode) showActivation(email, data);
+    else { document.getElementById("activation-result").replaceChildren(); document.getElementById("activation-result").classList.add("hidden"); }
+    await loadUsers();
+    toast(data.activationCode ? "激活码已生成，请发给本人" : "访问已恢复，对方可使用原密码登录");
+  } catch (error) { toast(error.message || "网络不通，请重试"); }
+  finally { button.disabled = false; }
+}
+document.getElementById("add-white")?.addEventListener("click", event => {
+  const input = document.getElementById("white-email");
+  if (!input.value.trim() || !input.reportValidity()) { input.focus(); return; }
+  issueActivation("/api/whitelist", input.value.trim(), event.currentTarget);
 });
 
 document.getElementById("go-full")?.addEventListener("click", async (e) => {
@@ -2532,6 +2572,7 @@ document.getElementById("go-today")?.addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   const customerId = btn.dataset.customer;
   if (!customerId) return;
+  if(document.getElementById('quick-growth-goal')?.dataset.saving){toast('正在保存你的选择，请稍候');return;}
   btn.disabled = true;
   const old = btn.innerHTML;
   btn.innerHTML = `${icon("bolt")}正在出一批…`;
@@ -2563,6 +2604,7 @@ document.getElementById("go-refill")?.addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   const customerId = btn.dataset.customer;
   if (!customerId) return;
+  if(document.getElementById('quick-growth-goal')?.dataset.saving){toast('正在保存你的选择，请稍候');return;}
   btn.disabled = true;
   const old = btn.innerHTML;
   btn.innerHTML = `${icon("bolt")}正在补货…`;
@@ -2965,23 +3007,22 @@ document.getElementById("add-ledger")?.addEventListener("click", async () => {
   finally { submit.disabled = false; }
 });
 
-document.getElementById("change-pass")?.addEventListener("click", async () => {
-  const res = await fetch("/api/password", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      oldPassword: document.getElementById("old-pass").value,
-      newPassword: document.getElementById("new-pass").value,
-    }),
-  });
-  const data = await res.json();
-  if (res.ok) {
-    document.getElementById("old-pass").value = "";
-    document.getElementById("new-pass").value = "";
-    toast("密码已改");
-  } else {
-    toast(data.error || "改密失败");
-  }
+document.getElementById("change-pass")?.addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  if (button.disabled) return;
+  const oldInput = document.getElementById("old-pass"), newInput = document.getElementById("new-pass");
+  const oldPassword = oldInput.value, newPassword = newInput.value;
+  button.disabled = true;
+  button.textContent = "正在保存…";
+  try {
+    const res = await fetch("/api/password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ oldPassword, newPassword }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "改密失败");
+    if (oldInput.value === oldPassword) oldInput.value = "";
+    if (newInput.value === newPassword) newInput.value = "";
+    toast("密码已改，其他设备需重新登录");
+  } catch (error) { toast(error.message || "网络不通，请重试"); }
+  finally { button.disabled = false; button.textContent = "更改密码"; }
 });
 
 document.body.addEventListener('input', event => {
@@ -3083,19 +3124,16 @@ document.body.addEventListener("click", async (e) => {
 });
 
 document.body.addEventListener("click", async (e) => {
+  const activation = e.target.closest("[data-white-activation]");
+  if (activation && !activation.disabled) {
+    await issueActivation("/api/users/activation", activation.dataset.whiteActivation, activation);
+    return;
+  }
   const reset = e.target.closest("[data-white-reset]");
-  if (reset) {
+  if (reset && !reset.disabled) {
     const email = reset.dataset.whiteReset;
-    // 抹掉密码不是小事，问一句。抹完他登录不了，得自己回注册页重设
-    if (!confirm(`删除 ${email} 的密码？对方需要回注册页重新设置。客户和历史报告不会丢失。`)) return;
-    const res = await fetch("/api/users/reset", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    toast(res.ok ? `${email} 的密码已抹掉，让他去注册页重新设` : data.error || "重设失败");
-    if (res.ok) loadUsers();
+    if (!confirm(`重设 ${email} 的密码并退出其所有设备？请把新激活码私下发给本人。客户和历史报告会保留。`)) return;
+    await issueActivation("/api/users/reset", email, reset);
     return;
   }
   // —— 模型接口那页：一张卡一个渠道，动作都落在卡上 ——
@@ -3433,6 +3471,7 @@ document.body.addEventListener("dragend", async () => {
   await saveLlmOrder();
 });
 
+installGrowthUI({ getWorkspace: () => state.workspace, setWorkspace: value => { state.workspace = value; }, render: renderToday, toast });
 boot();
 
 function showResearchConfig(config) {
@@ -3441,6 +3480,7 @@ function showResearchConfig(config) {
   document.getElementById("research-config-status").textContent = `5118：${config.keywordReady ? "已配置" : "未配置"}；外部搜索：${config.searxngReady ? "SearXNG 已配置" : config.searchReady ? "Brave 已配置" : "未配置"}；行业资讯：${config.rsshubReady ? "RSSHub 已配置" : "未配置"}；正文读取：${config.crawlerReady ? "Crawl4AI 已安装" : "基础读取器"}。点击测试连接核实当前可用性。`;
 }
 function renderGrowthResearch(customer, pack) {
+  renderGrowthSettings(customer);
   const input = document.getElementById("growth-direction");
   if (!input) return;
   if (input.dataset.customer !== customer.id) { input.value = customer.growthDirection || ""; input.dataset.customer = customer.id; }
@@ -3452,7 +3492,7 @@ function renderGrowthResearch(customer, pack) {
   const strategy = research.strategy || {};
   const labels = { audience: "优先客户", platform: "研究建议平台", rationale: "选择依据", profile: "账号与主页", platformMechanism: "平台流量机制", preferences: "目标用户偏好", trust: "信任依据", consultation: "咨询承接", execution: "执行节奏" };
   const safeLink = (value) => { try { const u = new URL(value); return ["http:", "https:"].includes(u.protocol) ? u.href : ""; } catch { return ""; } };
-  output.innerHTML = `<p class="meta">研究时间：${esc(research.checkedAt || "")} · ${research.reused ? "复用24小时内研究" : "本批研究"} · ${research.sources?.length || 0} 个网页来源 / ${research.keywords?.length || 0} 条需求词 / ${research.importedKeywords?.length || 0} 条导入参考词</p>
+  output.innerHTML = `<p class="meta">本批目标：${esc(GROWTH_GOALS[pack.origin?.goal || 'leads']?.label)} · 研究时间：${esc(research.checkedAt || "")} · ${research.reused ? "复用24小时内研究" : "本批研究"} · ${research.sources?.length || 0} 个网页来源 / ${research.keywords?.length || 0} 条需求词 / ${research.importedKeywords?.length || 0} 条导入参考词</p>
     ${research.direction !== (customer.growthDirection || "") ? '<p class="meta">方向已更新，这份历史研究仍保留当时的依据；下一批采用新方向。</p>' : ""}
     ${(research.warnings || []).map((w) => `<p class="meta">${esc(w)}</p>`).join("")}
     <div class="research-strategy">${Object.entries(labels).filter(([key]) => strategy[key]).map(([key, label]) => `<div><h3>${label}</h3><p>${esc(strategy[key])}</p></div>`).join("")}</div>

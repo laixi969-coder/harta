@@ -50,5 +50,13 @@ export function packAsSent(pack) {
       return item;
     });
   }
+  // Natural-content batches expose platform posts in the editor. Keep legacy
+  // copy consumers on that same final body instead of an invisible stale draft.
+  if (pack?.origin?.mode === 'organic' && Object.keys(shells).length === 1) {
+    const items = Object.values(shells)[0];
+    Object.keys(copies).forEach((group, i) => {
+      if (copies[group].length === 1 && typeof items[i]?.body === 'string') copies[group] = [items[i].body];
+    });
+  }
   return { copies, shells };
 }

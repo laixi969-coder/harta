@@ -42,7 +42,7 @@
         </div>
         <p id="err" class="meta" role="alert" style="color:var(--down);min-height:1.4em;margin-top:16px"></p>
         <div class="acts"><button class="btn" type="submit">进入</button></div>
-        <p class="meta" style="margin-top:14px">管理员第一次登录：当时输入的密码就是以后的密码，想好再输。</p>
+        <p class="meta" style="margin-top:14px">忘记密码？请联系管理员获取重设激活码，再到注册页设置。</p>
       </form>
     </main>
   </div>
@@ -53,6 +53,7 @@
       e.preventDefault();
       const err = document.getElementById("err");
       const btn = e.target.querySelector("[type=submit]");
+      if (btn.disabled) return;
       err.textContent = "";
       btn.disabled = true;
       btn.textContent = "正在进入…";
