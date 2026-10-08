@@ -15,7 +15,7 @@ export default class HartaSalesProvider {
     if(live&&!salesPlan.stopReason){
       if(!llmReady())return {error:'未配置可用模型；不能将规则测试当作真实模型评测'};
       try {
-        draft=await generateSalesDraft({onReview:r=>attempts.push(r),request:salesDraftRequest({...input,business:{name:'测试灯具商店'},material:'合成验收业务，仅用于测试。',knowledge,salesPlan}),scope:input.scope,question:input.conversation.at(-1)?.text||input.evidence.map(e=>e.text).join('\n'),reviewContext:{name:'测试灯具商店',hunt:'其他行业',salesMaterial:JSON.stringify(input.scope),sourceMaterial:knowledge.chunks.map(d=>d.text).join('\n')},platform:'抖音',chatFn:chat,review:reviewContentFacts});
+        draft=await generateSalesDraft({onReview:r=>attempts.push(r),request:salesDraftRequest({...input,business:{name:'测试灯具商店'},material:'合成验收业务，仅用于测试。',knowledge,salesPlan}),scope:input.scope,salesPlan,question:input.conversation.at(-1)?.text||input.evidence.map(e=>e.text).join('\n'),reviewContext:{name:'测试灯具商店',hunt:'其他行业',salesMaterial:JSON.stringify(input.scope),sourceMaterial:knowledge.chunks.map(d=>d.text).join('\n')},platform:'抖音',chatFn:chat,review:reviewContentFacts});
       } catch { return {error:'真实模型未返回通过报价与承诺检查的草稿',metadata:{attempts}}; }
     }
     return {output:JSON.stringify({skill:salesPlan.skillId,blocked:Boolean(salesPlan.stopReason),references:knowledge.chunks.map(d=>d.id),draft,mode:live?'live':'rules'})};
