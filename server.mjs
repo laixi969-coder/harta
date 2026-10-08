@@ -1,4 +1,7 @@
+import { commerceWorkspace, commerceAction, startOutreachDraft } from './lib/commerce-workspace.mjs';
 import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, validHost, sameOriginMutation, sessionCookie, readJsonBody } from './lib/request-guard.mjs';
+import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, saveAccount, preparePublication, confirmPublication, recordInquiry, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
+import { agentWorkspace, createAgent, saveAgent, agentAction, startAgentTrial } from './lib/business-agents.mjs';
 import { proposeFactCards, saveGrowthSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
 import { rewriteOrganicPost } from './lib/generate.mjs';
 import { receiveKeywordBatch, prepareKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
@@ -90,6 +93,10 @@ function rateLimit(req, key, max, windowMs, identity) {
 }
 const EXPENSIVE_ROUTES = new Set(['/api/materials/analyze', '/api/keywords/import', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
 const JOB_ROUTES = new Set(['/api/customers', '/api/repack', '/api/refill', '/api/today']);
+EXPENSIVE_ROUTES.add('/api/acquisition/suggestion');
+JOB_ROUTES.add('/api/acquisition/search');
+JOB_ROUTES.add('/api/acquisition/agent-trial');
+JOB_ROUTES.add('/api/acquisition/outreach');
 
 function securityHeaders(extra = {}) {
   const { cache, ...rest } = extra;
@@ -198,6 +205,34 @@ function safeFile(urlPath) {
 }
 
 async function handleApi(req, res, url) {
+  if (url.pathname === '/api/acquisition' && req.method === 'GET') {
+    const user = requireUser(req, res);
+    if (!user) return;
+    acquisitionWorkspace(user.email);
+    commerceWorkspace(user.email);
+    return json(res, 200, { workspace: publicWorkspace(agentWorkspace(user.email)), capabilities: acquisitionCapabilities() });
+  }
+  if (url.pathname.startsWith('/api/acquisition/') && req.method === 'POST') {
+    const user = requireUser(req, res);
+    if (!user) return;
+    const action = url.pathname.slice('/api/acquisition/'.length);
+    const handlers = { commerce: commerceAction, import: importSignals, stop: stopSearch, review: reviewSignal, account: saveAccount, 'prepare-publication': preparePublication, publication: confirmPublication, inquiry: recordInquiry, lead: leadAction, 'agent-create': createAgent, 'agent-save': saveAgent, 'agent-action': agentAction };
+    const body = await readBody(req);
+    try {
+      if (action === 'suggestion') return json(res, 200, await generateContactSuggestion(user.email, body));
+      if (action === 'outreach') { const result=startOutreachDraft(user.email,body); return json(res,202,{workspace:publicWorkspace(result.workspace)}); }
+      if (action === 'agent-trial') {
+        const result = startAgentTrial(user.email, body);
+        return json(res, 202, { workspace: publicWorkspace(result.workspace) });
+      }
+      if (action === 'search') {
+        const result = startSearch(user.email, body);
+        return json(res, 202, { workspace: publicWorkspace(result.workspace) });
+      }
+      if (!Object.hasOwn(handlers, action)) return json(res, 404, { error: '没有这个获客操作' });
+      return json(res, 200, { workspace: publicWorkspace(handlers[action](user.email, body)) });
+    } catch (error) { return json(res, 400, { error: error.message || '操作未完成，请重试' }); }
+  }
   if (req.method === "GET" && url.pathname === "/api/me") {
     const user = currentUser(req);
     if (!user) return json(res, 401, { error: "请先登录" });
@@ -570,7 +605,7 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const body = await readBody(req);
     try {
-      const result = dropToday(user.email, body.customerId);
+      const result = dropToday(user.email, body.customerId, body);
       if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
       return json(res, 200, publicWorkspace(result.workspace));
     } catch (err) {

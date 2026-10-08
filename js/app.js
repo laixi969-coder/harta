@@ -1,4 +1,6 @@
+import { installCommerceUI, renderCommerceUI } from './commerce-ui.js';
 import { renderGrowthSettings, renderPostGrowth, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
+import { installAcquisitionUI, renderAcquisitionUI, refreshAcquisition, openPublication, openAcquisitionContext } from './acquisition-ui.js';
 import { renderRecommendation, renderMaterialSuggestion, renderCreationPlan } from './content-plan.js';
 import { GROWTH_GOALS, growthGoal } from './growth.js';
 import { arrangeWorkspace, arrangeContentReader } from './customer-workspace.js';
@@ -27,8 +29,8 @@ import {
 } from "./customer-view.js";
 
 const state = {
-  view: "today",
-  customerStageFilter: 'new',
+  view: "workbench",
+  customerStageFilter: 'all',
   businessDrafts: new Map(),
   theme: document.documentElement.getAttribute("data-theme") || "light",
   workspace: { customers: [], ledger: [], feedback: {}, usingId: "" },
@@ -701,6 +703,8 @@ function addMaterialFiles(files) {
 
 function nav(view) {
   state.view = view;
+  const secondary=document.querySelector(`.rail-more [data-nav="${view}"]`);if(secondary)secondary.closest("details").open=true;
+  renderCommerceUI();
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const on = a.dataset.nav === view;
     a.classList.toggle("on", on);
@@ -930,6 +934,8 @@ function renderAcquisition(customer) {
 }
 
 function renderToday() {
+  renderAcquisitionUI();
+  renderCommerceUI();
   renderJobCenter();
   const mine = usingCustomer();
   document.querySelector(".workspace-primary-actions")?.classList.toggle("hidden", !mine);
@@ -1463,6 +1469,7 @@ function renderToday() {
         return `<div class="line slip platform-post"${isContentPack ? " data-content-container" : ""}>${rows}
           ${isContentPack ? `<div class="slip-bar platform-outcome"><div class="slip-step">
             <button type="button" class="textish" data-publish-post="${esc(outcomeKey)}" ${published ? "disabled" : ""}>${published ? "整条已发布" : "标记整条已发布"}</button>
+            <button type="button" class="textish" data-register-publication data-post-platform="${esc(s.name)}" data-post-index="${idx}">登记发布链接 / 版本</button>
             ${pack.origin?.mode !== "organic" ? `<button type="button" class="verdict ${outcome === "replied" ? "on-yes" : ""}" data-fb="${esc(outcomeKey)}" data-val="replied" aria-pressed="${outcome === "replied"}">有客户反馈</button>
             <button type="button" class="verdict ${outcome === "dead" ? "on-no" : ""}" data-fb="${esc(outcomeKey)}" data-val="dead" aria-pressed="${outcome === "dead"}">没反应</button>` : ""}
             <button type="button" class="textish" data-record-outcome="${esc(outcomeKey)}">记询价 / 成交</button>
@@ -1547,14 +1554,15 @@ function renderCustomers() {
   const order = [...(desk.unmarked || []), ...(desk.send || []), ...(desk.judge || []), ...(desk.done || [])];
   const priority = new Map(order.map((row, index) => [row.id, index]));
   const all = state.workspace.customers || [];
-  const descriptions = { new: '初次接触：先出诊断报告，用报告开启沟通。', following: '继续洽谈：查看报告、补充资料、记录反馈，推进合作。', cooperating: '持续交付：完善业务资料与获客方向，再生成平台内容。' };
-  document.getElementById('customer-stage-nav').innerHTML = Object.entries(CUSTOMER_STAGES).map(([key, label], index) => `<button type="button" data-stage-filter="${key}" aria-pressed="${state.customerStageFilter === key}"><span class="meta">0${index + 1}</span><strong>${label}<span>${all.filter(c => customerStage(c) === key).length}</span></strong><span>${descriptions[key]}</span></button>`).join('');
-  document.getElementById('customer-stage-title').textContent = CUSTOMER_STAGES[state.customerStageFilter];
+  const descriptions = { all: '业务资料、研究、报告和内容历史集中保留。', new: '初次接触：先出诊断报告，用报告开启沟通。', following: '继续洽谈：查看报告、补充资料、记录反馈，推进合作。', cooperating: '持续交付：完善业务资料与获客方向，再生成平台内容。' };
+  document.getElementById('customer-stage-nav').innerHTML = '<button type="button" data-stage-filter="all">全部业务</button>' + Object.entries(CUSTOMER_STAGES).map(([key, label], index) => `<button type="button" data-stage-filter="${key}" aria-pressed="${state.customerStageFilter === key}"><span class="meta">0${index + 1}</span><strong>${label}<span>${all.filter(c => customerStage(c) === key).length}</span></strong><span>${descriptions[key]}</span></button>`).join('');
+  document.getElementById('customer-stage-title').textContent = state.customerStageFilter === 'all' ? '全部业务' : CUSTOMER_STAGES[state.customerStageFilter];
   document.getElementById('customer-stage-description').textContent = descriptions[state.customerStageFilter];
   const add = document.getElementById('customer-stage-add');
   add.dataset.customerEntry = state.customerStageFilter === 'cooperating' ? 'cooperating' : 'new';
   add.textContent = state.customerStageFilter === 'cooperating' ? '录入已合作客户' : '诊断新客户';
-  const list = [...all].filter(c => customerStage(c) === state.customerStageFilter).sort((a, b) => (priority.get(a.id) ?? Infinity) - (priority.get(b.id) ?? Infinity));
+  add.classList.toggle('hidden',state.customerStageFilter==='all');
+  const list = [...all].filter(c => state.customerStageFilter === 'all' || customerStage(c) === state.customerStageFilter).sort((a, b) => (priority.get(a.id) ?? Infinity) - (priority.get(b.id) ?? Infinity));
   box.innerHTML = list.length
     ? list
         .map((c) => {
@@ -1562,7 +1570,7 @@ function renderCustomers() {
           const latest = packs[0];
           const using = c.id === usingCustomer()?.id;
           const stage = customerStage(c);
-          const kindChip = chip(CUSTOMER_STAGES[stage], stage === 'cooperating' ? 'chip-stock' : 'chip-new');
+          const kindChip = state.customerStageFilter === 'all' ? '' : chip(CUSTOMER_STAGES[stage], stage === 'cooperating' ? 'chip-stock' : 'chip-new');
           const actions = c.job
             ? `<button type="button" class="go" data-using="${c.id}">查看进度</button>`
             : c.track
@@ -1578,7 +1586,7 @@ function renderCustomers() {
           });
         })
         .join("")
-    : `<p class="meta">暂无${CUSTOMER_STAGES[state.customerStageFilter]}。${state.customerStageFilter === 'following' ? '新客户完成初步沟通后，点击“开始跟进”移入这里。' : state.customerStageFilter === 'cooperating' ? '确定合作后转入，或直接录入已合作客户。' : '点击“诊断新客户”，从名称、行业与业务简介开始。'}</p>`;
+    : `<p class="meta">暂无${CUSTOMER_STAGES[state.customerStageFilter]||'业务'}。${state.customerStageFilter === 'following' ? '新客户完成初步沟通后，点击“开始跟进”移入这里。' : state.customerStageFilter === 'cooperating' ? '确定合作后转入，或直接录入已合作客户。' : '点击“诊断新客户”，从名称、行业与业务简介开始。'}</p>`;
 }
 
 function openCustomerEntry(stage) {
@@ -1739,6 +1747,11 @@ function bind() {
       document.getElementById("ledger-line").value = record.dataset.recordOutcome || "";
       renderLedgerPlatform();
       document.getElementById("ledger-talk").focus();
+      return;
+    }
+    const publication = e.target.closest("[data-register-publication]");
+    if (publication) {
+      openPublication(usingCustomer().id, currentPack().id, publication.dataset.postPlatform, Number(publication.dataset.postIndex));
       return;
     }
     const post = e.target.closest("[data-publish-post]");
@@ -2354,6 +2367,7 @@ async function boot() {
 
   const space = await fetch("/api/workspace");
   if (space.ok) state.workspace = await space.json();
+  await refreshAcquisition();
   bindEyes();
   renderToday();
   renderLedger();
@@ -2362,7 +2376,7 @@ async function boot() {
   document.getElementById("ledger-line")?.addEventListener("change", renderLedgerPlatform);
   bind();
   refreshCharCounts();
-  nav("today");
+  nav("workbench");
   // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」。
   // 可能不止一个在跑，全都盯上。
   for (const c of state.workspace.customers || []) {
@@ -3474,6 +3488,26 @@ document.body.addEventListener("dragend", async () => {
 });
 
 installGrowthUI({ getWorkspace: () => state.workspace, setWorkspace: value => { state.workspace = value; }, render: renderToday, toast });
+installAcquisitionUI({ getWorkspace: () => state.workspace, setWorkspace: value => { state.workspace = value; }, render: renderToday, toast, nav, openKnowledge: customerId => {
+  state.openedId = customerId;
+  state.packId = '';
+  nav('today');
+  renderToday();
+  document.querySelector('[data-workspace-view="materials"]')?.click();
+}, openContent: customerId => {
+  state.openedId = customerId;
+  state.packId = '';
+  nav('today');
+  renderToday();
+  document.querySelector('[data-workspace-view="content"]')?.click();
+  document.getElementById('go-today')?.scrollIntoView({ block: 'center' });
+} });
+installCommerceUI({getWorkspace:()=>state.workspace,setWorkspace:value=>{state.workspace=value;},render:renderToday,toast,nav,watchJob,
+  getContentCustomer:usingCustomer,
+  openContent:async(id,packId='')=>{await useCustomer(id,packId);},
+  openLegacy:(id,mode)=>openAcquisitionContext(id,mode==='legacy'?'content':mode),
+  openLegacyLead:(id,leadId)=>openAcquisitionContext(id,'leads',leadId)
+});
 boot();
 
 function showResearchConfig(config) {

@@ -14,12 +14,13 @@
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
-      var fresh = localStorage.getItem("harta-visual-version") !== "color-block-v1";
-      var t = q || (fresh ? "dark" : localStorage.getItem("harta-theme") || "dark");
-      if (fresh) { localStorage.setItem("harta-theme", t); localStorage.setItem("harta-visual-version", "color-block-v1"); }
+      var fresh = localStorage.getItem("harta-visual-version") !== "business-workbench-v2";
+      var t = q || (fresh ? localStorage.getItem("harta-theme") || "light" : localStorage.getItem("harta-theme") || "light");
+      if (fresh) { localStorage.setItem("harta-theme", t); localStorage.setItem("harta-visual-version", "business-workbench-v2"); }
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
+  <link rel="stylesheet" href="css/commerce.css?v=20261008">
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -51,14 +52,21 @@
         <p class="brand-line">助力线索｜引流｜获客</p>
       </div>
       <nav aria-label="工作台">
-      <a href="#" data-nav="today" class="on" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg>今天</a>
-      <a href="#" data-nav="customers"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>客户</a>
-      <a href="#" data-nav="pack"><svg class="icon" aria-hidden="true"><use href="#i-folio"></use></svg>客户报告</a>
-      <a href="#" data-nav="ledger"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>跟进记录</a>
-      <a href="#" data-nav="crew" id="nav-crew" class="hidden"><svg class="icon" aria-hidden="true"><use href="#i-crew"></use></svg>全组</a>
+      <a href="#" data-nav="workbench"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg>今天</a>
+      <a href="#" data-nav="products"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>产品与服务</a>
+      <a href="#" data-nav="today"><svg class="icon" aria-hidden="true"><use href="#i-film"></use></svg>内容</a>
+      <a href="#" data-nav="prospecting"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>找客户</a>
+      <a href="#" data-nav="conversations"><svg class="icon" aria-hidden="true"><use href="#i-reply"></use></svg>客户与咨询</a>
+      <a href="#" data-nav="customers"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>业务资料</a>
+      <a href="#" data-nav="agents"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>智能体</a>
       <a href="#" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>设置</a>
-      <a href="#" id="nav-logout"><svg class="icon" aria-hidden="true"><use href="#i-door"></use></svg>退出</a>
-      </nav>
+<details class="rail-more"><summary>报告与记录</summary>
+<a href="#" data-nav="pack"><svg class="icon" aria-hidden="true"><use href="#i-folio"></use></svg>诊断报告</a>
+<a href="#" data-nav="ledger"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>跟进与复盘</a>
+<a href="#" data-nav="acquisition"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>发布与来源</a>
+<a href="#" data-nav="leads"><svg class="icon" aria-hidden="true"><use href="#i-reply"></use></svg>历史会话</a>
+<a href="#" data-nav="crew" id="nav-crew" class="hidden"><svg class="icon" aria-hidden="true"><use href="#i-crew"></use></svg>全组</a>
+</details><a href="#" id="nav-logout">退出</a></nav>
     </aside>
     <main class="main" id="work">
       <header class="mast">
@@ -69,12 +77,17 @@
         <div class="who" id="who">正在确认登录…</div>
         <div class="tools">
           <button class="btn ghost" data-theme-toggle type="button" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-contrast"></use></svg>深浅</button>
-          <button class="btn gold" data-customer-entry="new"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>诊断新客户</button>
+          <button class="btn gold" data-customer-entry="new"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>新建诊断</button>
         </div>
       </div>
       <div class="job-center hidden" id="job-center" aria-label="生成任务"></div>
 
-      <section data-view="today">
+<section class="hidden cm-root" data-view="workbench"><div id="cm-workbench"></div></section>
+<section class="hidden cm-root" data-view="products"><div id="cm-products"></div></section>
+<section class="hidden cm-root" data-view="prospecting"><div id="cm-prospecting"></div></section>
+<section class="hidden cm-root" data-view="conversations"><div id="cm-conversations"></div></section>
+      <section class="hidden" data-view="today">
+<div id="cm-content-scope" class="cm-root"></div>
         <div class="hook">
           <p class="kicker">今天</p>
           <h1 id="hook-line"></h1>
@@ -82,9 +95,9 @@
           <p class="meta" id="hook-gate"></p>
         </div>
         <article class="card hidden" id="empty-today">
-          <h2>还没有你的客户</h2>
-          <p class="meta">新客户先诊断，沟通后进入跟进，确定合作后再制定获客方案与内容。</p>
-          <div class="acts"><button class="btn" data-customer-entry="new">诊断新客户</button><button class="btn ghost" data-customer-entry="cooperating">录入已合作客户</button></div>
+          <h2>还没有业务资料</h2>
+          <p class="meta">先建立业务资料，即可创作内容或查找需求。已有资料和历史仍保留。</p>
+          <div class="acts"><button class="btn" data-cm="go-workbench">添加业务</button></div>
         </article>
         <article class="card" id="desk-card">
           <div class="desk-board">
@@ -308,12 +321,31 @@
         </div>
       </section>
 
+      <section class="hidden" data-view="acquisition">
+        <div class="hook"><h1>找到需求，也让需求找到你。</h1><p class="meta">主动找客与内容获客，共用业务资料与跟进记录。</p></div>
+        <div id="acq-context" class="acq-root"></div>
+        <div id="acq-today" class="acq-today" aria-label="获客待办"></div>
+        <div id="acq-workspace" class="acq-root"><p role="status">正在读取获客工作台…</p></div>
+        <details id="acq-connection-panel" class="acq-root acq-panel">
+          <summary>平台账号与连接</summary>
+          <section id="acq-accounts" aria-label="平台账号与连接"></section>
+        </details>
+      </section>
+      <section class="hidden" data-view="agents">
+        <div class="hook"><h1>让助手理解你的业务。</h1><p class="meta">从业务资料创建角色，用真实需求试运行，再用于具体任务。</p></div>
+        <div id="acq-agents" class="acq-root"><p role="status">正在读取业务智能体…</p></div>
+      </section>
+      <section class="hidden" data-view="leads">
+        <div class="hook"><h1>把每次咨询，接着往前走。</h1><p class="meta">先处理新消息，再记录核实依据和下一步。</p></div>
+        <div id="acq-leads" class="acq-root"><p role="status">正在读取线索…</p></div>
+        <details class="acq-root acq-panel"><summary>双路径实际结果与复盘</summary><section id="acq-results" aria-label="双路径实际结果"></section></details>
+      </section>
       <section class="hidden" data-view="customers">
         <div class="hook">
           <p class="kicker">客户</p>
-          <h1>客户与合作</h1>
+          <h1>业务资料</h1>
         </div>
-        <nav id="customer-stage-nav" class="customer-stage-nav" aria-label="客户阶段入口"></nav>
+        <div class="acts"><button class="btn" data-cm="go-workbench">建立业务</button></div><details><summary>按原合作分类查看（选用）</summary><nav id="customer-stage-nav" class="customer-stage-nav" aria-label="客户阶段入口"></nav></details>
         <div class="customer-stage-heading"><div><h2 id="customer-stage-title">新客户</h2><p class="meta" id="customer-stage-description"></p></div><button class="btn" id="customer-stage-add" data-customer-entry="new">诊断新客户</button></div>
         <div id="customer-list" class="chase"></div>
         <article class="card form customer-create hidden" id="customer-create">
@@ -495,6 +527,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20260921-journey-audit"></script>
+  <script type="module" src="js/app.js?v=20261008-products-outreach"></script>
 </body>
 </html>
