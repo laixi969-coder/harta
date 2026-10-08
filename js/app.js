@@ -1,4 +1,5 @@
 import { renderGrowthSettings, renderPostGrowth, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
+import { renderRecommendation, renderMaterialSuggestion, renderCreationPlan } from './content-plan.js';
 import { GROWTH_GOALS, growthGoal } from './growth.js';
 import { arrangeWorkspace, arrangeContentReader } from './customer-workspace.js';
 import { CUSTOMER_STAGES, customerStage } from './customer-stage.js';
@@ -344,12 +345,12 @@ function renderJobCenter() {
  * 人对「要多久」有数了，等待才不慌；时间预期优先用他自己的上一批，没有才给区间。 */
 const JOB_META = {
   出今日: {
-    band: "先研究需求与平台，再生成六篇内容；耗时取决于数据源和模型",
+    band: "先研究需求、比较创意，再精选成稿；耗时取决于数据源和模型",
     steps: [
-      { label: "需求与平台研究", doneAt: 65 },
-      { label: "文案", count: "copiesGot", total: 6, unit: "篇", doneAt: 90 },
-      { label: "平台版本", count: "shellsGot", total: 6, unit: "篇", doneAt: 90 },
-      { label: "合规检查", doneAt: 94 },
+      { label: "需求与平台研究", doneAt: 45 },
+      { label: "比较并筛选创意", doneAt: 65 },
+      { label: "完整成稿", count: "copiesGot", totalKey: "copiesTotal", unit: "篇", doneAt: 90 },
+      { label: "资料与交付核对", doneAt: 90 },
     ],
   },
   出判断: {
@@ -390,16 +391,17 @@ function renderPackJob() {
   const progress = jobPercent(job);
   const chips = meta.steps.map((step) => {
     const n = step.count ? Number(job[step.count]) || 0 : null;
+    const total = step.totalKey ? Number(job[step.totalKey]) || 0 : step.total;
     const label =
-      n === null ? step.label : `${step.label} ${n}/${step.total}${step.unit || ""}`;
-    const done = (step.count && n >= step.total) || progress >= (step.doneAt || 101);
+      n === null || !total ? step.label : `${step.label} ${n}/${total}${step.unit || ""}`;
+    const done = (step.count && total > 0 && n >= total) || progress >= (step.doneAt || 101);
     return `<span class="${done ? "is-done" : ""}">${esc(label)}</span>`;
   });
   const prev =
     mine.lastRun && mine.lastRun.kind === job.kind && mine.lastRun.status === "done"
       ? elapsedLabel(mine.lastRun.startedAt, mine.lastRun.finishedAt)
       : "";
-  const expect = prev ? `上一批用了 ${prev}，这批一般差不多` : meta.band;
+  const expect = prev ? `上一批用了 ${prev}；本批耗时取决于资料与模型` : meta.band;
   box.classList.remove("hidden");
   box.innerHTML = `
     <div class="pack-job-head">
@@ -1071,7 +1073,7 @@ function renderToday() {
     goToday.disabled = busy || Boolean(quick.dataset.saving);
     goToday.innerHTML = busy
       ? `${icon("bolt")}正在${jobLabel(mine.job?.kind)}…`
-      : `${icon("bolt")}${pack?.tier === "今日" ? "再帮我写六篇" : "帮我写六篇"}`;
+      : `${icon("bolt")}${pack?.tier === "今日" ? "再帮我挑选并写好" : "帮我挑选并写好"}`;
   }
 
   const noPack = document.getElementById("no-pack");
@@ -1504,8 +1506,8 @@ function renderToday() {
       const fullText=[title,edited(pack,shellKey(s.name,index,'body'),item.body || '')].filter(Boolean).join('\n\n');
       const copyPost=publishBlocked ? '<button type="button" class="btn" disabled>修改后可复制</button>' : `<button type="button" class="btn" data-copy="${encodeURIComponent(fullText)}" data-copy-whole-post="${esc(shellFeedbackKey(pack.id,s.name,index))}">复制标题和正文</button>`;
 
-      return `<article class="sleeve sleeve-across" data-content-container><div class="sleeve-tab"><span><i class="sleeve-num">${index+1}</i>${esc(title)}</span><span>${esc(s.name)} · 完整内容</span></div><div class="sleeve-body"><div class="acts">${copyPost}</div>${platBlock({...s,lines:[raw],offset:index},'is-main')}${renderPostGrowth(mine.id,pack,s.name,index)}</div></article>`;
-    })).join('')}</div>`;
+      return `<article class="sleeve sleeve-across" data-content-container><div class="sleeve-tab"><span><i class="sleeve-num">${index+1}</i>${esc(title)}</span><span>${esc(s.name)} · 完整内容</span></div><div class="sleeve-body">${renderRecommendation(pack,s.name,index)}<div class="acts">${copyPost}</div>${platBlock({...s,lines:[raw],offset:index},'is-main')}${renderPostGrowth(mine.id,pack,s.name,index)}</div></article>`;
+    })).join('')}</div>${renderMaterialSuggestion(pack)}`;
     platBox.innerHTML='';
   }
 
@@ -2590,7 +2592,7 @@ document.getElementById("go-today")?.addEventListener("click", async (e) => {
     state.workspace = data;
     state.packId = "";
     renderToday();
-    toast("正在出一批 六篇内容，出好了这里会自己刷新");
+    toast("正在挑选创意并写成内容，出好了这里会自己刷新");
     watchJob(customerId);
   } catch {
     toast("网络不通，请再试");
@@ -3498,7 +3500,8 @@ function renderGrowthResearch(customer, pack) {
     <div class="research-strategy">${Object.entries(labels).filter(([key]) => strategy[key]).map(([key, label]) => `<div><h3>${label}</h3><p>${esc(strategy[key])}</p></div>`).join("")}</div>
     ${(strategy.opportunities || []).length ? `<details><summary>需求与选题机会</summary>${strategy.opportunities.map((o) => `<p><b>${esc(o.need)}</b> · ${esc(o.intent)}<br>${esc(o.angle)}<br><span class="meta">${esc(o.reason)} ${esc((o.sourceIds || []).join("、"))}</span></p>`).join("")}</details>` : ""}
     ${(strategy.assumptions || []).length ? `<details><summary>待核实假设</summary>${strategy.assumptions.map((a) => `<p>${esc(a)}</p>`).join("")}</details>` : ""}
-    ${(pack.execution || []).length ? `<details open><summary>六篇内容的发布顺序与制作建议</summary>${pack.execution.map((item) => `<p><b>${item.order}. ${esc(item.purpose)}</b><br>${esc(item.visual)}<br><span class="meta">${esc(item.reason)}</span></p>`).join("")}<p class="meta">完整文案与平台版本在下方内容库，可编辑、复制、排期和导出。</p></details>` : ""}
+    ${renderCreationPlan(pack)}
+    ${(pack.execution || []).length ? `<details open><summary>${pack.execution.length}篇内容的发布顺序与制作建议</summary>${pack.execution.map((item) => `<p><b>${item.order}. ${esc(item.purpose)}</b><br>${esc(item.visual)}<br><span class="meta">${esc(item.reason)}</span></p>`).join("")}<p class="meta">完整文案与平台版本在下方内容库，可编辑、复制、排期和导出。</p></details>` : ""}
     <details><summary>研究来源与需求词</summary>${(research.sources || []).map((source) => `<p>${esc(source.id)} · <a href="${esc(safeLink(source.url))}" target="_blank" rel="noopener noreferrer">${esc(source.title)}</a><br><span class="meta">${esc(source.kind)} · ${esc(source.publishedAt || "页面日期未知")}</span></p>`).join("")}<p>${esc((research.keywords || []).map((k) => k.keyword).join("、"))}</p></details>`;
 }
 document.getElementById("save-growth-direction")?.addEventListener("click", async (event) => {

@@ -9,7 +9,7 @@ export const GROWTH_BRIEF_LABELS = { role: '本篇作用', hookReason: '为什�
 export function growthGoal(customer = {}) { return Object.hasOwn(GROWTH_GOALS, customer.growthGoal) ? customer.growthGoal : 'leads'; }
 export function goalBrief(customer) {
   const goal = growthGoal(customer);
-  return `本批主要目标：${GROWTH_GOALS[goal].label}（${goal}）。${GROWTH_GOALS[goal].strategy}\n结果条件：${customer.growthCriteria || '尚未定义具体达标条件，不能宣称达标。'}\n先比较不同选题角度，再选择六个不同问题。每篇承担明确作用，不要求每篇完成所有目标。可信与可制作是底线。只提出待验证假设，不给爆款分，不承诺结果。`;
+  return `本批主要目标：${GROWTH_GOALS[goal].label}（${goal}）。${GROWTH_GOALS[goal].strategy}\n结果条件：${customer.growthCriteria || '尚未定义具体达标条件，不能宣称达标。'}\n先比较不同创意，再精选值得发布的内容，不为凑数重复。同一问题可以用不同证据和表达展开。每篇承担明确作用，不要求每篇完成所有目标。可信与可制作是底线。只提出待验证假设，不给爆款分，不承诺结果。`;
 }
 export function outcomeAssessment(goal, row) {
   const key = GROWTH_GOALS[goal]?.metric || 'qualifiedLeads';
