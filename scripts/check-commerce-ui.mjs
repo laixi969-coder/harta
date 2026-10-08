@@ -42,6 +42,13 @@ try {
   const sku=page.locator('#cm-products [data-cm-form=sku]');await sku.locator('[name=name]').fill('白色款');await sku.locator('[name=priceTerms]').fill('门店确认 199 元/台');await sku.locator('[name=source]').fill('报价单');await sku.locator('[type=submit]').click();
   let result=await (await context.request.get(`${origin}/api/acquisition`)).json();assert.equal(result.workspace.acquisition.skus.length,1);assert.equal(result.workspace.acquisition.products.length,2);
   const p=result.workspace.acquisition.products[0];
+  await page.getByText('添加销售资料',{exact:true}).click();
+  const documentForm=page.locator('[data-cm-form=sales-document][data-id=""]');
+  await documentForm.locator('[name=title]').fill('阅读灯安装 FAQ');await documentForm.locator('[name=productId]').selectOption(p.id);
+  await documentForm.locator('[name=body]').fill('阅读灯放在书桌上，使用前先核对插座位置。');await documentForm.locator('[name=source]').fill('产品说明书第3页');
+  await documentForm.locator('[name=status]').selectOption('approved');await documentForm.locator('[name=confirmed]').check();await documentForm.locator('[type=submit]').click();
+  await page.getByText('阅读灯安装 FAQ · 可用于沟通',{exact:true}).waitFor();
+
   await page.getByRole('button',{name:'添加另一款产品',exact:true}).click();await product.locator('[name=name]').fill('仅业务一的未保存草稿');
   await page.locator('#cm-products [data-cm-business]').selectOption('c2');assert.equal(await product.locator('[name=name]').inputValue(),'');
   await page.locator('#cm-products [data-cm-business]').selectOption('c1');assert.equal(await product.locator('[name=name]').inputValue(),'仅业务一的未保存草稿');
@@ -68,6 +75,10 @@ try {
   const outreach=page.locator('[data-cm-form=outreach]');await outreach.locator('[name=agentId]').selectOption(agent.id);await outreach.locator('[name=accountId]').selectOption(acc.id);await outreach.locator('[name=signalId]').selectOption(lead.signalIds[0]);await outreach.locator('[type=submit]').click();
   await page.getByRole('button',{name:'复制草稿',exact:true}).waitFor();assert.ok((await page.locator('.cm-run').innerText()).includes('澄清模板'));
   assert.equal(await page.getByRole('button',{name:'自动沟通 · 未接通',exact:true}).isDisabled(),true);
+  await page.locator('.cm-sales-plan summary').click();assert.ok((await page.locator('.cm-sales-plan').innerText()).includes('阅读灯安装 FAQ'));await page.screenshot({path:path.join(output,'sales-strategy-desktop.png'),fullPage:true});
+  await page.locator('[data-nav=workbench]').click();await page.getByRole('button',{name:'继续跟进',exact:true}).click();
+  await page.getByRole('heading',{name:/书桌照明/}).waitFor();
+
   // Actual recording is separate from copying; one message does not implicitly mark a sale.
   await page.getByText('登记实际发送',{exact:true}).click();const sent=page.locator('[data-cm-form=sent]');await sent.locator('[name=sentAt]').fill('2026-01-01T10:30');await sent.locator('[name=note]').fill('隔离测试中模拟平台记录');await sent.locator('[name=confirmed]').check();await sent.locator('[type=submit]').click();await page.locator('#cm-conversations').getByText(/已发送 · 人工登记/).waitFor();
   result=await (await context.request.get(`${origin}/api/acquisition`)).json();assert.equal(result.workspace.acquisition.opportunities[0].stage,'比较中');
@@ -99,11 +110,14 @@ try {
   for(const theme of ['light','dark']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     for(const view of ['workbench','products','prospecting','conversations']){
-      await page.locator(`[data-nav=${view}]`).click();await contrastCheck(view+' '+theme);await page.setViewportSize({width:375,height:844});
-      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${view} ${theme} mobile overflow`);
+      await page.locator(`[data-nav=${view}]`).click();await contrastCheck(view+' '+theme);for(const width of [320,375,414,768]){
+        await page.setViewportSize({width,height:844});
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${view} ${theme} ${width}px overflow`);
+      }
+      await page.setViewportSize({width:375,height:844});
       await page.screenshot({path:path.join(output,`${view}-${theme}-mobile.png`),fullPage:true});
       await page.setViewportSize({width:1440,height:1100});
     }
   }
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['products and SKU','business draft isolation','other account videos','nested comments and XSS','independent purchasing needs','agent bound context','limited draft','manual send evidence','content scope','responsive light/dark'],previews:output},null,2));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['sales knowledge approval and retrieval','strategy evidence','followup queue','products and SKU','business draft isolation','other account videos','nested comments and XSS','independent purchasing needs','agent bound context','limited draft','manual send evidence','content scope','responsive light/dark'],previews:output},null,2));
 } catch(error) { if(currentPage){console.log('Visible errors',await currentPage.locator('.cm-error,.acq-error').allTextContents());await currentPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error; } finally { if(browser)await browser.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }

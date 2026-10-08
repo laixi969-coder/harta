@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval:sales": "PROMPTFOO_DISABLE_TELEMETRY=1 npx --yes promptfoo@0.124.1 eval --no-cache --max-concurrency 1 -c evals/sales/promptfooconfig.json"
   },
   "devDependencies": {
     "vitest": "^3.2.4"
