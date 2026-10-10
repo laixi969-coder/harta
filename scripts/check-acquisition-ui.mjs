@@ -98,16 +98,22 @@ try {
   await page.locator('[data-theme-toggle]').click();await contrastCheck('light');await page.screenshot({path:path.join(output,'acquisition-light.png'),fullPage:true});
   await page.locator('[data-theme-toggle]').click();
   await page.locator('[data-nav=agents]').click();
-  await page.getByRole('button',{name:'从业务创建角色',exact:true}).click();
-  let config=page.locator('[data-agent-form=config]');await config.waitFor();
+  await page.getByRole('button',{name:'创建找客户助手',exact:true}).click();
+  let config=page.locator('[data-agent-form=config]');await config.waitFor({state:'attached'});
+  assert.ok(await config.locator('[name=criteria]').inputValue());
+  assert.equal(await config.isVisible(),false);
+  await page.getByRole('button',{name:'用内置示例试一下',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.agent-run > summary')?.textContent.includes('规则与模板完成'));
+  await page.locator('[data-agent-persist^=advanced-] > summary').click();
   await config.locator('[name=criteria]').fill('杭州有厨房翻新需求，愿意核对现场条件');
   await config.getByRole('button',{name:'保存新版本',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.agent-heading')?.textContent.includes('v2'));
+  await page.locator('[data-agent-persist^=custom-trial-] > summary').click();
   const agentTrial=page.locator('[data-agent-form=trial]');
   await agentTrial.locator('[name=text]').fill('杭州厨房翻新，有没有家装服务方推荐？');
   await agentTrial.locator('[name=source]').fill('隔离验收样例，不是真实平台数据');
   await agentTrial.getByRole('button',{name:'用已保存版本试运行'}).click();
-  await page.waitForFunction(()=>document.querySelector('.agent-run > summary')?.textContent.includes('规则与模板完成'));
+  await page.waitForFunction(()=>document.querySelector('.agent-run > summary')?.textContent.includes('v2')&&document.querySelector('.agent-run > summary')?.textContent.includes('规则与模板完成'));
   assert.equal(await page.locator('[data-agent-form=trial] [name=text]').inputValue(),'杭州厨房翻新，有没有家装服务方推荐？');
   await page.getByRole('button',{name:'启用角色',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.agent-heading')?.textContent.includes('已启用'));
@@ -121,11 +127,13 @@ try {
   assert.equal(await page.getByText('仅属于第一个业务的未保存策略',{exact:true}).count(),0);
   await page.locator('#acq-agents [data-acq-business]').selectOption('c1');
   assert.equal(await page.locator('[data-agent-form=config] [name=criteria]').inputValue(),'仅属于第一个业务的未保存策略');
+  await page.locator('[data-agent-persist^=advanced-]').evaluate(el=>el.open=true);
   await page.locator('[data-agent-form=config]').getByRole('button',{name:'保存新版本',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.agent-heading')?.textContent.includes('v3'));
   result=await (await context.request.get(`${origin}/api/acquisition`)).json();
   const agent=result.workspace.acquisition.agents[0];assert.equal(agent.versions.length,3);assert.equal(agent.status,'draft');
-  assert.equal(result.workspace.acquisition.agentRuns[0].version,2);
+  assert.equal(result.workspace.acquisition.agentRuns[0].input.sourceType,'simulated_example');
+  assert.equal(result.workspace.acquisition.agentRuns[1].version,2);
   assert.equal(result.workspace.acquisition.agentRuns[0].status,'limited');
   assert.equal(result.workspace.acquisition.publications.length,1);
   await page.locator('[data-nav=prospecting]').click();await page.locator('#cm-prospecting [data-cm=search]').click();
@@ -141,6 +149,20 @@ try {
   await page.locator('[data-nav=conversations]').click();await page.locator('#cm-conversations .cm-support > summary').click();await page.getByRole('button',{name:'未关联需求的历史会话',exact:true}).click();
   assert.equal(await page.getByRole('button',{name:'复制草稿',exact:true}).count(),0);
   assert.ok((await page.locator('#acq-lead-detail').innerText()).includes('有新消息，请按最新会话重新起草'));
+  await page.locator('[data-nav=agents]').click();
+  for(const [name,scenario,expected] of [['内容助手','normal','口播脚本草稿'],['咨询接待助手','refusal','停止营销']]){
+    const chooser=page.locator('[data-agent-persist=new-recipes]');
+    if(!await chooser.getAttribute('open').then(v=>v!==null))await chooser.locator('summary').click();
+    await page.getByRole('button',{name:'创建'+name,exact:true}).click();
+    await page.locator('.agent-heading').getByRole('heading').filter({hasText:name}).waitFor();
+    await page.locator('[data-agent-scenario]').selectOption(scenario);
+    await page.getByRole('button',{name:'用内置示例试一下',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('.agent-run > summary')?.textContent.includes('规则与模板完成'));
+    if(await page.locator('.agent-run').getAttribute('open')===null)await page.locator('.agent-run > summary').click();
+    await page.locator('.agent-run').getByRole('heading',{name:expected,exact:true}).waitFor();
+    if(scenario==='refusal')assert.ok((await page.locator('.agent-run').innerText()).includes('不生成外发草稿'));
+    await page.screenshot({path:path.join(output,scenario==='refusal'?'reception-refusal.png':'content-trial.png'),fullPage:true});
+  }
   for(const view of ['acquisition','agents','leads','settings']){
     await page.setViewportSize({width:390,height:844});if(['acquisition','leads'].includes(view))await page.locator('.rail-more summary').click();await page.locator(`[data-nav=${view}]`).click();
     const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(overflow.scroll<=overflow.width,`${view} mobile overflow: ${JSON.stringify(overflow)}`);

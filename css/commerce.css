@@ -65,3 +65,8 @@ section[data-view=today] #quick-growth-control{display:none!important}
 
 .cm-platform-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.cm-platform-card{padding:24px;border:1px solid var(--line,#ddd);border-radius:12px}.cm-platform-card h3{margin-top:0}.cm-auth-flow img{display:block;max-width:100%;height:auto;background:white}.cm-platform-card .btn:disabled{opacity:.65;cursor:not-allowed}@media(max-width:640px){.cm-platform-grid{grid-template-columns:1fr}}
 .cm-remote-scroll{overflow:auto;max-width:100%;border:1px solid var(--line,#ddd);border-radius:8px}.cm-remote-login{display:block;width:100%;height:auto;cursor:pointer}@media(max-width:640px){.cm-remote-login{min-width:780px}}
+
+/* Guided agent setup: ready-made recipes before optional technical settings. */
+.agent-recipes{margin-top:18px}.agent-recipes article{display:flex;flex-direction:column;gap:10px}.agent-recipes article .btn{margin-top:auto;align-self:flex-start}
+.agent-guide ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:0;list-style-position:inside;margin:20px 0}.agent-guide li{padding:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;line-height:1.6}.agent-guide>p{line-height:1.8}.agent-trial>.acts{margin:18px 0}
+@media(max-width:800px){.agent-guide ol{grid-template-columns:repeat(2,minmax(0,1fr));}}
