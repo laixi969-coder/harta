@@ -30,7 +30,7 @@ try {
   const page=await context.newPage(),errors=[];currentPage=page;page.on('response',async response=>{if(response.url().includes('/api/acquisition')&&response.status()>=400)console.log('Acquisition error',await response.text());});page.on('pageerror',error=>errors.push(error.message));
   assert.equal((await context.request.get(`${origin}/api/acquisition`)).status(),401);
   const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);
-  await page.goto(origin);await page.locator('#cm-workbench h1').waitFor();await page.locator('.rail-more summary').click();await page.locator('[data-nav=today]').click();await page.locator('[data-publish-post]').waitFor();
+  await page.goto(origin);await page.locator('#cm-workbench h1').waitFor();await page.locator('.rail-more summary').click();await page.locator('[data-nav=content-home]').click();await page.locator('#cm-content-home [data-cm=content]').click();await page.locator('[data-publish-post]').waitFor();
   // Preserve the original one-click publication action and all existing pages.
   await page.locator('[data-publish-post]').click();
   await page.getByRole('button',{name:'整条已发布',exact:true}).waitFor();
@@ -42,7 +42,7 @@ try {
   const legacy=await (await context.request.get(`${origin}/api/acquisition`)).json();
   assert.equal(legacy.workspace.acquisition.publications.length,0);
   assert.ok(Object.values(legacy.workspace.contentStates).some(s=>s.status==='published'));
-  await page.locator('[data-nav=acquisition]').click();
+  await page.locator('[data-nav=prospecting]').click();await page.locator('#cm-prospecting [data-cm=search]').click();
   await page.locator('[data-persist=import-signals] > summary').click();
   const intake=page.locator('[data-acq-form=single-signal]');
   await intake.locator('[name=text]').fill('杭州厨房翻新，有没有服务方推荐？需要核对工期。');
@@ -58,12 +58,12 @@ try {
   await page.locator('#acq-connection-panel > summary').click();
   const account=page.locator('[data-acq-form=account]');await account.locator('[name=name]').fill('验收发布账号');await account.locator('button[type=submit]').click();
   await page.locator('#acq-accounts').getByText('小红书 · 验收发布账号',{exact:true}).waitFor();
-  await page.locator('[data-nav=leads]').click();
+  await page.locator('[data-nav=conversations]').click();await page.locator('#cm-conversations .cm-support > summary').click();await page.getByRole('button',{name:'未关联需求的历史会话',exact:true}).click();
   const draft=page.locator('[data-acq-form=draft]');await draft.getByRole('button',{name:'结合业务生成草稿'}).click();
   await page.waitForFunction(()=>document.querySelector('[data-acq-form=draft] [name=text]')?.value.length>0);
   await draft.locator('[name=accountId]').selectOption({label:'小红书 · 验收发布账号'});
   await draft.locator('button[type=submit]').click();await page.getByText('回复草稿',{exact:true}).waitFor();
-  await page.locator('[data-nav=acquisition]').click();await page.locator('[data-acq-tab=content]').click();
+  await page.locator('[data-nav=content-home]').click();await page.locator('#cm-content-home [data-cm=legacy]').click();
   const prepare=page.locator('[data-acq-form=prepare-publication]');await prepare.locator('[name=accountId]').selectOption({label:'小红书 · 验收发布账号'});await prepare.locator('button[type=submit]').click();
   const pub=page.locator('[data-acq-form=publication]');await pub.waitFor();await pub.locator('[name=url]').fill('https://www.xiaohongshu.com/explore/published-fixture');await pub.locator('[name=confirmed]').check();await pub.locator('button[type=submit]').click();
   await page.getByRole('button',{name:'登记这篇带来的咨询'}).click();
@@ -94,7 +94,7 @@ try {
   }
   await contrastCheck('dark');
   await page.screenshot({path:path.join(output,'leads-desktop.png'),fullPage:true});
-  await page.locator('[data-nav=acquisition]').click();await page.locator('[data-acq-tab=active]').click();await page.screenshot({path:path.join(output,'acquisition-dark.png'),fullPage:true});
+  await page.locator('[data-nav=prospecting]').click();await page.locator('#cm-prospecting [data-cm=search]').click();await page.screenshot({path:path.join(output,'acquisition-dark.png'),fullPage:true});
   await page.locator('[data-theme-toggle]').click();await contrastCheck('light');await page.screenshot({path:path.join(output,'acquisition-light.png'),fullPage:true});
   await page.locator('[data-theme-toggle]').click();
   await page.locator('[data-nav=agents]').click();
@@ -128,9 +128,9 @@ try {
   assert.equal(result.workspace.acquisition.agentRuns[0].version,2);
   assert.equal(result.workspace.acquisition.agentRuns[0].status,'limited');
   assert.equal(result.workspace.acquisition.publications.length,1);
-  await page.locator('[data-nav=acquisition]').click();
+  await page.locator('[data-nav=prospecting]').click();await page.locator('#cm-prospecting [data-cm=search]').click();
   await page.locator('#acq-context [data-acq-business]').selectOption('c2');
-  assert.ok((await page.locator('#acq-today').innerText()).includes('0 条线索待回复'));
+  assert.ok((await page.locator('#acq-today').textContent()).includes('0 条线索待回复'));
   await page.locator('#acq-context [data-acq-business]').selectOption('c1');
   await page.locator('[data-persist=tasks] > summary').click();
   await page.locator('[data-acq-action=open-task]').first().click();
@@ -138,11 +138,11 @@ try {
   assert.ok((await page.locator('#acq-task-detail').innerText()).includes('本次新增证据'));
   await page.screenshot({path:path.join(output,'task-detail.png'),fullPage:true});
   await page.getByRole('button',{name:'返回需求机会',exact:true}).click();
-  await page.locator('[data-nav=leads]').click();
+  await page.locator('[data-nav=conversations]').click();await page.locator('#cm-conversations .cm-support > summary').click();await page.getByRole('button',{name:'未关联需求的历史会话',exact:true}).click();
   assert.equal(await page.getByRole('button',{name:'复制草稿',exact:true}).count(),0);
   assert.ok((await page.locator('#acq-lead-detail').innerText()).includes('有新消息，请按最新会话重新起草'));
   for(const view of ['acquisition','agents','leads','settings']){
-    await page.setViewportSize({width:390,height:844});await page.locator(`[data-nav=${view}]`).click();
+    await page.setViewportSize({width:390,height:844});if(['acquisition','leads'].includes(view))await page.locator('.rail-more summary').click();await page.locator(`[data-nav=${view}]`).click();
     const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(overflow.scroll<=overflow.width,`${view} mobile overflow: ${JSON.stringify(overflow)}`);
     await page.screenshot({path:path.join(output,`${view}-mobile.png`),fullPage:true});
   }

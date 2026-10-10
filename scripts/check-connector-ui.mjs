@@ -1,0 +1,87 @@
+// Isolated browser acceptance. Uses only temporary data; never edits a real workspace.
+// HARTA_PLAYWRIGHT_MODULE may point to an existing Playwright installation.
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { SEED_VERSION } from '../lib/pitch-seed.mjs';
+import { readWorkspace, writeWorkspace } from '../lib/workspace.mjs';
+const { chromium } = await import(process.env.HARTA_PLAYWRIGHT_MODULE || 'playwright');
+const root=fileURLToPath(new URL('..',import.meta.url));
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'harta-journey-browser-'));
+const output=process.env.HARTA_UI_OUTPUT || path.join(os.tmpdir(),'harta-commerce-previews');fs.mkdirSync(output,{recursive:true});
+let server,browser,currentPage;
+try {
+  for(const item of ['index.html','login.html','register.html','css','js','images','vendor','browser-extension'])fs.cpSync(path.join(root,item),path.join(dir,item),{recursive:true});
+  const previous=process.cwd();process.chdir(dir);
+  writeWorkspace('66445039@qq.com',{seedVersion:SEED_VERSION,customers:[],ledger:[],contentStates:{},feedback:{}});
+  process.chdir(previous);
+  const listener=net.createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(resolve=>listener.close(resolve));
+  const origin=`http://127.0.0.1:${port}`;
+  server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'browser-only-fixture-password',HARTA_PUBLIC_ORIGIN:'',HARTA_TRUST_PROXY:'',HARTA_BRAVE_API_KEY:'',HARTA_SEARXNG_URL:''},stdio:['ignore','pipe','pipe']});
+  await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw new Error('Server exited');})]);
+  const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});
+  const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce'});
+  const page=await context.newPage(),errors=[];currentPage=page;page.on('response',async response=>{if(response.url().includes('/api/acquisition')&&response.status()>=400)console.log('Acquisition error',await response.text());});page.on('pageerror',error=>{errors.push(error.message);console.log('PAGE ERROR',error.stack);});
+  assert.equal((await context.request.get(`${origin}/api/acquisition`)).status(),401);
+  const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);
+  await page.goto(origin);
+
+  const post=async(url,data,headers={})=>{const r=await context.request.post(origin+url,{data,headers});const v=await r.json();assert.ok(r.ok(),JSON.stringify(v));return v;};
+  await post('/api/acquisition/commerce',{action:'business',name:'连接器验收',pitch:'灯具销售'});
+  await page.reload();await page.locator('[data-nav=connections]').click();
+  await page.locator('#cm-connections summary').filter({hasText:'浏览器连接器（已有连接与测试接入）'}).click();
+  await page.locator('#cm-connections summary').filter({hasText:'登记我的平台账号'}).click();
+  const form=page.locator('#cm-connections [data-cm-form=browser-account]');await form.locator('[name=name]').fill('我的抖音');await form.locator('button[type=submit]').click();
+  await page.locator('#cm-connections [data-cm=browser-pair]').click();
+  const code=await page.locator('[aria-label="一次性配对码"]').inputValue();
+  const headers={Origin:'chrome-extension://'+'a'.repeat(32)};
+  const paired=await post('/api/connector/pair',{code,deviceName:'测试浏览器'},headers);headers.Authorization='Bearer '+paired.token;
+  assert.equal((await context.request.post(origin+'/api/connector/claim',{data:{},headers:{...headers,Origin:'https://evil.test'}})).status(),403);
+  const cId=paired.connection.customerId;
+  let result=await post('/api/acquisition/commerce',{action:'target',customerId:cId,name:'目标账号',platform:'抖音',url:'https://www.douyin.com/user/author1',recordId:'author1'});
+  const target=result.workspace.acquisition.targets[0];
+  await page.locator('#cm-connections [data-cm=browser-refresh]').click();await page.locator('[data-nav=prospecting]').click();
+  await page.locator('#cm-prospecting summary').filter({hasText:'从浏览器读取作品'}).click();
+  await page.locator('#cm-prospecting [data-cm-form=browser-collect] button[type=submit]').click();
+  await page.locator('#cm-prospecting').getByText('等待浏览器读取',{exact:false}).first().waitFor();
+  let {job}=await post('/api/connector/claim',{},headers);
+  assert.equal(job.targetId,target.id);
+  await post('/api/connector/complete',{jobId:job.id,lease:job.lease,status:'partial',pageUrl:job.targetUrl,rows:[{url:'https://www.douyin.com/video/123',title:'灯具选择'}]},headers);
+  await page.locator('#cm-prospecting [data-cm=browser-refresh]').click();await page.locator('#cm-prospecting [data-cm=open-video]').click();
+  await page.locator('#cm-prospecting summary').filter({hasText:'从浏览器读取评论'}).click();
+  await page.locator('#cm-prospecting [data-cm-form=browser-collect] button[type=submit]').click();
+  // Wait until the UI confirms task creation before the connector claims it.
+  await page.waitForFunction(()=>[...document.querySelectorAll('#cm-prospecting strong')].some(e=>e.textContent.includes('评论 · 等待浏览器读取')));
+  ({job}=await post('/api/connector/claim',{},headers));
+  await post('/api/connector/complete',{jobId:job.id,lease:job.lease,status:'partial',pageUrl:job.targetUrl,rows:[{recordId:'comment1',authorName:'小夏',authorUrl:'https://www.douyin.com/user/buyer1',text:'想买台灯，多少钱？',publishedText:'昨天'}]},headers);
+  await page.locator('#cm-prospecting [data-cm=browser-refresh]').click();
+  await page.locator('#cm-prospecting .cm-comment').waitFor();assert.ok((await page.locator('#cm-prospecting .cm-comment').innerText()).includes('浏览器读取'));
+  await page.locator('#cm-prospecting .cm-comment summary').click();
+  await page.locator('#cm-prospecting [data-cm-form=review] [name=note]').fill('核对了原文与主页');await page.locator('#cm-prospecting [data-cm-form=review] button[type=submit]').click();
+  await page.locator('#cm-prospecting [data-cm=browser-contact]').click();
+  await page.locator('#cm-prospecting [aria-label="平台联系指引"]').waitFor();
+  assert.equal(await page.locator('#cm-prospecting [aria-label="平台联系指引"] a').getAttribute('href'),'https://www.douyin.com/user/buyer1');
+  await page.screenshot({path:path.join(output,'comments-contact-desktop.png'),fullPage:false});
+  const zip=await context.request.get(origin+'/api/browser-extension');assert.equal(zip.status(),200);assert.equal((await zip.body()).subarray(0,2).toString(),'PK');
+  await page.locator('[data-nav=connections]').click();await page.screenshot({path:path.join(output,'platform-accounts-desktop.png'),fullPage:false});
+  await page.setViewportSize({width:375,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.locator('#cm-connections [data-cm=browser-revoke]').click();await page.waitForFunction(()=>document.querySelector('#cm-connections')?.textContent.includes('已断开'));
+  assert.equal((await context.request.post(origin+'/api/connector/claim',{data:{},headers})).status(),401);
+  // DOM fixtures verify extraction logic; they do not substitute for live-account platform acceptance.
+  const platformPage=await context.newPage();
+  await platformPage.route('https://www.douyin.com/**',r=>r.fulfill({contentType:'text/html; charset=utf-8',body:'<div data-e2e="comment-item" data-comment-id="comment01"><a href="/user/buyer1" data-e2e="comment-user-name">小夏</a><div data-e2e="comment-item-content">多少钱</div><time>昨天</time></div>'}));
+  await platformPage.goto('https://www.douyin.com/video/123');await platformPage.addScriptTag({path:path.join(root,'browser-extension/harta-connector/collector.js')});
+  let collected=await platformPage.evaluate(()=>hartaReadPage({kind:'comments',limit:50,scrollRounds:0}));assert.equal(collected.rows.length,1);assert.equal(collected.rows[0].authorUrl,'https://www.douyin.com/user/buyer1');assert.equal(collected.rows[0].publishedAt,'');
+  await platformPage.setContent('<div data-e2e="user-post-list"><a href="/video/123">我的作品</a></div><a href="/video/999">推荐作品</a>');collected=await platformPage.evaluate(()=>hartaReadPage({kind:'works',scrollRounds:0}));assert.equal(collected.rows.length,1);assert.ok(collected.rows[0].url.endsWith('/123'));
+  await platformPage.setContent('<div class="captcha">请验证</div>');collected=await platformPage.evaluate(()=>hartaReadPage({kind:'comments',scrollRounds:0}));assert.equal(collected.status,'challenge');
+  await platformPage.setContent('<div>扫码登录</div>');collected=await platformPage.evaluate(()=>hartaReadPage({kind:'comments',scrollRounds:0}));assert.equal(collected.status,'login_required');
+  await platformPage.route('https://www.xiaohongshu.com/**',r=>r.fulfill({contentType:'text/html; charset=utf-8',body:'<div class="comment-item" data-id="parent01"><a class="name" href="/user/profile/buyer1">小夏</a><div class="content">台灯多少钱</div><div class="sub-comment" data-id="reply001"><a class="name" href="/user/profile/author1">作者</a><div class="content">请问预算多少</div><span class="author-tag">作者</span></div></div>'}));
+  await platformPage.goto('https://www.xiaohongshu.com/explore/abc123');await platformPage.addScriptTag({path:path.join(root,'browser-extension/harta-connector/collector.js')});collected=await platformPage.evaluate(()=>hartaReadPage({kind:'comments',scrollRounds:0}));assert.equal(collected.rows.length,2);assert.equal(collected.rows[1].parentRecordId,'parent01');assert.equal(collected.rows[1].isAuthorReply,true);assert.equal(collected.rows[0].isAuthorReply,false);
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['account registration and pairing','CORS origin rejection','queued works and comment collection','commenter contact handoff','extension download','mobile layout','revoked credential rejection','Douyin and Xiaohongshu DOM fixtures','login and captcha states'],previews:output},null,2));
+} catch(error) { if(currentPage){console.log('Visible errors',await currentPage.locator('.cm-error,.acq-error').allTextContents());await currentPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error; } finally { if(browser)await browser.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }

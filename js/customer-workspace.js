@@ -8,7 +8,7 @@ export function arrangeWorkspace(customer, pack) {
     const panels={};
     for(const [key,label] of Object.entries(titles)) {
       const button=document.createElement('button');button.type='button';button.setAttribute('aria-label',label);
-      const title=document.createElement('strong');title.className='workspace-tile-title';title.textContent={content:'CONTENT',research:'SETTINGS',materials:'MATERIAL',overview:'NEXT UP'}[key];
+      const title=document.createElement('strong');title.className='workspace-tile-title';title.textContent={content:'内容成品',research:'创作偏好',materials:'参考资料',overview:'历史待办'}[key];
       const caption=document.createElement('span');caption.className='workspace-tile-caption';caption.textContent=label;
       const count=document.createElement('span');count.className='workspace-tile-count';
       const arrow=document.createElement('span');arrow.className='workspace-tile-arrow';arrow.textContent='↗';arrow.setAttribute('aria-hidden','true');
@@ -37,13 +37,13 @@ export function arrangeWorkspace(customer, pack) {
     const history=document.getElementById('history');const archive=document.createElement('details');archive.className='workspace-history';
     const hs=document.createElement('summary');hs.textContent='查看历史批次';archive.append(hs,history);panels.content.prepend(archive);
   }
-  if(customerId!==customer.id || customerTrack!==customer.track){customerId=customer.id;customerTrack=customer.track;active=customer.track==='存量' && !customer.drops?.length ? 'materials' : 'content';}
+  if(customerId!==customer.id || customerTrack!==customer.track){customerId=customer.id;customerTrack=customer.track;active='content';}
   const cooperating = customer.track === '存量';
   root.classList.toggle('is-prospect', !cooperating);
   const contentButton = document.querySelector('[data-workspace-view="content"]');
   contentButton.setAttribute('aria-label', cooperating ? '内容交付' : '诊断报告');
   contentButton.querySelector('.workspace-tile-caption').textContent = cooperating ? '内容交付' : '诊断报告';
-  contentButton.querySelector('.workspace-tile-title').textContent = cooperating ? 'CONTENT' : 'DIAGNOSIS';
+  contentButton.querySelector('.workspace-tile-title').textContent = cooperating ? '内容成品' : '诊断报告';
   document.querySelector('[data-workspace-view="research"]').hidden = !cooperating;
   let empty=document.getElementById('workspace-materials-empty');
   if(!empty){empty=document.createElement('p');empty.id='workspace-materials-empty';empty.className='meta';empty.textContent='这里保留已上传的业务资料与历史跟进记录。可从客户页面补充资料。';document.getElementById('workspace-materials').prepend(empty);}

@@ -32,17 +32,21 @@ try {
   const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);
   await page.goto(origin);await page.locator('#cm-workbench h1').waitFor();
   assert.equal(await page.locator('[data-view=workbench]').isVisible(),true);
+  await page.screenshot({path:path.join(output,'workbench-desktop.png'),fullPage:true});
+  await page.locator('[data-nav=content-home]').click();await page.getByRole('heading',{name:'内容获客',exact:true}).waitFor();
+  await page.screenshot({path:path.join(output,'content-home-desktop.png'),fullPage:true});
   await page.locator('[data-nav=products]').click();
+  await page.screenshot({path:path.join(output,'products-empty-desktop.png'),fullPage:true});
   const product=page.locator('#cm-products [data-cm-form=product]');
   await product.locator('[name=name]').fill('阅读灯');await product.locator('[name=facts]').fill('适合书桌，使用插座');await product.locator('[name=source]').fill('产品说明书');await product.locator('[type=submit]').click();
   await page.locator('[data-cm=select-product]').getByText('阅读灯',{exact:true}).waitFor();
   await product.locator('[name=name]').fill('壁灯');await product.locator('[name=facts]').fill('需要固定安装');await product.locator('[name=source]').fill('壁灯说明书');await product.locator('[type=submit]').click();
   await page.getByRole('button',{name:'壁灯',exact:true}).waitFor();
   const first=page.locator('.cm-product').first();await first.locator('summary').click();await first.getByRole('button',{name:'添加规格',exact:true}).click();
-  const sku=page.locator('#cm-products [data-cm-form=sku]');await sku.locator('[name=name]').fill('白色款');await sku.locator('[name=priceTerms]').fill('门店确认 199 元/台');await sku.locator('[name=source]').fill('报价单');await sku.locator('[type=submit]').click();
+  const sku=page.locator('#cm-products [data-cm-form=sku]');await sku.locator('[name=name]').fill('白色款');await sku.locator('summary').click();await sku.locator('[name=priceTerms]').fill('门店确认 199 元/台');await sku.locator('[name=source]').fill('报价单');await sku.locator('[type=submit]').click();
   let result=await (await context.request.get(`${origin}/api/acquisition`)).json();assert.equal(result.workspace.acquisition.skus.length,1);assert.equal(result.workspace.acquisition.products.length,2);
   const p=result.workspace.acquisition.products[0];
-  await page.getByText('添加销售资料',{exact:true}).click();
+  await page.getByText('常见问题与销售资料（选填）',{exact:true}).click();await page.getByText('添加销售资料',{exact:true}).click();
   const documentForm=page.locator('[data-cm-form=sales-document][data-id=""]');
   await documentForm.locator('[name=title]').fill('阅读灯安装 FAQ');await documentForm.locator('[name=productId]').selectOption(p.id);
   await documentForm.locator('[name=body]').fill('阅读灯放在书桌上，使用前先核对插座位置。');await documentForm.locator('[name=source]').fill('产品说明书第3页');
@@ -74,7 +78,7 @@ try {
   await page.reload();await page.locator('#cm-workbench h1').waitFor();await page.locator('[data-nav=conversations]').click();
   const outreach=page.locator('[data-cm-form=outreach]');await outreach.locator('[name=agentId]').selectOption(agent.id);await outreach.locator('[name=accountId]').selectOption(acc.id);await outreach.locator('[name=signalId]').selectOption(lead.signalIds[0]);await outreach.locator('[type=submit]').click();
   await page.getByRole('button',{name:'复制草稿',exact:true}).waitFor();assert.ok((await page.locator('.cm-run').innerText()).includes('澄清模板'));
-  assert.equal(await page.getByRole('button',{name:'自动沟通 · 未接通',exact:true}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:'配置自动回复',exact:true}).isEnabled(),true);
   await page.locator('.cm-sales-plan summary').click();assert.ok((await page.locator('.cm-sales-plan').innerText()).includes('阅读灯安装 FAQ'));await page.screenshot({path:path.join(output,'sales-strategy-desktop.png'),fullPage:true});
   await page.locator('[data-nav=workbench]').click();await page.getByRole('button',{name:'继续跟进',exact:true}).click();
   await page.getByRole('heading',{name:/书桌照明/}).waitFor();
@@ -109,13 +113,13 @@ try {
   }
   for(const theme of ['light','dark']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
-    for(const view of ['workbench','products','prospecting','conversations']){
+    for(const view of ['workbench','content-home','products','prospecting','conversations']){
       await page.locator(`[data-nav=${view}]`).click();await contrastCheck(view+' '+theme);for(const width of [320,375,414,768]){
         await page.setViewportSize({width,height:844});
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${view} ${theme} ${width}px overflow`);
       }
       await page.setViewportSize({width:375,height:844});
-      await page.screenshot({path:path.join(output,`${view}-${theme}-mobile.png`),fullPage:true});
+      await page.screenshot({path:path.join(output,`${view}-${theme}-mobile.png`),fullPage:false});
       await page.setViewportSize({width:1440,height:1100});
     }
   }

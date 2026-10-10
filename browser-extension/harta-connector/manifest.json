@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Harta 浏览器连接器",
+  "version": "0.2.0",
+  "description": "连接你自己的 Harta 工作台，读取你打开的抖音、小红书作品与评论。登录态留在浏览器。",
+  "permissions": ["activeTab", "scripting", "storage", "alarms"],
+  "optional_host_permissions": ["http://127.0.0.1/*", "http://localhost/*", "https://*/*"],
+  "background": {"service_worker": "worker.js", "type": "module"},
+  "action": {"default_popup": "popup.html", "default_title": "Harta 账号与读取任务"}
+}

@@ -1,3 +1,7 @@
+import {hostedBrowser} from './lib/hosted-browser.mjs';
+import { platformAuthState, startPlatformAuth, pollPlatformAuth, cancelPlatformAuth, removePlatformAuth, completeDouyinAuth } from './lib/platform-auth.mjs';
+import { uploadDeliveryAsset, deliveryAsset, deliveryState, bindDeliveryIdentity, queueDelivery, cancelDelivery, claimDelivery, authorizeDelivery, completeDelivery, saveReplyRule, replyMonitors, receiveBrowserEvents, monitorError } from './lib/browser-delivery.mjs';
+import { issuePairing, redeemPairing, authenticateConnector, connections, revokeConnection, queueCollection, cancelCollection, connectorJobs, claimCollection, completeCollection, contactHandoff } from './lib/platform-connector.mjs';
 import { commerceWorkspace, commerceAction, startOutreachDraft } from './lib/commerce-workspace.mjs';
 import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, validHost, sameOriginMutation, sessionCookie, readJsonBody } from './lib/request-guard.mjs';
 import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, saveAccount, preparePublication, confirmPublication, recordInquiry, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
@@ -205,6 +209,96 @@ function safeFile(urlPath) {
 }
 
 async function handleApi(req, res, url) {
+  if(url.pathname==='/api/hosted-browser'||url.pathname.startsWith('/api/hosted-browser/')){
+    const user=requireUser(req,res);if(!user)return;
+    try{
+      if(url.pathname==='/api/hosted-browser'&&req.method==='GET')return json(res,200,hostedBrowser.list(user.email));
+      if(req.method==='POST'){
+        const action=url.pathname.slice('/api/hosted-browser/'.length);
+        const handler={start:hostedBrowser.start,status:hostedBrowser.status,frame:hostedBrowser.frame,click:hostedBrowser.click,retry:hostedBrowser.retry,disconnect:hostedBrowser.disconnect,enable:hostedBrowser.enable}[action];
+        if(action==='start'&&!rateLimit(req,'hosted-start',10,600000,user.email))return json(res,429,{error:'连接尝试过于频繁，请稍后重试'});
+        if(handler)return json(res,200,await handler(user.email,await readBody(req)));
+      }
+      return json(res,404,{error:'没有这个浏览器操作'});
+    }catch(e){return json(res,e.statusCode||400,{error:e.message});}
+  }
+  if (url.pathname.startsWith('/api/platform-auth')) {
+    const user = requireUser(req, res); if (!user) return;
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    const session = parseCookies(req.headers.cookie).harta_sid;
+    try {
+      if (url.pathname === '/api/platform-auth' && req.method === 'GET') return json(res, 200, platformAuthState(user.email));
+      if (url.pathname === '/api/platform-auth/callback/douyin' && req.method === 'GET') {
+        await completeDouyinAuth(user.email, Object.fromEntries(url.searchParams), session);
+        res.writeHead(303, { Location: '/?platform_connection=return' }); res.end(); return;
+      }
+      if (req.method === 'POST') {
+        const action = url.pathname.slice('/api/platform-auth/'.length);
+        const handler = { start: startPlatformAuth, poll: pollPlatformAuth, cancel: cancelPlatformAuth, disconnect: removePlatformAuth }[action];
+        if (action === 'start' && !rateLimit(req, 'platform-auth-start', 10, 600000, user.email)) return json(res, 429, {error:'连接尝试过于频繁，请稍后重试'});
+        if (handler) return json(res, 200, await handler(user.email, await readBody(req), session));
+      }
+      return json(res, 404, { error: '没有这个授权操作' });
+    } catch (error) { return json(res, error.statusCode || 400, { error: error.message }); }
+  }
+
+  if(url.pathname.startsWith('/api/connector/')) {
+    const origin=req.headers.origin;
+    if(origin && !/^chrome-extension:\/\/[a-p]{32}$/.test(origin))return json(res,403,{error:'只允许浏览器连接器调用此接口'});
+    if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');res.setHeader('Access-Control-Allow-Methods','POST, OPTIONS');}
+    if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
+    if(req.method!=='POST')return json(res,405,{error:'操作方式无效'});
+    try {
+      const action=url.pathname.slice('/api/connector/'.length);
+      if(action==='pair'){
+        if(!rateLimit(req,'connector-pair',10,60_000))return json(res,429,{error:'配对尝试过于频繁，请稍后再试'});
+        return json(res,200,redeemPairing(await readBody(req)));
+      }
+      const body=await readBody(req,768*1024),r=authenticateConnector(req.headers.authorization||'');
+      if(!isWhitelisted(r.email)||!findUser(r.email)?.passwordHash)return json(res,401,{error:'Harta 账号已停用'});
+      if(action==='delivery-claim')return json(res,200,{job:claimDelivery(r)});
+      if(action==='delivery-authorize')return json(res,200,authorizeDelivery(r,body));
+      if(action==='delivery-complete')return json(res,200,{job:completeDelivery(r,body)});
+      if(action==='delivery-monitors')return json(res,200,{rules:replyMonitors(r)});
+      if(action==='delivery-monitor-error')return json(res,200,monitorError(r,body));
+      if(action==='delivery-events')return json(res,200,receiveBrowserEvents(r,body));
+      if(action==='delivery-asset'){const a=deliveryAsset(r,body);return json(res,200,{id:a.id,name:a.name,mime:a.mime,base64:a.buffer.toString('base64')});}
+      if(action==='claim')return json(res,200,{job:claimCollection(r)});
+      if(action==='complete')return json(res,200,{job:completeCollection(r,body)});
+      return json(res,404,{error:'没有这个连接器操作'});
+    }catch(error){return json(res,error.statusCode||400,{error:error.message});}
+  }
+  if(url.pathname==='/api/browser-extension'&&req.method==='GET') {
+    if(!requireUser(req,res))return;
+    const {default:JSZip}=await import('jszip');const zip=new JSZip();
+    for(const name of ['manifest.json','popup.html','popup.js','worker.js','collector.js','delivery.js','delivery-worker.js','README.md'])zip.file(name,fs.readFileSync(path.join(ROOT,'browser-extension','harta-connector',name)));
+    const buffer=await zip.generateAsync({type:'nodebuffer'});res.writeHead(200,securityHeaders({'content-type':'application/zip','content-disposition':'attachment; filename="harta-browser-connector.zip"'}));res.end(buffer);return;
+  }
+  if(url.pathname==='/api/delivery'&&req.method==='GET'){
+    const user=requireUser(req,res);if(!user)return;return json(res,200,deliveryState(user.email));
+  }
+  if(url.pathname.startsWith('/api/delivery/')&&req.method==='POST'){
+    const user=requireUser(req,res);if(!user)return;
+    try{const action=url.pathname.slice('/api/delivery/'.length);if(action==='asset')return json(res,200,{asset:await uploadDeliveryAsset(user.email,req)});
+      const body=await readBody(req);const handler={identity:bindDeliveryIdentity,queue:queueDelivery,cancel:cancelDelivery,rule:saveReplyRule}[action];if(!handler)return json(res,404,{error:'没有这个执行操作'});return json(res,200,{result:handler(user.email,body)});
+    }catch(error){return json(res,400,{error:error.message});}
+  }
+  if(url.pathname==='/api/browser-connections'&&req.method==='GET'){
+    const user=requireUser(req,res);if(!user)return;return json(res,200,{connections:connections(user.email),jobs:connectorJobs(user.email)});
+  }
+  if(url.pathname.startsWith('/api/browser-connections/')&&req.method==='POST'){
+    const user=requireUser(req,res);if(!user)return;
+    try{const body=await readBody(req),action=url.pathname.slice('/api/browser-connections/'.length);
+      if(action==='pair')return json(res,200,issuePairing(user.email,body));
+      if(action==='revoke')return json(res,200,{connections:revokeConnection(user.email,body)});
+      if(action==='collect')return json(res,202,{job:queueCollection(user.email,body)});
+      if(action==='cancel'){cancelCollection(user.email,body);return json(res,200,{jobs:connectorJobs(user.email)});}
+      if(action==='contact')return json(res,200,contactHandoff(user.email,body));
+      return json(res,404,{error:'没有这个账号操作'});
+    }catch(error){return json(res,error.statusCode||400,{error:error.message});}
+  }
+
   if (url.pathname === '/api/acquisition' && req.method === 'GET') {
     const user = requireUser(req, res);
     if (!user) return;
@@ -856,7 +950,7 @@ const server = http.createServer(async (req, res) => {
       if (!rateLimit(req, "api", 240, 60 * 1000)) {
         return json(res, 429, { error: "请求太频繁，请等一会儿再试" }, { "retry-after": String(req.rateRetryAfter) });
       }
-      if (!sameOriginMutation(req, PUBLIC_ORIGIN)) return json(res, 403, { error: "请从 Harta 页面提交操作" });
+      if (!url.pathname.startsWith('/api/connector/') && !sameOriginMutation(req, PUBLIC_ORIGIN)) return json(res, 403, { error: "请从 Harta 页面提交操作" });
       const expensive = (req.method === 'POST' && EXPENSIVE_ROUTES.has(url.pathname)) || (req.method === 'GET' && /^\/api\/reports\/[^/]+\/export\//.test(url.pathname));
       const startsJob = req.method === 'POST' && JOB_ROUTES.has(url.pathname);
       let release;
@@ -958,3 +1052,6 @@ server.maxHeadersCount = 100;
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`HARTA http://127.0.0.1:${PORT}/`);
 });
+
+// Only durable user-created connections are resumed; boot creates no platform session.
+hostedBrowser.startWorker();

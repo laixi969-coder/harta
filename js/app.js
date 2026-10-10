@@ -703,10 +703,13 @@ function addMaterialFiles(files) {
 
 function nav(view) {
   state.view = view;
-  const secondary=document.querySelector(`.rail-more [data-nav="${view}"]`);if(secondary)secondary.closest("details").open=true;
+  const activeView = view === 'today' ? (state.contentOnly || !currentPack() || currentPack()?.tier === '今日' ? 'content-home' : 'pack') : view === 'acquisition' ? (document.querySelector('[data-view=acquisition]').dataset.journey === 'content' ? 'content-home' : 'prospecting') : view === 'leads' ? 'conversations' : view;
+  const secondary=document.querySelector(`.rail-more [data-nav="${activeView}"]`);
+  document.querySelector('.rail-more').open=Boolean(secondary);
   renderCommerceUI();
+  renderAcquisitionUI();
   document.querySelectorAll("[data-nav]").forEach((a) => {
-    const on = a.dataset.nav === view;
+    const on = a.dataset.nav === activeView;
     a.classList.toggle("on", on);
     if (a.tagName === "A") {
       if (on) a.setAttribute("aria-current", "page");
@@ -716,6 +719,7 @@ function nav(view) {
   document.querySelectorAll("[data-view]").forEach((p) => {
     p.classList.toggle("hidden", p.dataset.view !== view);
   });
+  window.scrollTo({top:0,behavior:"instant"});
 }
 
 function usingCustomer() {
@@ -735,6 +739,7 @@ function packsOf(customer) {
 }
 
 function currentPack() {
+  if(state.contentOnly){const c=usingCustomer();return c?.drops?.find(p=>p.id===state.packId)||c?.drops?.[0]||null;}
   return selectedCustomerPack(usingCustomer(), state.packId);
 }
 
@@ -937,7 +942,9 @@ function renderToday() {
   renderAcquisitionUI();
   renderCommerceUI();
   renderJobCenter();
-  const mine = usingCustomer();
+  document.querySelector('[data-view=today]').classList.toggle('task-content',Boolean(state.contentOnly));
+  const sourceCustomer = usingCustomer();
+  const mine = state.contentOnly && sourceCustomer ? {...sourceCustomer,track:'存量'} : sourceCustomer;
   document.querySelector(".workspace-primary-actions")?.classList.toggle("hidden", !mine);
   renderCustomerJourney(mine);
   renderAcquisition(mine);
@@ -950,7 +957,7 @@ function renderToday() {
   if (!mine) {
     empty.classList.remove("hidden");
     owned.classList.add("hidden");
-    document.getElementById("hook-line").textContent = '从诊断新客户开始，也可以直接录入已合作客户。';
+    document.getElementById("hook-line").textContent = '先建立业务，再开始内容获客。';
     document.getElementById("hook-facts").innerHTML = "";
     document.getElementById("hook-gate").textContent = "";
     return;
@@ -958,7 +965,7 @@ function renderToday() {
   empty.classList.add("hidden");
   owned.classList.remove("hidden");
 
-  const packs = packsOf(mine);
+  const packs = state.contentOnly ? mine.drops || [] : packsOf(mine);
   const pack = currentPack();
   arrangeWorkspace(mine, pack);
   if (pack && !state.packId) state.packId = pack.id;
@@ -983,7 +990,7 @@ function renderToday() {
   const headCount = nGap ? `${nGap} 个可利用的机会` : nAsk ? `${nAsk} 个待确认问题` : "";
   const deskHook = state.workspace.desk?.hook;
   document.getElementById("hook-line").textContent = mine.name;
-  const facts = [mine.hunt, CUSTOMER_STAGES[customerStage(mine)]].filter(Boolean);
+  const facts = [mine.hunt, ...(state.contentOnly?[]:[CUSTOMER_STAGES[customerStage(mine)]])].filter(Boolean);
   if (pack) {
     facts.push(`${pack.deliveredAt || pack.createdAt || pack.date || "历史批次"} 出的`);
     if (headCount) facts.push(headCount);
@@ -1090,7 +1097,7 @@ function renderToday() {
     const noPackTitle = noPack.querySelector("h2");
     if (noPackTitle) {
       noPackTitle.textContent =
-        mine.track === "存量" ? '完善业务资料与获客方向后，生成首批内容' : mine.track === "拓新" ? '开始诊断，形成第一份沟通报告' : '可查看历史报告，纳入跟进后继续更新';
+        mine.track === "存量" ? '还没有内容，选好目标后即可生成第一批' : mine.track === "拓新" ? '开始诊断，形成第一份沟通报告' : '可查看历史报告，纳入跟进后继续更新';
     }
     body.classList.add("hidden");
     renderCustomers();
@@ -1845,6 +1852,7 @@ function bind() {
     const navEl = e.target.closest("[data-nav]");
     if (navEl) {
       e.preventDefault();
+      if(navEl.dataset.nav==='acquisition'){openAcquisitionContext(usingCustomer()?.id||'','content');return;}
       nav(navEl.dataset.nav);
       if (navEl.tagName === "BUTTON" && navEl.dataset.nav === "customers") {
         document.getElementById("customer-create-panel").open = true;
@@ -1986,7 +1994,7 @@ function bind() {
 }
 
 let customerOpenRequest = 0;
-async function useCustomer(id, packId) {
+async function useCustomer(id, packId, contentOnly = false) {
   const request = ++customerOpenRequest;
   try {
   const res = await fetch("/api/using", {
@@ -2001,6 +2009,7 @@ async function useCustomer(id, packId) {
     return false;
   }
   state.openedId = id;
+  state.contentOnly = contentOnly;
   state.workspace = data;
   state.packId = packId || "";
   renderToday();
@@ -2376,7 +2385,9 @@ async function boot() {
   document.getElementById("ledger-line")?.addEventListener("change", renderLedgerPlatform);
   bind();
   refreshCharCounts();
-  nav("workbench");
+  const connectionReturn = new URLSearchParams(location.search).get('platform_connection') === 'return';
+  nav(connectionReturn ? 'connections' : 'workbench');
+  if (connectionReturn) history.replaceState(null, '', '/');
   // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」。
   // 可能不止一个在跑，全都盯上。
   for (const c of state.workspace.customers || []) {
@@ -3488,13 +3499,14 @@ document.body.addEventListener("dragend", async () => {
 });
 
 installGrowthUI({ getWorkspace: () => state.workspace, setWorkspace: value => { state.workspace = value; }, render: renderToday, toast });
-installAcquisitionUI({ getWorkspace: () => state.workspace, setWorkspace: value => { state.workspace = value; }, render: renderToday, toast, nav, openKnowledge: customerId => {
+installAcquisitionUI({ getBusiness:()=>state.openedId || state.workspace.usingId, setBusiness:id=>{state.openedId=id;state.packId='';}, getWorkspace: () => state.workspace, setWorkspace: value => { state.workspace = value; }, render: renderToday, toast, nav, openKnowledge: customerId => {
   state.openedId = customerId;
   state.packId = '';
   nav('today');
   renderToday();
   document.querySelector('[data-workspace-view="materials"]')?.click();
 }, openContent: customerId => {
+  state.contentOnly = true;
   state.openedId = customerId;
   state.packId = '';
   nav('today');
@@ -3504,7 +3516,9 @@ installAcquisitionUI({ getWorkspace: () => state.workspace, setWorkspace: value 
 } });
 installCommerceUI({getWorkspace:()=>state.workspace,setWorkspace:value=>{state.workspace=value;},render:renderToday,toast,nav,watchJob,
   getContentCustomer:usingCustomer,
-  openContent:async(id,packId='')=>{await useCustomer(id,packId);},
+  getBusiness:()=>state.openedId || state.workspace.usingId,
+  setBusiness:id=>{state.openedId=id;state.packId='';},
+  openContent:async(id,packId='')=>{if(await useCustomer(id,packId,!state.workspace.customers.find(c=>c.id===id)?.packs?.some(p=>p.id===packId)))document.querySelector('[data-workspace-view=content]')?.click();},
   openLegacy:(id,mode)=>openAcquisitionContext(id,mode==='legacy'?'content':mode),
   openLegacyLead:(id,leadId)=>openAcquisitionContext(id,'leads',leadId)
 });

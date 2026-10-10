@@ -20,7 +20,7 @@
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
-  <link rel="stylesheet" href="css/commerce.css?v=20261008">
+  <link rel="stylesheet" href="css/commerce.css?v=20261010-journeys">
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -52,11 +52,15 @@
         <p class="brand-line">助力线索｜引流｜获客</p>
       </div>
       <nav aria-label="工作台">
-      <a href="#" data-nav="workbench"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg>今天</a>
+      <a href="#" data-nav="workbench"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg>工作台</a>
+
+      <a href="#" data-nav="content-home"><svg class="icon" aria-hidden="true"><use href="#i-film"></use></svg>内容获客</a>
+      <a href="#" data-nav="prospecting"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>主动获客</a>
+      <a href="#" data-nav="conversations"><svg class="icon" aria-hidden="true"><use href="#i-reply"></use></svg>客户跟进</a>
+<p class="rail-group-label">业务准备</p>
+      <a href="#" data-nav="delivery"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>平台执行</a>
+      <a href="#" data-nav="connections"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>平台账号</a>
       <a href="#" data-nav="products"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>产品与服务</a>
-      <a href="#" data-nav="today"><svg class="icon" aria-hidden="true"><use href="#i-film"></use></svg>内容</a>
-      <a href="#" data-nav="prospecting"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>找客户</a>
-      <a href="#" data-nav="conversations"><svg class="icon" aria-hidden="true"><use href="#i-reply"></use></svg>客户与咨询</a>
       <a href="#" data-nav="customers"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>业务资料</a>
       <a href="#" data-nav="agents"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>智能体</a>
       <a href="#" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>设置</a>
@@ -77,19 +81,22 @@
         <div class="who" id="who">正在确认登录…</div>
         <div class="tools">
           <button class="btn ghost" data-theme-toggle type="button" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-contrast"></use></svg>深浅</button>
-          <button class="btn gold" data-customer-entry="new"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>新建诊断</button>
+          <button class="btn ghost" data-cm="new-business"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>添加业务</button>
         </div>
       </div>
       <div class="job-center hidden" id="job-center" aria-label="生成任务"></div>
 
 <section class="hidden cm-root" data-view="workbench"><div id="cm-workbench"></div></section>
+<section class="hidden cm-root" data-view="content-home"><div id="cm-content-home"></div></section>
+<section class="hidden cm-root" data-view="delivery"><div id="cm-delivery"></div></section>
+<section class="hidden cm-root" data-view="connections"><div id="cm-connections"></div></section>
 <section class="hidden cm-root" data-view="products"><div id="cm-products"></div></section>
 <section class="hidden cm-root" data-view="prospecting"><div id="cm-prospecting"></div></section>
 <section class="hidden cm-root" data-view="conversations"><div id="cm-conversations"></div></section>
       <section class="hidden" data-view="today">
 <div id="cm-content-scope" class="cm-root"></div>
         <div class="hook">
-          <p class="kicker">今天</p>
+          <p class="kicker">内容获客 / 内容编辑</p>
           <h1 id="hook-line"></h1>
           <p class="hook-facts" id="hook-facts"></p>
           <p class="meta" id="hook-gate"></p>
@@ -322,9 +329,9 @@
       </section>
 
       <section class="hidden" data-view="acquisition">
-        <div class="hook"><h1>找到需求，也让需求找到你。</h1><p class="meta">主动找客与内容获客，共用业务资料与跟进记录。</p></div>
+        <div class="hook"><h1 id="acq-task-title">查找并核实需求</h1><p class="meta" id="acq-task-note">先核对来源，再把值得联系的人加入客户跟进。</p></div>
         <div id="acq-context" class="acq-root"></div>
-        <div id="acq-today" class="acq-today" aria-label="获客待办"></div>
+        <div id="acq-today" hidden class="acq-today" aria-label="获客待办"></div>
         <div id="acq-workspace" class="acq-root"><p role="status">正在读取获客工作台…</p></div>
         <details id="acq-connection-panel" class="acq-root acq-panel">
           <summary>平台账号与连接</summary>
@@ -527,6 +534,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20261008-products-outreach"></script>
+  <script type="module" src="js/app.js?v=20261010-journeys"></script>
 </body>
 </html>
