@@ -10,7 +10,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20260921-stages">
+  <link rel="stylesheet" href="css/app.css?v=20261013-black">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -20,7 +20,7 @@
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
-  <link rel="stylesheet" href="css/commerce.css?v=20261010-journeys">
+  <link rel="stylesheet" href="css/commerce.css?v=20261013-unified-brown">
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -103,19 +103,19 @@
         </div>
         <article class="card hidden" id="empty-today">
           <h2>还没有业务资料</h2>
-          <p class="meta">先建立业务资料，即可创作内容或查找需求。已有资料和历史仍保留。</p>
+          <p class="meta">添加业务后开始创作或找客户。</p>
           <div class="acts"><button class="btn" data-cm="go-workbench">添加业务</button></div>
         </article>
         <article class="card" id="desk-card">
           <div class="desk-board">
             <div>
               <h2>今日该发</h2>
-              <p class="meta">已合作客户：发布排期内容，按获客方向继续交付。</p>
+
               <div id="desk-send" class="chase"></div>
             </div>
             <div>
               <h2>待生成报告</h2>
-              <p class="meta">新客户与在跟客户：补充资料、生成或更新诊断报告。</p>
+
               <div id="desk-judge" class="chase"></div>
             </div>
           </div>
@@ -125,14 +125,14 @@
         <div id="history" class="history"></div>
         <article class="card form" id="keyword-card">
           <details class="keyword-intake" id="keyword-import-panel" open><summary>导入关键词资料</summary>
-          <p class="kicker">业务关键词库</p><h2>导入领域、品类或品牌关键词</h2>
-          <p class="meta">自动去重、拆解需求与咨询意图，梳理内容主题。原表中的指数和备注会保留来源；下一批研究和内容会自动参考。每次研究按归属和意图轮流选取最多80个词，随内容批次轮换。</p>
+          <h2>导入领域、品类或品牌关键词</h2>
+          <p class="meta">导入后自动去重，供研究和内容创作使用。</p>
           <div class="keyword-scope">
             <div><label for="keyword-scope-type">归属类型</label><select id="keyword-scope-type"><option>领域</option><option>产品品类</option><option>品牌</option></select></div>
             <div><label for="keyword-scope-name">归属名称</label><select id="keyword-scope-name"></select><div id="keyword-scope-new-wrap" hidden><label for="keyword-scope-new">新增归属名称</label><input id="keyword-scope-new" maxlength="100" placeholder="填写新的名称，已有名称请从上方选择"></div><p class="meta" id="keyword-scope-hint"></p></div>
           </div>
           <label for="keyword-files">关键词文档或表格</label><input id="keyword-files" type="file" multiple accept=".xlsx,.csv,.tsv,.txt,.md,.docx,.pdf">
-          <p class="meta">支持 XLSX、CSV、TSV、TXT、Markdown、DOCX、文字型 PDF。最多5个文件，单个10MB、合计20MB；每批3000条。表格建议有“关键词”列。XLS/DOC 请先另存为新格式。</p>
+          <p class="meta">支持 XLSX、CSV、TSV、TXT、MD、DOCX、文字型 PDF。最多 5 个文件，单个 10 MB、合计 20 MB，每批 3000 条。XLS／DOC 请转换格式。</p>
           <div class="acts"><button class="btn" type="button" id="import-keywords">导入并自动梳理</button><a class="btn ghost" href="/api/keywords/template" download>下载表格模板</a></div>
           <p id="keyword-import-status" class="meta" role="status" aria-live="polite"></p>
           </details>
@@ -147,7 +147,7 @@
         <article class="card form" id="growth-card">
           <details class="growth-input" id="growth-edit-panel" open><summary>补充偏好（选填）</summary>
           <h2>有特别要求，告诉我就好</h2>
-          <p class="meta">不填也能生成。平台怎么选、内容怎么写，由 Harta 帮你安排。</p>
+
           <div id="growth-settings"></div>
           <label for="growth-direction">接下来希望怎样调整？</label>
           <textarea id="growth-direction" rows="3" maxlength="2000" placeholder="例如：优先做小红书，吸引更重视品质的客户；每周能拍两条视频，不方便出镜。"></textarea>
@@ -160,7 +160,7 @@
         <article class="card hidden" id="acquisition-card">
           <p class="kicker">平台获客</p>
           <details><summary>查看历史跟进记录（可选）</summary>
-          <p class="meta">当前客户的全部历史。发布按完整平台内容计；有兴趣、询价、成交按跟进记录次数计，不代表去重线索人数。</p>
+          <p class="meta">当前客户历史记录；跟进次数不等于独立客户数。</p>
           <div class="table-scroll"><table><thead><tr><th>平台</th><th>已发布</th><th>有反馈</th><th>没反应</th><th>有兴趣</th><th>询价</th><th>成交</th></tr></thead><tbody id="acquisition-body"></tbody></table></div>
           <p class="meta" id="acquisition-next"></p>
           <div class="acts"><button class="btn ghost" type="button" data-record-outcome>记录询价或成交</button></div></details>
@@ -228,7 +228,7 @@
         </article>
         <article class="card" id="demand-card">
           <h2>目标人群与不建议投放的人群</h2>
-          <p class="meta">前三项帮助理解目标人群；最后一项是明确不建议投放的人群。</p>
+
           <div id="demand"></div>
         </article>
         <article class="card" id="gaps-card">
@@ -237,7 +237,7 @@
         </article>
         <article class="card hidden" id="questions-card">
           <h2>建议先确认的问题</h2>
-          <p class="meta">先确认这些信息，避免根据不完整资料做判断；得到答案后可重新生成更完整的报告。</p>
+          <p class="meta">补充以下信息后可重新生成报告。</p>
           <div id="questions"></div>
         </article>
         </div>
@@ -288,7 +288,7 @@
               <button class="btn" id="content-export" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>导出本批</button>
               <button class="btn ghost" id="content-export-history" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>备份该客户全部历史</button>
             </div>
-            <p class="meta">默认导出修改后的最终版本，并排除不能发布的风险项。历史备份会完整保留风险草稿。</p>
+            <p class="meta">导出最终版本，排除不可发布项。历史备份保留全部草稿。</p>
           </details>
         </article>
         <article class="card hidden" id="checks-card">
@@ -297,7 +297,8 @@
         </article>
         <article class="card" id="copies-card">
           <h2 id="copies-title">基础文案</h2>
-          <p class="meta" id="copies-note">按发布顺序查看内容；勾选后可批量安排、标记和导出。</p>
+
+          <p class="meta" id="copies-note"></p>
           <div id="copies"></div>
         </article>
         <article class="card" id="breaks-card">
@@ -306,17 +307,17 @@
         </article>
         <article class="card hidden" id="boards-card">
           <h2>分镜脚本</h2>
-          <p class="meta">一个人拿手机能拍出来的。前 3 秒先给事故感，别先讲故事。</p>
+
           <div id="boards"></div>
         </article>
         <article class="card hidden" id="landing-card">
           <h2>用户点进来后看到的内容</h2>
-          <p class="meta">钩子只解决点击。第一屏答非所问，素材跑得越好越浪费。</p>
+
           <div id="landing"></div>
         </article>
         <article class="card" id="platform-card">
           <h2>平台适配版本</h2>
-          <p class="meta">优先使用主平台；不同平台分别保留封面、标题和正文，方便直接发布。</p>
+          <p class="meta">各平台的封面、标题和正文分别保存。</p>
           <div id="plats" class="field-grid"></div>
         </article>
         <article class="card" id="delivery-card">
@@ -329,7 +330,7 @@
       </section>
 
       <section class="hidden" data-view="acquisition">
-        <div class="hook"><h1 id="acq-task-title">查找并核实需求</h1><p class="meta" id="acq-task-note">先核对来源，再把值得联系的人加入客户跟进。</p></div>
+        <div class="hook"><h1 id="acq-task-title">查找并核实需求</h1></div>
         <div id="acq-context" class="acq-root"></div>
         <div id="acq-today" hidden class="acq-today" aria-label="获客待办"></div>
         <div id="acq-workspace" class="acq-root"><p role="status">正在读取获客工作台…</p></div>
@@ -339,11 +340,11 @@
         </details>
       </section>
       <section class="hidden" data-view="agents">
-        <div class="hook"><h1>选好工作，助手由 Harta 配好。</h1><p class="meta">选择用途 → 试一下效果 → 确认启用。无需编写提示词，也无需搭建技能。</p></div>
+        <div class="hook"><h1>智能体</h1></div>
         <div id="acq-agents" class="acq-root"><p role="status">正在读取业务智能体…</p></div>
       </section>
       <section class="hidden" data-view="leads">
-        <div class="hook"><h1>把每次咨询，接着往前走。</h1><p class="meta">先处理新消息，再记录核实依据和下一步。</p></div>
+        <div class="hook"><h1>客户跟进</h1></div>
         <div id="acq-leads" class="acq-root"><p role="status">正在读取线索…</p></div>
         <details class="acq-root acq-panel"><summary>双路径实际结果与复盘</summary><section id="acq-results" aria-label="双路径实际结果"></section></details>
       </section>
@@ -357,7 +358,7 @@
         <div id="customer-list" class="chase"></div>
         <article class="card form customer-create hidden" id="customer-create">
           <details id="customer-create-panel"><summary id="customer-create-title">诊断新客户</summary>
-          <p class="meta" id="customer-create-note">先填客户名称、行业和业务简介，即可开始诊断。现有资料可以附上，沟通后再逐步补充。</p>
+          <p class="meta" id="customer-create-note">填写客户名称、行业和简介；附件选填。</p>
           <div class="customer-create-grid">
           <fieldset class="form-section"><legend>客户与合作信息</legend>
           <label for="hunt">目标行业</label>
@@ -389,7 +390,7 @@
             <div class="material-heading">
               <div>
                 <h3>客户资料</h3>
-                <p class="meta">原文件会保留。系统先读取资料；未读取到的信息不会写入报告。</p>
+                <p class="meta">保留原文件，仅使用已读取的信息。</p>
               </div>
               <span class="folio-no">附件 / 01</span>
             </div>
@@ -445,7 +446,7 @@
         <div class="hook">
           <p class="kicker">客户报告</p>
           <h1>交付给客户</h1>
-          <p class="meta">下载 PDF 后可直接发送；下载 Word 后可继续修改。内容批次请到「今天」的内容库筛选、安排和导出。</p>
+          <p class="meta">PDF 可直接发送，Word 可继续编辑。内容批次在内容库导出。</p>
         </div>
         <div id="pack-list" class="chase"></div>
       </section>
@@ -470,7 +471,7 @@
           <label for="ledger-quote">报价</label><input id="ledger-quote" maxlength="120" placeholder="没报就留空">
           <label for="ledger-line">关联内容</label><select id="ledger-line"></select>
           <label for="ledger-platform">来源平台</label><select id="ledger-platform"><option value="">尚未确定平台</option></select>
-          <p class="meta">关联内容后，有兴趣、问价或成交会同步记录到对应内容。</p>
+
           </details>
           <div class="acts"><button class="btn" id="add-ledger" type="button">保存跟进</button></div>
         </article>
@@ -481,7 +482,7 @@
         <div class="hook">
           <p class="kicker">全组</p>
           <h1>团队概览</h1>
-          <p class="meta" id="crew-line">只有你能看这一页。这里只有数，不拆到人。</p>
+          <p class="meta" id="crew-line">仅管理员可见，显示汇总数据。</p>
         </div>
         <article class="card">
           <h2>按目标行业</h2>
@@ -523,17 +524,17 @@
         </article>
         <article class="card form hidden" id="research-settings">
           <h2>需求研究数据源</h2>
-          <p class="meta">SearXNG 或 Brave Search 查询平台规则和公开内容；5118 可补充需求词与相关指数。密钥仅保存在服务器，空白表示保留。</p>
+          <p class="meta">配置搜索与关键词来源。密钥仅保存在服务器，留空保留原值。</p>
           <p><a href="https://www.5118.com/apistore/detail/8cf3d6ed-2b12-ed11-8da8-e43d1a103141" target="_blank" rel="noopener noreferrer">开通 5118 长尾词 API</a> · <a href="https://api-dashboard.search.brave.com/" target="_blank" rel="noopener noreferrer">开通 Brave Search API</a></p>
-          <div class="research-fields"><div class="research-field"><label for="research-searxng-url">SearXNG 自建搜索地址（开源，可替代 Brave）</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">配置后优先使用 SearXNG，需在服务端启用 JSON 搜索。清空地址可切回 Brave。</p></div><div class="research-field"><label for="research-rsshub-url">RSSHub 行业资讯地址（开源）</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">当前从 36 氪最新快讯匹配业务词，补充行业动向；不是全网历史搜索或平台流量指数。</p></div><div class="research-field"><label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password"></div><div class="research-field"><label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password"></div></div>
+          <div class="research-fields"><div class="research-field"><label for="research-searxng-url">SearXNG 自建搜索地址（开源，可替代 Brave）</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">SearXNG 需启用 JSON 搜索；留空使用 Brave。</p></div><div class="research-field"><label for="research-rsshub-url">RSSHub 行业资讯地址（开源）</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">按业务词匹配 36 氪最新快讯，不含历史搜索。</p></div><div class="research-field"><label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password"></div><div class="research-field"><label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password"></div></div>
           <div class="acts"><button class="btn" type="button" id="save-research-config">保存数据源</button><button class="btn ghost" type="button" id="test-research-config">测试连接</button></div>
-          <p class="meta">连接测试使用已保存配置，各执行一次小查询，会计入相应 API 额度。</p><p class="meta" id="research-config-status" role="status"></p>
+          <p class="meta">测试使用已保存配置，会消耗 API 额度。</p><p class="meta" id="research-config-status" role="status"></p>
         </article>
         <div id="llm-box"></div>
       </section>
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20261010-journeys"></script>
+  <script type="module" src="js/app.js?v=20261013-copy"></script>
 </body>
 </html>

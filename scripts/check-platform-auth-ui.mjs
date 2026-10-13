@@ -34,7 +34,7 @@ try {
 
   const post=async(url,data,headers={})=>{const r=await context.request.post(origin+url,{data,headers});const v=await r.json();assert.ok(r.ok(),JSON.stringify(v));return v;};
   await post('/api/acquisition/commerce',{action:'business',name:'连接器验收',pitch:'灯具销售'});
-  await page.reload();await page.locator('[data-nav=connections]').click();await page.locator('#cm-connections summary').filter({hasText:'官方应用授权（需要平台应用资质）'}).click();
+  await page.reload();await page.locator('[data-view=workbench]').waitFor({state:'visible'});await page.locator('[data-nav=connections]').click();await page.locator('#cm-connections summary').filter({hasText:'官方应用授权（需要平台应用资质）'}).click();
   assert.equal(await page.locator('#cm-connections [data-cm=platform-connect]').count(),2);
   for(const key of ['douyin','xiaohongshu'])assert.equal(await page.locator(`#cm-connections [data-cm=platform-connect][data-id=${key}]`).isDisabled(),true);
   assert.equal(await page.locator('#cm-connections [data-cm-form=browser-account]').isVisible(),false);
@@ -54,7 +54,7 @@ try {
     else return route.abort();
     await route.fulfill({json:body});
   });
-  await page.reload();await page.locator('[data-nav=connections]').click();await page.locator('#cm-connections summary').filter({hasText:'官方应用授权（需要平台应用资质）'}).click();
+  await page.reload();await page.locator('[data-view=workbench]').waitFor({state:'visible'});await page.locator('[data-nav=connections]').click();await page.locator('#cm-connections summary').filter({hasText:'官方应用授权（需要平台应用资质）'}).click();
   await page.locator('#cm-connections [data-cm=platform-connect][data-id=xiaohongshu]').click();
   await page.locator('.cm-auth-flow img').waitFor();
   await page.getByRole('heading',{name:'已扫码，请在手机上确认',exact:true}).waitFor();

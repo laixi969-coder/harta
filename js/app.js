@@ -977,8 +977,8 @@ function renderToday() {
   if (copiesTitle) copiesTitle.textContent = isContentPack ? "基础文案" : "样例文案";
   if (copiesNote) {
     copiesNote.textContent = isContentPack
-      ? "按发布顺序查看内容；勾选后可批量安排、标记和导出。"
-      : "这些内容仅用于说明报告方向，不是可直接运营的内容库存。";
+      ? ""
+      : "报告样例仅供参考，不可直接发布。";
   }
   renderPackJob();
 

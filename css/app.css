@@ -2455,6 +2455,15 @@ section[data-view] > .card, #owned-today .card { border: 0; border-radius: 0; bo
   --track-retained-line: #b2b6ba; --track-prospect-line: #b2b6ba;
   color-scheme: light;
 }
+/* Black surfaces apply only to the dark theme; light retains its palette. */
+[data-theme="dark"] {
+  --page: #000; --wash: #000; --bg: #000; --panel-2: #080808;
+  --rail: #000; --zone: #000; --control-bg: #000;
+  --track-retained: #080808; --track-prospect: #080808;
+}
+[data-theme="dark"] .go:hover,
+[data-theme="dark"] .job-actions button:hover { background: var(--panel-2); }
+
 body { background: var(--page); }
 body::before { opacity: .035 !important; mix-blend-mode: screen; }
 .shell { max-width: 1680px; grid-template-columns: 220px minmax(0,1fr); margin: 0 auto; }
