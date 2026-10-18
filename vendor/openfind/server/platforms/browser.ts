@@ -762,7 +762,7 @@ export async function readDetail(note: Note) {
       const payload = await r.json();
       const items = payload?.data?.items || [];
       const original =
-        items.find((x: any) => String(x.id || x.note_card?.note_id) === note.nativeId) || items[0];
+        items.find((x: any) => String(x.id || x.note_card?.note_id) === (note.nativeId || note.id.slice(4)));
       if (original) {
         const mapped = xhsNotes({ data: { items: [original] } })[0];
         if (mapped) detail = { ...note, ...mapped, url: note.url, detailState: 'complete' };

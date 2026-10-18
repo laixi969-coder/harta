@@ -1,4 +1,4 @@
-import { installCommerceUI, renderCommerceUI } from './commerce-ui.js';
+import { installCommerceUI, renderCommerceUI, resumeOpenFindHandoff } from './commerce-ui.js';
 import { renderGrowthSettings, renderPostGrowth, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
 import { installAcquisitionUI, renderAcquisitionUI, refreshAcquisition, openPublication, openAcquisitionContext } from './acquisition-ui.js';
 import { renderRecommendation, renderMaterialSuggestion, renderCreationPlan } from './content-plan.js';
@@ -2388,6 +2388,7 @@ async function boot() {
   const connectionReturn = new URLSearchParams(location.search).get('platform_connection') === 'return';
   nav(connectionReturn ? 'connections' : 'workbench');
   if (connectionReturn) history.replaceState(null, '', '/');
+  await resumeOpenFindHandoff();
   // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」。
   // 可能不止一个在跑，全都盯上。
   for (const c of state.workspace.customers || []) {

@@ -1,4 +1,6 @@
-import { demandTime, topicRelevant } from '../../../js/demand-rules.js';
+import { topicRelevant } from '../../../js/demand-rules.js';
+import { reviewSemantics, semanticFor, llmSettings } from './llm.ts';
+import { compareQualifications } from './qualification-comparison.ts';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
@@ -12,7 +14,13 @@ import type {
 } from '../shared/types.ts';
 import { all, get, put } from './store.ts';
 import { cachedJob } from './jobs-cache.ts';
-import { acquisitionPriority, assessComment, intentScore, toLead } from './domain.ts';
+import {
+  acquisitionPriority,
+  assessComment,
+  intentScore,
+  toLead,
+  qualificationVersion,
+} from './domain.ts';
 import { evaluateBudget, readInterval, protectionStatus } from './protection.ts';
 
 export const workflowRuns = new Map<string, AbortController>();
@@ -58,11 +66,17 @@ export function createWorkflow(input: AcquisitionInput): AcquisitionWorkflow {
   return w;
 }
 export function recoverWorkflows() {
-  for (const w of all<AcquisitionWorkflow>('workflows'))
+  for (const w of all<AcquisitionWorkflow>('workflows')) {
+    if (w.reviewProgress?.status === 'running') {
+      w.reviewProgress.status = 'failed';
+      w.reviewProgress.message = '服务重启，模型复核已中断，已保存结果可继续复核';
+      saveWorkflow(w);
+    }
     if (w.status === 'running') {
       w.status = 'paused';
       saveWorkflow(w, '服务重启，已保留检查点；点击继续流程，已完成步骤不会重跑');
     }
+  }
 }
 const unique = (ids: string[]) => [...new Set(ids)];
 function scopedNotes(w: AcquisitionWorkflow, ids: string[]) {
@@ -86,7 +100,7 @@ function rankedNotes(w: AcquisitionWorkflow) {
         b.note.publishedAt.localeCompare(a.note.publishedAt),
     );
 }
-function qualify(w: AcquisitionWorkflow) {
+export function qualify(w: AcquisitionWorkflow) {
   const candidates = w.commentIds
     .map((id) => get<Comment>('comments', id))
     .filter(
@@ -94,22 +108,24 @@ function qualify(w: AcquisitionWorkflow) {
     )
     .map((c) => ({ c, note: get<Note>('notes', c.noteId) }))
     .filter(({ note }) => note?.platform === w.input.platform)
-    .map(({ c, note }) => ({ c, note, assessment: assessComment(c, note) }))
-    .filter(
-      (x) => x.assessment.recommended && demandTime(x.c.createdAt).recent,
-    )
+    .map(({ c, note }) => ({
+      c,
+      note,
+      assessment: assessComment(c, note, Date.now(), all<Comment>('comments')),
+    }))
+    .filter((x) => x.assessment.recommended && x.assessment.withinSevenDays === true)
     .sort(
       (a, b) =>
         b.assessment.score - a.assessment.score || b.c.createdAt.localeCompare(a.c.createdAt),
     );
   const ids = new Set<string>();
   for (const { c, note } of candidates) {
-    const lead = toLead(c, note);
+    const lead = toLead(c, note, all<Comment>('comments'));
     if (ids.has(lead.id)) continue;
     ids.add(lead.id);
     const existing = get<Lead>('leads', lead.id);
     if (!existing) put('leads', lead);
-    else if (lead.commentCreatedAt! > (existing.commentCreatedAt || ''))
+    else if (lead.commentCreatedAt! >= (existing.commentCreatedAt || ''))
       put('leads', {
         ...lead,
         status: existing.status,
@@ -120,6 +136,86 @@ function qualify(w: AcquisitionWorkflow) {
   }
   w.leadIds = [...ids];
   saveWorkflow(w);
+}
+export async function reviewWorkflowQualification(
+  w: AcquisitionWorkflow,
+  signal?: AbortSignal,
+  useModel = false,
+) {
+  const original =
+    w.qualificationReview?.originalCommentIds ||
+    w.leadIds.map((id) => get<Lead>('leads', id)?.commentId).filter((id): id is string => !!id);
+  const notes = all<Note>('notes');
+  const comments = w.commentIds
+    .map((id) => get<Comment>('comments', id))
+    .filter(
+      (c): c is Comment =>
+        !!c &&
+        c.source === w.input.mode &&
+        w.selectedNoteIds.includes(c.noteId) &&
+        notes.some((n) => n.id === c.noteId && n.platform === w.input.platform),
+    );
+  const modelActive = useModel || llmSettings().enabled;
+  let semanticStatus: string;
+  try {
+    semanticStatus = await reviewSemantics(
+      comments,
+      notes,
+      signal,
+      all<Comment>('comments'),
+      useModel,
+      (progress) => {
+        const now = new Date().toISOString();
+        w.reviewProgress = {
+          ...progress,
+          status: 'running',
+          message: `模型复核：${progress.reviewed}/${progress.eligible}条已完成，本地排除${progress.excluded}条`,
+          startedAt: w.reviewProgress?.status === 'running' ? w.reviewProgress.startedAt : now,
+          updatedAt: now,
+        };
+        saveWorkflow(w);
+      },
+    );
+  } catch (error) {
+    if (modelActive && w.reviewProgress) {
+      w.reviewProgress.status = 'failed';
+      w.reviewProgress.message = '模型复核已中断，已完成结果保留，可继续复核';
+      saveWorkflow(w);
+    }
+    throw error;
+  }
+  if (modelActive && w.reviewProgress) {
+    w.reviewProgress.status = w.reviewProgress.pending === 0 ? 'completed' : 'failed';
+    w.reviewProgress.message = semanticStatus;
+    w.reviewProgress.updatedAt = new Date().toISOString();
+  }
+
+  signal?.throwIfAborted();
+  qualify(w);
+  const current = w.leadIds.map((id) => get<Lead>('leads', id)!.commentId);
+  w.qualificationReview = {
+    version: qualificationVersion,
+    reviewedAt: new Date().toISOString(),
+    originalCommentIds: original,
+    addedCommentIds: current.filter((id) => !original.includes(id)),
+    removedCommentIds: original.filter((id) => !current.includes(id)),
+    reviewedCommentCount: comments.length,
+    semanticStatus,
+    comparison: compareQualifications(
+      comments.map((c) => ({
+        ...c,
+        semantic: semanticFor(
+          c,
+          notes.find((n) => n.id === c.noteId),
+          all<Comment>('comments'),
+        ),
+      })),
+      notes,
+      all<Comment>('comments'),
+    ),
+  };
+  saveWorkflow(w);
+  return w.qualificationReview;
 }
 async function waitForPlatform(
   w: AcquisitionWorkflow,
@@ -276,7 +372,7 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor) 
       saveWorkflow(w, '正在复核评论日期、明确需求和排除条件，并去重保存候选');
     }
     abort.signal.throwIfAborted();
-    qualify(w);
+    await reviewWorkflowQualification(w, abort.signal);
     w.stage = 'done';
     w.status = 'completed';
     w.finishedAt = new Date().toISOString();

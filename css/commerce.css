@@ -109,3 +109,16 @@ section[data-view=today] #quick-growth-control{display:none!important}
 @media(max-width:800px){.agent-guide ol{grid-template-columns:repeat(2,minmax(0,1fr));}}
 .of-panel{margin:20px 0}.of-connections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0}.of-connections article{padding:14px;border:1px solid var(--border);border-radius:var(--r-sm)}.of-search{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.of-search .acts,.of-search .meta,.of-search .cm-error{grid-column:1/-1}.of-schedule{margin:18px 0}.of-frame img{width:100%;height:auto;touch-action:none;border:1px solid var(--border)}.of-frame{margin:16px 0}.of-panel .cm-row{align-items:flex-start}.of-panel .cm-row>div{min-width:0;overflow-wrap:anywhere}
 @media(max-width:700px){.of-connections,.of-search{grid-template-columns:1fr}}
+
+.cm-openfind-root { max-width: none; padding: 0; }
+.cm-openfind-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 12px 20px; border-bottom: 1px solid #e5e7eb; }
+.cm-openfind-heading label { display: grid; gap: 5px; font-size: 12px; }
+.cm-openfind-heading select { min-width: 180px; padding: 7px 10px; border: 1px solid #d9dce3; border-radius: 8px; background: white; }
+#cm-openfind iframe { display: block; width: 100%; height: calc(100dvh - 90px); min-height: 640px; border: 0; background: #f7f8fa; }
+.cm-discovery-card > .cm-work-cover { width: calc(100% + 32px); max-width: none; margin: -16px -16px 16px; height: 230px; object-fit: cover; border-radius: 12px 12px 0 0; }
+.cm-work-cover { width: 90px; height: 104px; object-fit: cover; border-radius: 8px; }
+.cm-cover-empty { display: flex; justify-content: center; align-items: center; min-height: 80px; padding: 10px; color: #677180; background: #f1f3f6; font-size: 12px; }
+.cm-work-gallery { display: flex; gap: 10px; overflow-x: auto; padding: 12px 0; }
+.cm-work-gallery img { width: 170px; height: 220px; object-fit: cover; border-radius: 10px; }
+@media(max-width:700px) { .cm-openfind-heading { padding: 10px; flex-wrap: wrap; } #cm-openfind iframe { min-height: 740px; } }
+.cm-work-video { width: min(100%, 520px); max-height: 480px; background: #171923; border-radius: 10px; }

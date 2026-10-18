@@ -21,6 +21,9 @@ export async function browserCall<T>(path: string, body?: any, signal?: AbortSig
   if (path === '/close-read') { await browser.closeRead(body.cursor); return { ok: true } as T; }
   if (path === '/network') return await browser.setNetwork(platform, body.mode) as T;
   if (path === '/refresh') return await browser.refreshPlatform(platform, !!body.creator) as T;
-  // Publishing and private messaging stay in Harta's existing reviewed delivery flow.
+  if (path === '/creator') return await browser.openCreator(platform).then(() => browser.connection(platform)) as T;
+  if (path === '/prepare-publish') return await (await import('./publish.ts')).preparePublish(body) as T;
+  if (path === '/publish') return await (await import('./publish.ts')).publishNative(body) as T;
+  if (path === '/reconcile-publish') return await (await import('./publish.ts')).reconcilePublish(body) as T;
   throw new Error('此浏览器操作未接入 Harta 获客引擎');
 }
