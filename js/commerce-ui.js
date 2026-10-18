@@ -15,10 +15,11 @@ const area=(name,label,value='',required=false,max=3000)=>`<label>${esc(label)}<
 const select=(name,label,rows,value='')=>`<label>${esc(label)}<select name="${name}">${opts(rows,value)}</select></label>`;
 const button=(act,label,id='',main=false)=>`<button type="button" class="btn ${main?'':'ghost'}" data-cm="${act}" data-id="${esc(id)}">${esc(label)}</button>`;
 const anchor=(url,label)=>{try{const u=new URL(url);if(['https:','http:'].includes(u.protocol))return `<a class="btn ghost" target="_blank" rel="noopener noreferrer" href="${esc(u.href)}">${esc(label)} ↗</a>`;}catch{}return '';};
-const empty=(title,note)=>`<div class="cm-empty"><h2>${esc(title)}</h2><p>${esc(note)}</p></div>`;
+const empty=(title,note,action='')=>`<div class="cm-empty ui-empty"><h2 class="ui-empty-title">${esc(title)}</h2><p class="ui-empty-description">${esc(note)}</p>${action?`<div class="ui-empty-actions">${action}</div>`:''}</div>`;
 let pendingOpenFindHandoff = null, performOpenFindHandoff;
 let ctx, businessId='', targetId='', workId='', contactId='', opId='', editProduct='', editSku='', poll;
 const drafts=new Map(), openDetails=new Set();
+const renderedPanels=new WeakMap();
 const discoveryFilters=new Map(), discoveryTabs=new Map(), discoveryPages=new Map();
 let deliveryTab='publish';
 let platformAuth={providers:[],connections:[]}, authFlow=null, authTimer;
@@ -125,7 +126,7 @@ function semanticEvidence(s){
 function comment(s,depth=0,includeReplies=true){
   const parent=s.parentRecordId&&rows('signals').find(r=>r.workId===s.workId&&r.recordId===s.parentRecordId);
   const children=includeReplies?rows('signals').filter(r=>r.workId===s.workId&&r.parentRecordId&&r.parentRecordId===s.recordId):[];
-  return `<article class="cm-comment ${depth?'cm-reply':''}"><header><strong>${esc(s.authorName||'昵称未知')}</strong><span class="cm-tag">${s.isAuthorReply?'视频作者':s.status==='confirmed'?'已保存':s.status==='excluded'?'已排除':'待核实'}</span></header><p class="cm-quote">${esc(s.text)}</p>${semanticEvidence(s)}${!includeReplies&&parent?`<p class="meta">回复的原评论：${esc(parent.text.slice(0,220))}</p>`:''}<p class="meta">${esc(s.publishedAt?stamp(s.publishedAt):s.publishedText||'发表时间未知')} · ${s.sourceType==='browser_visible'?'浏览器读取':s.sourceType==='openfind_live'?'平台实时采集':s.sourceType==='openfind_import'?'OpenFind 导入':'导入资料'} ${s.parentRecordId&&!rows('signals').some(r=>r.workId===s.workId&&r.recordId===s.parentRecordId)?' · 父评论未在当前范围内':''}</p><p class="meta">${esc(demandEvidence(s).reason)}${s.ipRegion?' · 页面属地：'+esc(s.ipRegion):''}</p><div class="acts">${anchor(s.url,'原作品')}${anchor(s.authorUrl,'评论者主页')}${s.leadId?button('browser-contact','联系此人',s.leadId):''}${s.leadId?button('open-contact','查看跟进',s.leadId):''}</div>${s.review?`<details class="cm-support"><summary>核实记录 · ${stamp(s.review.at)}</summary><p>${esc(s.review.note)}</p></details>`:''}${!s.leadId&&!s.isAuthorReply?panel(`review-${s.id}`,'核实或排除',form('review',`${area('note','核实依据或排除理由','',true)}${select('action','处理方式',[['confirm','保存为值得跟进的线索'],['triage','保存线索，地点或业务适配待核实'],['exclude','排除此需求']])}${submit('保存核实结果')}`,s.id)):''}${depth<20?children.map(r=>comment(r,depth+1)).join(''):children.length?'<p>更多回复请从原评论查看。</p>':''}</article>`;
+  return `<article class="cm-comment ${depth?'cm-reply':''}"><header><strong>${esc(s.authorName||'昵称未知')}</strong><span class="cm-tag">${s.isAuthorReply?'视频作者':s.status==='confirmed'?'已保存':s.status==='excluded'?'已排除':'待核实'}</span></header><p class="cm-quote">${esc(s.text)}</p>${semanticEvidence(s)}${!includeReplies&&parent?`<p class="meta">回复的原评论：${esc(parent.text.slice(0,220))}</p>`:''}<p class="meta">${esc(s.publishedAt?stamp(s.publishedAt):s.publishedText||'发表时间未知')} · ${s.sourceType==='browser_visible'?'浏览器读取':s.sourceType==='openfind_live'?'平台实时采集':s.sourceType==='openfind_import'?'文件导入':'导入资料'} ${s.parentRecordId&&!rows('signals').some(r=>r.workId===s.workId&&r.recordId===s.parentRecordId)?' · 父评论未在当前范围内':''}</p><p class="meta">${esc(demandEvidence(s).reason)}${s.ipRegion?' · 页面属地：'+esc(s.ipRegion):''}</p><div class="acts">${anchor(s.url,'原作品')}${anchor(s.authorUrl,'评论者主页')}${s.leadId?button('browser-contact','联系此人',s.leadId):''}${s.leadId?button('open-contact','查看跟进',s.leadId):''}</div>${s.review?`<details class="cm-support"><summary>核实记录 · ${stamp(s.review.at)}</summary><p>${esc(s.review.note)}</p></details>`:''}${!s.leadId&&!s.isAuthorReply?panel(`review-${s.id}`,'核实或排除',form('review',`${area('note','核实依据或排除理由','',true)}${select('action','处理方式',[['confirm','保存为值得跟进的线索'],['triage','保存线索，地点或业务适配待核实'],['exclude','排除此需求']])}${submit('保存核实结果')}`,s.id)):''}${depth<20?children.map(r=>comment(r,depth+1)).join(''):children.length?'<p>更多回复请从原评论查看。</p>':''}</article>`;
 }
 function demandQueue(){
   const candidates=rows('signals').filter(s=>s.workId&&demandEvidence(s).recent).sort((a,b)=>Number(Boolean(a.leadId))-Number(Boolean(b.leadId))||b.publishedAt.localeCompare(a.publishedAt));
@@ -138,17 +139,17 @@ function discoveryPanel(){
   const pages=Math.max(1,Math.ceil(list.length/24)),page=Math.min(discoveryPages.get(businessId)||0,pages-1);
   const tabs=[['works','作品库 · '+all.length],['needs','需求核实'],['search','实时搜索与任务']];
   const reportTask=rows('tasks').filter(t=>t.importReport).at(-1),report=reportTask?.importReport;
-  return `<section class="cm-panel cm-discovery" aria-label="作品发现"><div class="cm-discovery-heading"><div><h2>作品发现</h2></div><a class="btn ghost" href="/openfind?customerId=${encodeURIComponent(businessId)}" target="_blank" rel="noopener">打开完整 OpenFind ↗</a></div>
+  return `<section class="cm-panel cm-discovery" aria-label="作品发现"><div class="cm-discovery-heading"><div><h2>作品发现</h2></div><a class="btn ghost" href="/openfind?customerId=${encodeURIComponent(businessId)}" target="_blank" rel="noopener">打开获客工作区 ↗</a></div>
     <div class="cm-discovery-tabs" role="tablist" aria-label="作品与需求视图">${tabs.map(([id,label])=>`<button type="button" role="tab" id="cm-tab-${id}" aria-controls="cm-discovery-content" aria-selected="${tab===id}" tabindex="${tab===id?0:-1}" data-cm="discovery-tab" data-id="${id}">${label}</button>`).join('')}</div>
     <div id="cm-discovery-content" role="tabpanel" aria-labelledby="cm-tab-${tab}">
     ${tab==='search'?openFindPanel(businessId,customer()):''}
     ${tab==='needs'?demandQueue():''}
     ${tab==='works'?`
-    ${panel('openfind-import','导入 OpenFind 作品与评论',form('openfind-import',`${select('kind','导入内容',[['notes','作品导出 JSON'],['comments','评论导出 JSON'],['snapshot','完整快照（notes / comments）']])}<label>选择 JSON 文件<input type="file" name="file" accept=".json,application/json"></label>${area('json','或粘贴 JSON','',false,1800000)}${field('source','来源说明（采集日期或文件说明）','',true)}<p class="meta">先导入作品，再导入评论；也可一次导入快照。单次最多 100 条作品、1000 条评论，文件小于 1.8 MB。演示数据会跳过，评论需核实后才进入客户跟进。</p>${submit('导入当前业务')}`))}
+    ${panel('openfind-import','导入作品与评论',form('openfind-import',`${select('kind','导入内容',[['notes','作品导出 JSON'],['comments','评论导出 JSON'],['snapshot','完整快照（notes / comments）']])}<label>选择 JSON 文件<input type="file" name="file" accept=".json,application/json"></label>${area('json','或粘贴 JSON','',false,1800000)}${field('source','来源说明（采集日期或文件说明）','',true)}<p class="meta">先导入作品，再导入评论；也可一次导入快照。单次最多 100 条作品、1000 条评论，文件小于 1.8 MB。演示数据会跳过，评论需核实后才进入客户跟进。</p>${submit('导入当前业务')}`))}
     ${report?`<details class="cm-support"><summary>最近同步记录</summary><p class="cm-import-result">${reportTask.sourceType==='openfind_live'?'最近自动同步':'最近导入'}：新增 ${report.worksAdded} 条作品、${report.commentsAdded} 条评论；重复 ${report.worksExisting+report.commentsDuplicate} 条；跳过 ${report.skippedDemo} 条演示数据。</p></details>`:''}
     ${form('discovery-filter',`${field('query','筛选已保存作品',filters.query||'')}${select('platform','平台',[['','全部平台'],['小红书','小红书'],['抖音','抖音']],filters.platform||'')}${select('type','内容形式',[['','全部形式'],['image','图文'],['video','视频']],filters.type||'')}${select('sort','排序与需求筛选',[['latest','作品最新'],['popular','互动量最高'],['demand','近 7 天有需求表达']],filters.sort||'latest')}${submit('应用筛选')}${button('clear-discovery','重置')}`)}
     <p class="meta">${list.length} / ${all.length} 条作品 · 需求统计限已采集评论。</p>
-    <div class="cm-discovery-grid">${list.slice(page*24,(page+1)*24).map(w=>`<article class="cm-discovery-card">${nativeWorkCover(w)}<p class="cm-eyebrow">${esc(w.platform)} · ${w.type==='image'?'图文':w.type==='video'?'视频':'形式未记录'}</p><h3><button type="button" class="cm-work-title" data-native-preview="${esc(w.id)}">${esc(w.title)}</button></h3><p class="cm-card-description">${esc((w.description||'').slice(0,180))}</p><p class="meta">${esc(w.authorName||'作者未记录')} · ${esc(w.publishedAt?stamp(w.publishedAt):'发表时间未知')}</p><p>互动 ${w.engagement===null?'未记录':w.engagement.toLocaleString('zh-CN')} · 已读评论 ${w.savedComments} · 近期需求表达 ${w.recentDemand}</p><div class="acts">${button('open-source','查看原文与评论',w.id)}${button('reference-work','参考这条创作',w.id)}${openFindWorkActions(w)}${anchor(w.url,'原作品')}</div></article>`).join('')||empty(all.length?'没有符合条件的作品':'先带入一批参考作品',all.length?'尝试重置筛选，时间未知的评论不会计入近期需求。':'在上方连接平台并实时搜索，也可一键搜索并采集评论。')}</div>${pages>1?`<nav class="cm-gallery-controls" aria-label="作品分页"><button type="button" class="btn ghost" data-cm="discovery-page" data-id="${page-1}" ${page===0?'disabled':''}>上一页作品</button><span role="status">第 ${page+1} / ${pages} 页 · ${list.length} 条作品</span><button type="button" class="btn ghost" data-cm="discovery-page" data-id="${page+1}" ${page===pages-1?'disabled':''}>下一页作品</button></nav>`:''}`:''}</div>
+    <div class="cm-discovery-grid">${list.slice(page*24,(page+1)*24).map(w=>`<article class="cm-discovery-card">${nativeWorkCover(w)}<p class="cm-eyebrow">${esc(w.platform)} · ${w.type==='image'?'图文':w.type==='video'?'视频':'形式未记录'}</p><h3><button type="button" class="cm-work-title" data-native-preview="${esc(w.id)}">${esc(w.title)}</button></h3><p class="cm-card-description">${esc((w.description||'').slice(0,180))}</p><p class="meta">${esc(w.authorName||'作者未记录')} · ${esc(w.publishedAt?stamp(w.publishedAt):'发表时间未知')}</p><p>互动 ${w.engagement===null?'未记录':w.engagement.toLocaleString('zh-CN')} · 已读评论 ${w.savedComments} · 近期需求表达 ${w.recentDemand}</p><div class="acts">${button('open-source','查看原文与评论',w.id)}${button('reference-work','参考创作',w.id)}${openFindWorkActions(w)}${anchor(w.url,'原作品')}</div></article>`).join('')||empty(all.length?'没有符合条件的作品':'先带入一批参考作品',all.length?'尝试重置筛选，时间未知的评论不会计入近期需求。':'在上方连接平台并实时搜索，也可一键搜索并采集评论。',all.length?button('clear-discovery','清除筛选'):'')}</div>${pages>1?`<nav class="cm-gallery-controls" aria-label="作品分页"><button type="button" class="btn ghost" data-cm="discovery-page" data-id="${page-1}" ${page===0?'disabled':''}>上一页作品</button><span role="status">第 ${page+1} / ${pages} 页 · ${list.length} 条作品</span><button type="button" class="btn ghost" data-cm="discovery-page" data-id="${page+1}" ${page===pages-1?'disabled':''}>下一页作品</button></nav>`:''}`:''}</div>
   </section>`;
 }
 function referenceFields(){
@@ -193,16 +194,17 @@ function contentScope(){
   const saved=businessId;businessId=c.id;
   const html=`<div class="cm-panel cm-content-scope"><div class="acts">${button('go-content-home','返回内容获客')}</div><details data-cm-detail="${c.id}:create-content"><summary>${c.drops?.length?'创作新一批内容':'开始创作第一篇内容'}</summary><h2>创作设置</h2><p>${esc(c.name)}</p>${form('generate',`${select('goal','这批内容希望带来什么？',Object.entries(SIMPLE_GOALS),growthGoal(c))}<details class="cm-optional" data-cm-detail="${c.id}:content-products"><summary>选择具体产品（选填，默认使用业务介绍）</summary>${scopeFields()}</details>${referenceFields()}<button class="btn" type="submit" ${c.job?'disabled':''}>${c.job?'正在生成，请稍候…':'生成获客内容'}</button>`,c.id)}${referenceHistory(c)}${[...(c.drops||[]),...(c.packs||[])].filter(p=>p.productReview?.required).map(p=>`<div class="cm-notice"><strong>${esc(p.title||'历史内容')}：资料已更新</strong><p>核对价格、参数和承诺后确认。</p>${p.productReview.currentHash?form('content-review',`${area('note','已核对的修改与依据','',true)}<label class="cm-check"><input type="checkbox" name="confirmed" required>已核对当前文案与最新产品资料</label>${submit('保存核对记录')}`,p.id,`data-business="${c.id}"`):'<p>原产品已停止推广，请使用有效产品重新创作。</p>'}</div>`).join('')}</div>`;if(!c.drops?.length)openDetails.add(`${c.id}:create-content`);businessId=saved;return html;
 }
-export function renderCommerceUI(){
+export function renderCommerceUI(background=false){
   if(!ctx||busy)return;
   const focused=document.activeElement,ff=focused?.closest('[data-cm-form]'),focus=ff&&focused.name?{key:ff.dataset.key,name:focused.name,start:focused.selectionStart,end:focused.selectionEnd}:null;
   stash();if(ctx.getBusiness?.()&&ws().customers.some(c=>c.id===ctx.getBusiness()))businessId=ctx.getBusiness();
   if(!ws().customers.some(c=>c.id===businessId))businessId=ws().customers.find(c=>c.id===ws().usingId)?.id||ws().customers[0]?.id||'';
   const no=`<header class="cm-heading"><div><h1>添加业务</h1></div></header><section class="cm-onboarding">${form('business',`${field('name','业务名称','',true)}${field('pitch','你提供什么，主要帮助谁？','',true)}${field('hunt','行业（选填）')}${submit('保存，选择获客方式')}`)}</section>`;
-  for(const [view,render]of Object.entries({workbench:today,'content-home':contentHome,products,prospecting,conversations,connections:connectionsView,delivery:deliveryView})){const host=document.getElementById(`cm-${view}`);if(host)host.innerHTML=businessId?render():no;}
+  const updatePanel=(host,html)=>{if(!host)return;if(!background||renderedPanels.get(host)!==html)host.innerHTML=html;renderedPanels.set(host,html);};
+  for(const [view,render]of Object.entries({workbench:today,'content-home':contentHome,products,prospecting,conversations,connections:connectionsView,delivery:deliveryView})){updatePanel(document.getElementById(`cm-${view}`),businessId?render():no);}
   mountOpenFindWorkbench(customer(), ws().customers);
   refreshNativeWorkPreview();
-  const scope=document.getElementById('cm-content-scope');if(scope)scope.innerHTML=contentScope();restore();
+  updatePanel(document.getElementById('cm-content-scope'),contentScope());restore();
   if(focus){const f=[...document.querySelectorAll('[data-cm-form]')].find(f=>f.dataset.key===focus.key),el=f?.elements.namedItem(focus.name);if(el?.focus){el.focus({preventScroll:true});try{el.setSelectionRange(focus.start,focus.end);}catch{}}}
 }
 async function api(action,payload){const r=await fetch(`/api/acquisition/${action}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const result=await r.json();if(!r.ok)throw new Error(result.error||'操作失败');if(result.workspace)ctx.setWorkspace(result.workspace);return result;}
@@ -245,7 +247,7 @@ export function installCommerceUI(context){
     pendingOpenFindHandoff = payload;
   }
   initNativeWorkMedia({getWorks:()=>rows('works'),refresh:refreshOpenFindWork});
-  initOpenFindUI({getBusiness:()=>businessId,setWorkspace:ctx.setWorkspace,render:renderCommerceUI,toast:ctx.toast});
+  initOpenFindUI({getBusiness:()=>businessId,setWorkspace:ctx.setWorkspace,render:renderCommerceUI,renderBackground:()=>renderCommerceUI(true),toast:ctx.toast});
   initHostedUI({businessId:()=>businessId,toast:message=>ctx.toast(message),refresh:browserRefresh,render:renderCommerceUI});
   document.body.addEventListener('keydown',event=>{
     const tab=event.target.closest('[data-cm="discovery-tab"]');
@@ -266,7 +268,7 @@ export function installCommerceUI(context){
       if(action==='discovery-filter'){discoveryPages.delete(cId);discoveryFilters.set(cId,{query:value.query,platform:value.platform,type:value.type,sort:value.sort});}
       else if(action==='openfind-import'){
         let raw=value.json?.trim();const file=fd.get('file');
-        if(!raw&&file?.size){if(file.size>1800000)throw new Error('文件超过 1.8 MB，请在 OpenFind 中分批导出');raw=await file.text();}
+        if(!raw&&file?.size){if(file.size>1800000)throw new Error('文件超过 1.8 MB，请分批导出');raw=await file.text();}
         if(!raw)throw new Error('请选择文件或粘贴 JSON');
         await api('openfind-import',{customerId:cId,kind:value.kind,source:value.source,data:JSON.parse(raw)});
       }
@@ -326,7 +328,7 @@ export function installCommerceUI(context){
     if(act==='read-current'){const key=`${businessId}:collect-${workId?'comments':'works'}-${workId||targetId}`;openDetails.add(key);renderCommerceUI();const detail=[...document.querySelectorAll('#cm-prospecting [data-cm-detail]')].find(d=>d.dataset.cmDetail===key);detail?.scrollIntoView({block:'center',behavior:'smooth'});return;}
     if(act==='discovery-tab'){discoveryTabs.set(businessId,id);renderCommerceUI();return;}
     if(act==='discovery-page'){discoveryPages.set(businessId,Math.max(0,Number(id)||0));renderCommerceUI();document.querySelector('.cm-discovery-heading')?.scrollIntoView({block:'start'});return;}
-    if(act==='clear-discovery'){discoveryPages.delete(businessId);discoveryFilters.delete(businessId);drafts.delete(`${businessId}:discovery-filter:`);renderCommerceUI();return;}
+    if(act==='clear-discovery'){discoveryPages.delete(businessId);discoveryFilters.delete(businessId);drafts.delete(`${businessId}:discovery-filter:`);document.querySelector('#cm-prospecting [data-cm-form=discovery-filter]')?.remove();renderCommerceUI();document.querySelector('#cm-prospecting [data-cm-form=discovery-filter] [name=query]')?.focus({preventScroll:true});return;}
     if(act==='reference-work'){
       const work=rows('works').find(w=>w.id===id);if(!work)return;
       await ctx.openContent(businessId);

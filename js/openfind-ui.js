@@ -19,7 +19,7 @@ async function request(customerId,action,input={}){
 }
 async function refresh(customerId){
   if(!customerId||loading.has(customerId))return;loading.add(customerId);
-  try{await request(customerId);if(!document.activeElement?.closest('[data-of-form]') && !(document.activeElement?.matches('input,textarea,select,[contenteditable=true]') && document.activeElement.closest('[data-cm-form]')))ctx.render();}
+  try{await request(customerId);if(!document.activeElement?.closest('[data-of-form]') && !(document.activeElement?.matches('input,textarea,select,[contenteditable=true]') && document.activeElement.closest('[data-cm-form]')))(ctx.renderBackground||ctx.render)();}
   catch(error){states.set(customerId,{...(states.get(customerId)||{}),error:error.message});}
   finally{loading.delete(customerId);}
 }

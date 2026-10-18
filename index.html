@@ -20,7 +20,8 @@
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
-  <link rel="stylesheet" href="css/commerce.css?v=20261013-unified-brown">
+  <link rel="stylesheet" href="css/commerce.css?v=20261018-mobile-ui">
+  <link rel="stylesheet" href="css/ui-foundation.css?v=20261018-mobile-ui">
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -45,8 +46,14 @@
     <symbol id="i-film" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M7.5 5v14M16.5 5v14M3.5 9.5h4M3.5 14.5h4M16.5 9.5h4M16.5 14.5h4"/></symbol>
   </svg>
   <a class="skip" href="#work">跳到正文</a>
+  <header class="ui-mobile-bar">
+    <button class="btn ghost ui-menu-toggle" id="mobile-menu-toggle" type="button" aria-label="打开导航" aria-controls="harta-navigation" aria-expanded="false"><span aria-hidden="true">☰</span>菜单</button>
+    <strong id="mobile-page-title">工作台</strong>
+  </header>
+  <dialog class="ui-navigation-dialog" id="harta-navigation" aria-label="Harta 导航"></dialog>
   <div class="shell">
     <aside class="rail">
+      <header class="ui-navigation-heading"><strong>Harta</strong><button class="btn ghost" type="button" data-close-navigation aria-label="关闭导航">关闭 ×</button></header>
       <div class="brand">
         <img class="logo" src="images/logo-harta-dark.png" width="989" height="390" alt="灵鹿线索 HARTA">
         <p class="brand-line">助力线索｜引流｜获客</p>
@@ -55,7 +62,7 @@
       <a href="#" data-nav="workbench"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg>工作台</a>
 
       <a href="#" data-nav="content-home"><svg class="icon" aria-hidden="true"><use href="#i-film"></use></svg>内容获客</a>
-      <a href="#" data-nav="openfind"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>OpenFind 工作台</a>
+      <a href="#" data-nav="openfind"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>获客工作区</a>
       <a href="#" data-nav="prospecting"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>主动获客</a>
       <a href="#" data-nav="conversations"><svg class="icon" aria-hidden="true"><use href="#i-reply"></use></svg>客户跟进</a>
 <p class="rail-group-label">业务准备</p>
@@ -534,6 +541,6 @@
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20261018-distill"></script>
+  <script type="module" src="js/app.js?v=20261018-mobile-ui"></script>
 </body>
 </html>

@@ -227,7 +227,7 @@ export function Discover() {
         }
         zip.file(`${ni + 1}-${n.id.replace(/[^\w-]/g, '_')}/正文.txt`, n.title + '\n\n' + n.body);
       }
-      saveFile(await zip.generateAsync({ type: 'blob' }), 'openfind-图文素材.zip');
+      saveFile(await zip.generateAsync({ type: 'blob' }), 'harta-图文素材.zip');
       notify(`已打包 ${items.length} 篇作品的图片与正文`);
     } catch (e) {
       notify((e as Error).message , true);
@@ -268,7 +268,7 @@ export function Discover() {
           </span>
           <div>
             <b>一句话，开始你的获客任务</b>
-            <span>告诉 OpenFind 你想找什么，剩下的交给工作台。</span>
+            <span>输入关键词，搜索相关作品。</span>
           </div>
           <span className="agent-badge">任务助手</span>
         </div>
@@ -829,7 +829,7 @@ export function Discover() {
                         setFilter('all');
                       }}
                     >
-                      重置筛选
+                      清除筛选
                     </button>
                   }
                 />
@@ -1009,7 +1009,7 @@ export function NoteCard({
             disabled={n.type === 'video' || !n.images.length}
           >
             <Copy size={13} />
-            {n.type === 'video' ? '仅支持图文克隆' : '一键克隆'}
+            {n.type === 'video' ? '仅支持图文克隆' : '参考创作'}
           </button>
           <button className="btn small" onClick={onCollect}>
             <Users size={13} />

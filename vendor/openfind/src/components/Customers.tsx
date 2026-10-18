@@ -149,7 +149,7 @@ export function Comments() {
         action={
           <button className="btn" onClick={() => navigate('leads')}>
             <Users size={15} />
-            客户线索
+            线索管理
             <ArrowRight size={14} />
           </button>
         }
@@ -544,11 +544,11 @@ export function Comments() {
               </div>
             ) : (
               <Empty
-                title={comments.length ? '当前筛选下暂无候选线索' : '听见客户的第一句话'}
+                title={comments.length ? '没有符合条件的评论' : '还没有采集评论'}
                 sub={
                   comments.length
-                    ? `已采集 ${comments.length} 条评论，尚未匹配当前时间或意向条件；可查看全部评论，不代表采集失败。`
-                    : '从左侧选择作品，采集评论后即可查看用户需求。'
+                    ? `已采集 ${comments.length} 条，可清除时间或意向条件后查看。`
+                    : '选择作品后开始采集。'
                 }
                 action={
                   <button
@@ -574,7 +574,7 @@ export function Comments() {
               </button>
               <button className="btn primary small" onClick={() => void saveLeads(selected)}>
                 <UserPlus size={14} />
-                保存到客户线索
+                保存到线索
               </button>
             </div>
           )}
@@ -635,7 +635,7 @@ export function Comments() {
                 onClick={() => void saveLeads([focused.id])}
               >
                 <UserPlus size={14} />
-                保存客户线索
+                保存线索
               </button>
             </div>
           </div>
@@ -701,7 +701,7 @@ export function Leads() {
   return (
     <>
       <PageHeading
-        title="客户线索"
+        title="线索管理"
         action={
           <a
             className="btn"
@@ -749,7 +749,7 @@ export function Leads() {
         <div className="results-heading">
           <div>
             <h2>
-              我的客户线索<span>{data.leads.length}</span>
+              我的线索<span>{data.leads.length}</span>
             </h2>
             <p role="status">
               显示 {leads.length} / {data.leads.length} 条
@@ -865,9 +865,9 @@ export function Leads() {
             title={
               query || status !== 'all' || platform !== 'all'
                 ? '没有符合条件的客户'
-                : '你的下一位客户，就在评论里'
+                : '还没有保存线索'
             }
-            sub="采集作品评论，将有价值的用户保存为线索，再从这里开始跟进。"
+            sub={query || status !== 'all' || platform !== 'all' ? '换个关键词，或清除筛选。' : '从评论中保存线索后，在这里核实与跟进。'}
             action={
               <button
                 className="btn primary"

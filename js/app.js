@@ -1,4 +1,5 @@
 import { installCommerceUI, renderCommerceUI, resumeOpenFindHandoff } from './commerce-ui.js';
+import { installResponsiveNavigation } from './responsive-navigation.js';
 import { renderGrowthSettings, renderPostGrowth, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
 import { installAcquisitionUI, renderAcquisitionUI, refreshAcquisition, openPublication, openAcquisitionContext } from './acquisition-ui.js';
 import { renderRecommendation, renderMaterialSuggestion, renderCreationPlan } from './content-plan.js';
@@ -28,6 +29,7 @@ import {
   selectedCustomerPack,
 } from "./customer-view.js";
 
+const updateNavigation = installResponsiveNavigation();
 const state = {
   view: "workbench",
   customerStageFilter: 'all',
@@ -708,6 +710,7 @@ function addMaterialFiles(files) {
 function nav(view) {
   state.view = view;
   const activeView = view === 'today' ? (state.contentOnly || !currentPack() || currentPack()?.tier === '今日' ? 'content-home' : 'pack') : view === 'acquisition' ? (document.querySelector('[data-view=acquisition]').dataset.journey === 'content' ? 'content-home' : 'prospecting') : view === 'leads' ? 'conversations' : view;
+  updateNavigation(activeView);
   const secondary=document.querySelector(`.rail-more [data-nav="${activeView}"]`);
   document.querySelector('.rail-more').open=Boolean(secondary);
   renderCommerceUI();

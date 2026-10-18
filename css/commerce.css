@@ -111,9 +111,9 @@ section[data-view=today] #quick-growth-control{display:none!important}
 @media(max-width:700px){.of-connections,.of-search{grid-template-columns:1fr}}
 
 .cm-openfind-root { max-width: none; padding: 0; }
-.cm-openfind-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 12px 20px; border-bottom: 1px solid #e5e7eb; }
+.cm-openfind-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
 .cm-openfind-heading label { display: grid; gap: 5px; font-size: 12px; }
-.cm-openfind-heading select { min-width: 180px; padding: 7px 10px; border: 1px solid #d9dce3; border-radius: 8px; background: white; }
+.cm-openfind-heading select { min-width: 180px; padding: 7px 10px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--control-bg); color: var(--control-ink); }
 #cm-openfind iframe { display: block; width: 100%; height: calc(100dvh - 90px); min-height: 640px; border: 0; background: #f7f8fa; }
 .cm-discovery-card > .cm-work-cover { width: calc(100% + 32px); max-width: none; margin: -16px -16px 16px; height: 230px; object-fit: cover; border-radius: 12px 12px 0 0; }
 .cm-work-cover { width: 90px; height: 104px; object-fit: cover; border-radius: 8px; }
@@ -168,3 +168,38 @@ section[data-view=today] #quick-growth-control{display:none!important}
 .cm-work-preview .cm-gallery-stage img,.cm-work-preview .cm-gallery-stage video{max-height:50dvh}
 .cm-work-preview .cm-gallery-stage.zoomed img{max-height:none}
 @media(max-width:760px){.cm-work-preview .cm-preview-heading{top:-14px}}
+
+/* A single compact entry replaces the multi-row rail on phones and tablets. */
+.cm-discovery-grid>.ui-empty{grid-column:1/-1}
+.cm-list-item.selected{background:var(--ui-brand-soft);color:var(--accent)}
+.workspace-nav button[aria-pressed=true]{background:var(--ui-brand-soft)!important;color:var(--accent)!important}
+@media(max-width:860px){
+  .shell>.rail{display:none}
+  .ui-navigation-dialog>.rail{display:block;position:static;width:auto;height:auto;min-height:100%;padding:0 12px 16px;border:0}
+  .ui-navigation-dialog .ui-navigation-heading{margin:0 -12px 8px}
+  .ui-navigation-dialog .rail nav{display:block}
+  .ui-navigation-dialog .rail nav a,.ui-navigation-dialog .rail #nav-logout{display:flex;width:100%;font-size:14px;min-height:44px;padding:10px 12px;margin:2px 0}
+  .ui-navigation-dialog .rail .rail-more[open]{display:block}
+  .ui-navigation-dialog .rail .rail-more summary{min-height:44px;padding:10px 12px;font-size:14px}
+  .ui-navigation-dialog .rail .rail-group-label{display:block;margin:18px 12px 6px;font-size:12px}
+  .ui-navigation-dialog .rail .brand{display:none}
+  .main>.mast{display:none}
+  .topbar .btn{min-height:44px}
+  .cm-root :is(.cm-link,.cm-work-title,.cm-discovery-tabs button),.cm-work-preview .btn{min-height:44px}
+  .cm-root label.cm-check{min-height:44px}
+  .cm-work-preview{width:calc(100vw - 24px);max-height:calc(100dvh - 24px);border-radius:12px}
+  .cm-openfind-heading{gap:8px;padding:8px 0}
+  .cm-openfind-heading select{min-width:0}
+  /* Embedded tools own the remaining viewport; the outer page must not scroll too. */
+  body:has(section[data-view=openfind]:not(.hidden)){display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  body:has(section[data-view=openfind]:not(.hidden))>.ui-mobile-bar{flex-shrink:0}
+  body:has(section[data-view=openfind]:not(.hidden))>.shell{flex:1;min-height:0;width:100%}
+  .main:has(section[data-view=openfind]:not(.hidden)){display:flex;flex-direction:column;height:100%;min-height:0;padding:0}
+  .main:has(section[data-view=openfind]:not(.hidden))>.topbar{display:none}
+  .main section[data-view=openfind]{flex:1;min-height:0;width:100%;max-width:none;padding:0;margin:0}
+  #cm-openfind{height:100%;display:flex;flex-direction:column}
+  .cm-openfind-heading{flex-shrink:0;padding:8px 12px;align-items:center;flex-wrap:nowrap}
+  .cm-openfind-heading label{flex:1;min-width:0}
+  .cm-openfind-heading .btn{font-size:12px;max-width:120px}
+  #cm-openfind iframe{flex:1;height:0;min-height:0}
+}

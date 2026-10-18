@@ -98,9 +98,7 @@ export function SettingsPage() {
   return (
     <>
       <PageHeading
-        eyebrow="YOUR LOCAL CONNECTION"
-        title="连接数据，让发现走得更远。"
-        description="管理平台账号与数据服务，所有配置和凭证均保存在你的本机。"
+        title="连接设置"
       />
       <PlatformConnections />
       <LlmSettingsPanel />
@@ -159,7 +157,7 @@ export function SettingsPage() {
             placeholder="http://127.0.0.1:9000"
           />
           <p className="field-hint">
-            服务需实现 OpenFind 适配器协议：/health、/search、/comments、/publish。
+            服务需实现 采集适配器协议：/health、/search、/comments、/publish。
           </p>
           <label className="field-label" htmlFor="provider-token">
             服务访问令牌<span>{form.hasToken ? '已加密保存' : '可选'}</span>
@@ -434,9 +432,7 @@ export function HistoryPage() {
   return (
     <>
       <PageHeading
-        eyebrow="EVERY STEP, IN SIGHT"
-        title="每一步进展，都有迹可循。"
-        description="查看历史任务、执行状态与完整日志，已采集的数据会持续保留。"
+        title="任务记录"
         action={
           <a className="btn" href={exportUrl('jobs')} onClick={e => {e.preventDefault(); void downloadExport('jobs', 'json', data.jobs.map(j => j.id)).catch(e => notify(e.message, true));}}>
             <Download size={15} />
@@ -450,7 +446,6 @@ export function HistoryPage() {
             <h2>
               任务记录<span>{jobs.length}</span>
             </h2>
-            <p>从输入到结果，每一次执行都有记录。</p>
           </div>
           <div className="input-with-icon">
             <Search size={15} />
@@ -528,11 +523,11 @@ export function HistoryPage() {
           </div>
         ) : (
           <Empty
-            title="还没有任务记录"
-            sub="先发现一篇好作品，任务进展会完整记录在这里。"
+            title={query ? '没有符合条件的任务' : '还没有任务记录'}
+            sub={query ? '换个关键词，或清除筛选。' : '开始搜索后，在这里查看执行结果。'}
             action={
-              <button className="btn primary" onClick={() => navigate('discover')}>
-                开始搜索
+              <button className="btn primary" onClick={() => query ? setQuery('') : navigate('discover')}>
+                {query ? '清除筛选' : '开始搜索'}
                 <ArrowRight size={14} />
               </button>
             }
@@ -563,7 +558,7 @@ const coverage = [
   ['07–09 秒', '任务工作台', '自然语言入口、示例任务、四阶段流程'],
   ['09–14 秒', '采集设置', '关键词、Cookie、记住凭证、上限、排序、类型、间隔、开始与停止'],
   ['15–23 秒', '实时作品结果', '实时计数、页数、耗时、瀑布流、滚动结果、筛选'],
-  ['24–31 秒', '作品批量与悬浮操作', '全选图文、清空、图片包、JSON、卡片/日志、一键克隆与采集客户'],
+  ['24–31 秒', '作品批量与悬浮操作', '全选图文、清空、图片包、JSON、卡片/日志、参考创作与评论采集'],
   [
     '32–38 秒',
     '克隆创作与发布设置',
@@ -574,7 +569,7 @@ const coverage = [
 export function Guide({ onClose }: { onClose: () => void }) {
   return (
     <Modal
-      title="从视频，到 OpenFind"
+      title="使用指南与视频解析"
       sub="基于 56.6 秒参考视频逐段整理的产品与页面覆盖"
       onClose={onClose}
       wide
@@ -602,12 +597,12 @@ export function Guide({ onClose }: { onClose: () => void }) {
         <h3>视频能证明什么？</h3>
         <p>
           画面展示的是本地运行的小红书工具。旁白提到“全网平台”，但未展示其他平台；编辑器有发布设置，但视频没有显示发布成功回执。因此
-          OpenFind 将演示流程和真实连接分开标记。
+          演示数据与真实数据会分别标记。
         </p>
         <h3>先试一遍完整流程</h3>
         <ol>
           <li>在「发现作品」填写关键词，或直接使用一句话任务。</li>
-          <li>在卡片上选择「一键克隆」，编辑图片、文案和话题，保存草稿。</li>
+          <li>在卡片上选择「参考创作」，编辑图片、文案和话题，保存草稿。</li>
           <li>选择「一键采集客户」，查看一级评论和楼中楼回复。</li>
           <li>把高意向评论保存为客户线索，记录跟进并准备沟通话术。</li>
           <li>在「连接设置」打开对应平台并扫码登录后，可进行真实搜索、评论采集与发布。</li>

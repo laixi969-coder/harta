@@ -1,5 +1,6 @@
 import { FollowUp } from './components/FollowUp';
 import { Inbox } from './components/Inbox';
+import { NavigationDialog, useMobileNavigation } from './components/Navigation';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ClipboardCheck,
@@ -16,13 +17,13 @@ import {
   Check,
   AlertCircle,
   X,
-  Command,
   BookOpen,
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
   Workflow,
   Radio,
+  Menu,
 } from 'lucide-react';
 import type { Snapshot, Note, Draft, Job } from '../shared/types';
 import { api, getState } from './api';
@@ -35,8 +36,8 @@ import { SettingsPage, HistoryPage, Guide } from './components/System';
 const navs: { id: Page; name: string; icon: typeof Search }[] = [
   { id: 'acquisition', name: '一键获客', icon: Workflow },
   { id: 'discover', name: '发现作品', icon: Compass },
-  { id: 'comments', name: '客户采集', icon: MessageSquareText },
-  { id: 'leads', name: '客户线索', icon: Users },
+  { id: 'comments', name: '评论采集', icon: MessageSquareText },
+  { id: 'leads', name: '线索管理', icon: Users },
   { id: 'inbox', name: '私信工作台', icon: MessageSquareText },
   { id: 'followup', name: '客户跟进', icon: ClipboardCheck },
   { id: 'studio', name: '内容工作室', icon: PenLine },
@@ -47,6 +48,8 @@ function currentPage(): Page {
   return [...navs.map((n) => n.id), 'settings'].includes(p) ? (p as Page) : 'discover';
 }
 export default function App() {
+  const mobile = useMobileNavigation();
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const [data, setData] = useState<Snapshot | null>(null),
     [businessName, setBusinessName] = useState('Harta 业务'),
     [page, setPage] = useState<Page>(currentPage),
@@ -66,14 +69,17 @@ export default function App() {
     }
   }, []);
   const navigate = useCallback((p: Page) => {
+    setNavigationOpen(false);
     location.hash = p;
     setPage(p);
   }, []);
+  useEffect(() => { if (!mobile) setNavigationOpen(false); }, [mobile]);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [page]);
   useEffect(() => {
     void refresh();
     void api<{name:string}>('/harta/context').then(c => setBusinessName(c.name)).catch(() => {});
     const id = setInterval(() => void refresh(), 3000);
-    const hash = () => setPage(currentPage());
+    const hash = () => { setPage(currentPage()); setNavigationOpen(false); };
     window.addEventListener('hashchange', hash);
     return () => {
       clearInterval(id);
@@ -127,7 +133,7 @@ export default function App() {
         <div className="brand-mark">
           <Search />
         </div>
-        <h1>OpenFind</h1>
+        <h1>Harta</h1>
         <p>{error ? '本地服务暂时无法连接' : '正在打开你的获客工作台…'}</p>
         {error && (
           <>
@@ -145,6 +151,69 @@ export default function App() {
     data.jobs.filter(
       (j) => j.status === 'running' && !activeFlows.some((w) => w.currentJobId === j.id),
     ).length;
+  const sidebar = (
+    <aside className="sidebar">
+      <a className="brand" href="#discover" aria-label="Harta 获客工作区首页" onClick={() => navigate('discover')}>
+        <span className="brand-mark">
+          <Search size={23} /><Plus size={12} className="brand-plus" />
+        </span>
+        <span>Harta</span>
+      </a>
+      <div className="workspace-selector">
+        <span className="workspace-avatar">H</span>
+        <div><b>{businessName}</b><small>Harta · 业务工作台</small></div>
+        <ChevronRight size={14} />
+      </div>
+      <div className="nav-label">工作空间 <span>WORKSPACE</span></div>
+      <nav aria-label="获客工作区">
+        {navs.map((n) => (
+          <button
+            key={n.id}
+            aria-label={n.name}
+            title={n.name}
+            aria-current={page === n.id ? 'page' : undefined}
+            className={`nav-item ${page === n.id ? 'active' : ''}`}
+            onClick={() => navigate(n.id)}
+          >
+            <n.icon size={19} /><span>{n.name}</span>
+            {n.id === 'leads' && data.leads.length > 0 && <em>{data.leads.length}</em>}
+            {n.id === 'history' && running > 0 && <span className="nav-running" />}
+          </button>
+        ))}
+      </nav>
+      <div className="sidebar-platform">
+        <div className="platform-top">
+          <span className="xhs-icon">小红书</span><b>小红书 / 抖音</b><span className="dot" />
+        </div>
+        <p>{data.settings.mode === 'demo' ? '本地演示环境' : '真实服务模式'}</p>
+        <button onClick={() => navigate('settings')}>管理连接<ArrowUpRight size={13} /></button>
+      </div>
+      <div className="sidebar-bottom">
+        <button
+          aria-label="连接设置"
+          title="连接设置"
+          aria-current={page === 'settings' ? 'page' : undefined}
+          className={`nav-item ${page === 'settings' ? 'active' : ''}`}
+          onClick={() => navigate('settings')}
+        >
+          <Settings size={18} /><span>连接设置</span>
+        </button>
+        <button
+          aria-label="使用指南与视频解析"
+          title="使用指南与视频解析"
+          className="nav-item"
+          onClick={() => { setNavigationOpen(false); setGuide(true); }}
+        >
+          <BookOpen size={18} /><span>使用指南与视频解析</span>
+        </button>
+        <div className="user-line">
+          <span className="user-avatar">H</span>
+          <div><b>Harta</b><small>已登录 · 业务独立数据</small></div>
+          <span className="local-pill">本地</span>
+        </div>
+      </div>
+    </aside>
+  );
   return (
     <WorkspaceContext.Provider
       value={{
@@ -161,96 +230,25 @@ export default function App() {
       }}
     >
       <div className={`app-shell ${collapsed ? 'collapsed' : ''}`}>
-        <aside className="sidebar">
-          <a className="brand" href="#discover" aria-label="OpenFind 首页">
-            <span className="brand-mark">
-              <Search size={23} />
-              <Plus size={12} className="brand-plus" />
-            </span>
-            <span>
-              openfind<span className="brand-dot">.</span>
-            </span>
-          </a>
-          <div className="workspace-selector">
-            <span className="workspace-avatar">O</span>
-            <div>
-              <b>{businessName}</b>
-              <small>Harta · 业务工作台</small>
-            </div>
-            <ChevronRight size={14} />
-          </div>
-          <div className="nav-label">
-            工作空间 <span>WORKSPACE</span>
-          </div>
-          <nav>
-            {navs.map((n) => (
-              <button
-                key={n.id}
-                aria-label={n.name}
-                title={n.name}
-                className={`nav-item ${page === n.id ? 'active' : ''}`}
-                onClick={() => navigate(n.id)}
-              >
-                <n.icon size={19} />
-                <span>{n.name}</span>
-                {n.id === 'leads' && data.leads.length > 0 && <em>{data.leads.length}</em>}
-                {n.id === 'history' && running > 0 && <span className="nav-running" />}
-              </button>
-            ))}
-          </nav>
-          <div className="sidebar-platform">
-            <div className="platform-top">
-              <span className="xhs-icon">小红书</span>
-              <b>小红书 / 抖音</b>
-              <span className="dot" />
-            </div>
-            <p>{data.settings.mode === 'demo' ? '本地演示环境' : '真实服务模式'}</p>
-            <button onClick={() => navigate('settings')}>
-              管理连接
-              <ArrowUpRight size={13} />
-            </button>
-          </div>
-          <div className="sidebar-bottom">
-            <button
-              aria-label="连接设置"
-              title="连接设置"
-              className={`nav-item ${page === 'settings' ? 'active' : ''}`}
-              onClick={() => navigate('settings')}
-            >
-              <Settings size={18} />
-              <span>连接设置</span>
-            </button>
-            <button
-              aria-label="使用指南与视频解析"
-              title="使用指南与视频解析"
-              className="nav-item"
-              onClick={() => setGuide(true)}
-            >
-              <BookOpen size={18} />
-              <span>使用指南与视频解析</span>
-            </button>
-            <div className="user-line">
-              <span className="user-avatar">O</span>
-              <div>
-                <b>Harta × OpenFind</b>
-                <small>已登录 · 业务独立数据</small>
-              </div>
-              <span className="local-pill">本地</span>
-            </div>
-          </div>
-        </aside>
+        {mobile ? (
+          <NavigationDialog open={navigationOpen} onClose={() => setNavigationOpen(false)}>
+            {sidebar}
+          </NavigationDialog>
+        ) : sidebar}
         <div className="main-shell">
           <header className="topbar">
             <div className="breadcrumbs">
               <button
-                className="icon-btn sidebar-toggle"
-                aria-label="切换侧栏"
-                onClick={() => setCollapsed((v) => !v)}
+                className={mobile ? "btn sidebar-toggle ui-menu-toggle" : "icon-btn sidebar-toggle"}
+                aria-label={mobile ? '打开导航' : '切换侧栏'}
+                aria-expanded={mobile ? navigationOpen : !collapsed}
+                aria-controls={mobile ? 'openfind-navigation' : undefined}
+                onClick={() => mobile ? setNavigationOpen(true) : setCollapsed((v) => !v)}
               >
-                {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                {mobile ? <><Menu size={18} /><span>菜单</span></> : collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
               </button>
-              <span>{businessName}</span>
-              <ChevronRight size={13} />
+              <span className="breadcrumb-business">{businessName}</span>
+              <ChevronRight className="breadcrumb-divider" size={13} />
               <b>{title}</b>
             </div>
             <div className="topbar-right">
@@ -274,7 +272,7 @@ export default function App() {
                 aria-label="打开连接设置"
                 onClick={() => navigate('settings')}
               >
-                O
+                H
               </button>
             </div>
           </header>
@@ -296,9 +294,9 @@ export default function App() {
             {page === 'settings' && <SettingsPage />}
             <footer className="workspace-footer">
               <span>
-                <Workflow size={13} /> Harta × OpenFind
+                <Workflow size={13} /> Harta
               </span>
-              <span title="Harta 集成版 · OpenFind 8532f51">
+              <span title="Harta 获客工作区">
                 <Monitor size={12} /> 数据保存在本机
               </span>
             </footer>

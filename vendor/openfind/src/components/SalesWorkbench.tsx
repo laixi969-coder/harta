@@ -46,7 +46,7 @@ export function SalesMetrics({
         download
         onClick={(e) => {
           e.preventDefault();
-          void downloadAsset('/sales/export', 'openfind-sales-records.json').catch((e) =>
+          void downloadAsset('/sales/export', 'harta-sales-records.json').catch((e) =>
             setError(e.message),
           );
         }}

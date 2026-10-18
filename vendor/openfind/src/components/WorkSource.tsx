@@ -63,7 +63,7 @@ export function WorkSource({ note }: { note?: Note }) {
                   clone(note);
                 }}
               >
-                引用到内容工作室
+                参考创作
               </button>
             </div>
           </div>

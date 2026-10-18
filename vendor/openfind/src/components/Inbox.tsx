@@ -4,9 +4,9 @@ import { useWorkspace } from '../context';
 import type { Platform } from '../../shared/types';
 import type { InboxThread, ReplyDraft } from '../../shared/messages';
 import { platformNames } from './PlatformConnections';
-import { Modal, Busy } from './ui';
+import { Modal, Busy, Empty } from './ui';
 export function Inbox() {
-  const { notify, data } = useWorkspace();
+  const { notify, data, navigate } = useWorkspace();
   const [threads, setThreads] = useState<InboxThread[]>([]),
     [drafts, setDrafts] = useState<ReplyDraft[]>([]),
     [selected, setSelected] = useState(''),
@@ -15,6 +15,7 @@ export function Inbox() {
     [text, setText] = useState(''),
     [approval, setApproval] = useState<ReplyDraft | null>(null);
   const t = threads.find((t) => t.id === selected);
+  const platformThreads = threads.filter((t) => t.platform === platform);
   const fetchSequence = useRef(0);
   async function update() {
     const sequence = ++fetchSequence.current;
@@ -109,10 +110,9 @@ export function Inbox() {
           需要登录时前往连接设置显示扫码页。两平台均使用当前登录的普通账号。平台验证码和限流会暂停操作；任何发送异常都不会自动重试。
         </p>
       </div>
-      <div className="inbox-layout">
-        <aside className="panel inbox-threads" aria-label="私信会话列表">
-          {threads
-            .filter((t) => t.platform === platform)
+      <div className={`inbox-layout ${!platformThreads.length ? 'inbox-empty' : ''}`}>
+        {platformThreads.length > 0 && <aside className="panel inbox-threads" aria-label="私信会话列表">
+          {platformThreads
             .map((th) => (
               <button
                 className={`inbox-thread ${selected === th.id ? 'active' : ''}`}
@@ -129,15 +129,12 @@ export function Inbox() {
                 </small>
               </button>
             ))}
-          {!threads.some((t) => t.platform === platform) && (
-            <p className="muted" style={{ padding: 20 }}>
-              点击上方连接，读取当前账号的官方会话列表。
-            </p>
-          )}
-        </aside>
+        </aside>}
         <section className="panel inbox-detail" aria-label="会话详情">
           {!t ? (
-            <p className="muted">选择会话后查看消息和回复草稿。</p>
+            <Empty title={platformThreads.length ? '选择一个会话' : '还没有会话'}
+              sub={platformThreads.length ? '从会话列表查看消息和回复草稿。' : '点击上方「连接并同步官方会话」开始读取。'}
+              action={!platformThreads.length && <button className="btn" onClick={() => navigate('settings')}>管理平台连接</button>}/>
           ) : (
             <>
               <h2>{t.name}</h2>

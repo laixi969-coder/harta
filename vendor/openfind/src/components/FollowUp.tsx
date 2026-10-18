@@ -51,6 +51,7 @@ export function FollowUp() {
   const [salesDirty, setSalesDirty] = useState(false),
     [pendingId, setPendingId] = useState('');
   const lead = data.leads.find((l) => l.id === selected);
+  const filteredLeads = data.leads.filter((l) => [l.name, l.content].join(' ').includes(query.trim()));
   const contact = contacts.find(
     (c) => c.commentId === lead?.commentId && c.platform === (lead?.platform || 'xiaohongshu'),
   );
@@ -147,8 +148,8 @@ export function FollowUp() {
               ))}
             </select>
           </label>
-          {data.leads
-            .filter((l) => [l.name, l.content].join(' ').includes(query.trim()))
+          {!filteredLeads.length && query.trim() && <Empty title="没有符合条件的线索" sub="换个关键词，或清除筛选。" action={<button className="btn" onClick={() => setQuery('')}>清除筛选</button>}/>}
+          {filteredLeads
             .map((l) => (
               <button
                 className={selected === l.id ? 'active' : ''}

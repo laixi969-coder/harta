@@ -13,80 +13,61 @@ export function Modal({
   onClose: () => void;
   wide?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  const ref = useRef<HTMLDialogElement>(null);
+  const invoker = useRef(document.activeElement as HTMLElement | null);
+  const pressedOutside = useRef(false);
   useEffect(() => {
-    const active = document.activeElement as HTMLElement;
     const el = ref.current;
-    el?.focus();
-    const handler = (e: KeyboardEvent) => {
-      if (Array.from(document.querySelectorAll('[role=dialog]')).at(-1) !== el) return;
-      if (e.key === 'Escape') closeRef.current();
-      if (e.key === 'Tab' && el) {
-        const focusable = Array.from(
-          el.querySelectorAll<HTMLElement>(
-            'button:not(:disabled),a[href],input,textarea,select,[tabindex="0"]',
-          ),
-        );
-        const first = focusable[0],
-          last = focusable.at(-1);
-        if (e.shiftKey && (document.activeElement === first || document.activeElement === el)) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', handler);
-    const old = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    el?.showModal();
+    // Native dialogs handle focus, background inertness and nested previews.
     return () => {
-      document.removeEventListener('keydown', handler);
-      document.body.style.overflow = old;
-      active?.focus();
+      el?.close();
+      if (invoker.current?.isConnected) invoker.current.focus({ preventScroll: true });
     };
   }, []);
   return (
-    <div
-      className="modal-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+    <dialog
+      className={`modal ui-modal ${wide ? 'wide' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      ref={ref}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
+      }}
+      onCancel={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
+      onPointerDown={(e) => {
+        const box = e.currentTarget.getBoundingClientRect();
+        pressedOutside.current = e.target === e.currentTarget &&
+          (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom);
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && pressedOutside.current) onClose();
+        pressedOutside.current = false;
       }}
     >
-      <div
-        className={`modal ${wide ? 'wide' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-        ref={ref}
-      >
-        <header className="modal-head">
-          <div>
-            <h2>{title}</h2>
-            {sub && <p>{sub}</p>}
-          </div>
-          <button className="icon-btn" aria-label="关闭" onClick={onClose}>
-            <X size={19} />
-          </button>
-        </header>
-        {children}
-      </div>
-    </div>
+      <header className="modal-head">
+        <div>
+          <h2>{title}</h2>
+          {sub && <p>{sub}</p>}
+        </div>
+        <button type="button" className="icon-btn" aria-label="关闭" autoFocus onClick={onClose}>
+          <X size={19} />
+        </button>
+      </header>
+      {children}
+    </dialog>
   );
 }
 export function Empty({ title, sub, action }: { title: string; sub: string; action?: ReactNode }) {
   return (
-    <div className="empty-state">
-      <div className="empty-icon">
+    <div className="empty-state ui-empty">
+      <div className="empty-icon" aria-hidden="true">
         <Search size={28} />
       </div>
-      <h3>{title}</h3>
-      <p>{sub}</p>
-      {action}
+      <h3 className="ui-empty-title">{title}</h3>
+      <p className="ui-empty-description">{sub}</p>
+      {action && <div className="ui-empty-actions">{action}</div>}
     </div>
   );
 }

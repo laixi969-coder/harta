@@ -50,7 +50,7 @@ export async function downloadExport(kind: string, format: 'json' | 'csv', ids: 
     body: JSON.stringify({ ids, format }),
   });
   if (!response.ok) throw new Error((await response.json()).error || '导出失败');
-  saveFile(await response.blob(), `openfind-${kind}.${format}`);
+  saveFile(await response.blob(), `harta-${kind}.${format}`);
 }
 
 export async function downloadAsset(path: string, filename: string) {
@@ -66,4 +66,4 @@ export function workbenchLocation(values: Record<string,string>, page: string) {
   return location.pathname + '?' + params + '#' + page;
 }
 
-export const downloadDraft = (id: string) => downloadAsset(`/drafts/${encodeURIComponent(id)}/bundle`, `openfind-draft-${id}.zip`);
+export const downloadDraft = (id: string) => downloadAsset(`/drafts/${encodeURIComponent(id)}/bundle`, `harta-draft-${id}.zip`);

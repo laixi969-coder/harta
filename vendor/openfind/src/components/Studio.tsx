@@ -62,7 +62,7 @@ export function Studio() {
             </button>
             <button className="btn primary" onClick={newDraft}>
               <Plus size={16} />
-              原创发布
+              新建内容
             </button>
           </div>
         }
@@ -177,10 +177,10 @@ export function Studio() {
           <Empty
             title={
               query || platformFilter !== 'all' || filter !== 'all'
-                ? '当前筛选没有创作'
-                : '给灵感一个落脚的地方'
+                ? '没有符合条件的草稿'
+                : '还没有内容草稿'
             }
-            sub="在发现作品中，点击任意图文的「一键克隆」，开始你的第一次创作。"
+            sub={query || platformFilter !== 'all' || filter !== 'all' ? '换个关键词，或清除筛选。' : '从作品中选择「参考创作」，或新建草稿。'}
             action={
               <button
                 className="btn primary"
@@ -191,8 +191,8 @@ export function Studio() {
                 }
               >
                 {query || platformFilter !== 'all' || filter !== 'all'
-                  ? '清除创作筛选'
-                  : '去找灵感'}
+                  ? '清除筛选'
+                  : '去发现作品'}
                 <ArrowRight size={15} />
               </button>
             }
@@ -347,8 +347,7 @@ export function Editor({
   const published = saved && !dirty && saved.status !== 'draft';
   return (
     <Modal
-      title={source ? '克隆创作' : '原创发布'}
-      sub="保留灵感，加入你的表达。编辑、预览并保存图文作品。"
+      title={initial ? '编辑草稿' : source ? '参考创作' : '新建内容'}
       onClose={requestClose}
       wide
     >
