@@ -1,3 +1,5 @@
+import { WorkSource, WorkflowSteps } from './WorkSource';
+import { commentJob, scopedComments, type CommentScope } from '../comment-scope';
 import { hartaHandoff } from '../api';
 import { SalesWorkbench, SalesMetrics } from './SalesWorkbench';
 import { AssessmentDetails } from './AssessmentDetails';
@@ -30,8 +32,12 @@ import { assessComment } from '../../server/domain';
 export function Comments() {
   const { data, refresh, notify, navigate, commentNoteId, setCommentNoteId } = useWorkspace();
   const jobs = data.jobs.filter((j) => j.type === 'comments');
-  const job = jobs.find((j) => j.noteId === commentNoteId) || jobs[0];
-  const [noteId, setNoteId] = useState(commentNoteId || job?.noteId || data.notes[0]?.id || ''),
+  const initialJob = jobs.find((j) => j.noteId === commentNoteId) || jobs[0];
+  const [noteId, setNoteId] = useState(
+      commentNoteId || initialJob?.noteId || data.notes[0]?.id || '',
+    ),
+    [jobId, setJobId] = useState(''),
+    [scope, setScope] = useState<CommentScope>('note'),
     [limit, setLimit] = useState(60),
     [interval, setInterval] = useState(data.settings.mode === 'live' ? 250 : 1000),
     [query, setQuery] = useState(''),
@@ -41,20 +47,36 @@ export function Comments() {
     [selected, setSelected] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
     [focused, setFocused] = useState<Comment | null>(null);
-  const comments = useMemo(() => {
-    const ids = new Set(job?.resultIds || []);
-    return data.comments
-      .filter((c) => ids.has(c.id))
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .reverse();
-  }, [data.comments, job]);
-  const assessment = (c: Comment) =>
-    assessComment(
+  const job = commentJob(jobs, noteId, jobId);
+  const target = data.notes.find((n) => n.id === noteId);
+  useEffect(() => {
+    if (commentNoteId) {
+      setNoteId(commentNoteId);
+      setJobId('');
+    }
+  }, [commentNoteId]);
+  useEffect(() => {
+    setSelected([]);
+  }, [noteId, scope, jobId, kind, days, query]);
+  const comments = useMemo(
+    () => scopedComments(data.comments, noteId, scope, job),
+    [data.comments, noteId, scope, job],
+  );
+  const assessment = (c: Comment) => ({
+    ...assessComment(
       c,
       data.notes.find((n) => n.id === c.noteId),
       Date.now(),
       data.comments,
-    );
+    ),
+    semantic: c.semantic,
+  });
+  function chooseNote(id: string) {
+    setNoteId(id);
+    setCommentNoteId(id);
+    setJobId('');
+    setScope('note');
+  }
   const shown = comments
     .filter(
       (c) =>
@@ -68,7 +90,8 @@ export function Comments() {
           [c.author, c.body, c.region].join(' ').toLowerCase().includes(query.toLowerCase())),
     )
     .sort(
-      (a, b) => assessment(b).score - assessment(a).score || b.createdAt.localeCompare(a.createdAt),
+      (a, b) =>
+        assessment(b).score - assessment(a).score || b.createdAt.localeCompare(a.createdAt),
     );
   async function start() {
     if (!noteId) return;
@@ -76,6 +99,8 @@ export function Comments() {
     try {
       const j = await api<Job>('/comments/collect', { noteId, limit, interval });
       setCommentNoteId(j.noteId!);
+      setJobId(j.id);
+      setScope('job');
       setSelected([]);
       await refresh();
       notify('评论采集已开始');
@@ -132,6 +157,7 @@ export function Comments() {
           </button>
         }
       />
+      <WorkflowSteps active="comments" />
       <div className="discover-layout">
         <section className="panel search-panel">
           <div className="section-title">
@@ -142,7 +168,7 @@ export function Comments() {
           <label className="field-label" htmlFor="comment-note">
             目标作品
           </label>
-          <select id="comment-note" value={noteId} onChange={(e) => setNoteId(e.target.value)}>
+          <select id="comment-note" value={noteId} onChange={(e) => chooseNote(e.target.value)}>
             {data.notes.map((n) => (
               <option value={n.id} key={n.id}>
                 {n.title}
@@ -156,7 +182,7 @@ export function Comments() {
           <input
             id="comment-note-id"
             value={noteId}
-            onChange={(e) => setNoteId(e.target.value)}
+            onChange={(e) => chooseNote(e.target.value)}
             placeholder="已采集作品的笔记 ID"
           />
           <div className="field-row">
@@ -199,6 +225,7 @@ export function Comments() {
               </select>
             </div>
           </div>
+          <WorkSource key={noteId} note={target} />
           <div className="included-feature">
             <Check size={14} />
             包含一级评论与楼中楼回复
@@ -261,7 +288,17 @@ export function Comments() {
             <div>
               <span>已采页数</span>
               <strong>{job?.pages || 0}</strong>
-              <em>{job?.status === 'running' ? '正在采集' : '任务已保存'}</em>
+              <em>
+                {job?.status === 'running'
+                  ? '正在采集'
+                  : job?.status === 'failed'
+                    ? '任务失败，已保留旧数据'
+                    : job?.status === 'stopped'
+                      ? '采集已停止'
+                      : job
+                        ? '任务已保存'
+                        : '尚无采集任务'}
+              </em>
             </div>
             <div>
               <span>运行时间</span>
@@ -272,23 +309,103 @@ export function Comments() {
               <em>{job?.source === 'live' ? '真实数据' : '演示数据'}</em>
             </div>
           </div>
+          {job && (
+            <section className="panel comment-task-status" aria-label="评论采集状态">
+              <b>
+                {job.status === 'running'
+                  ? '正在采集真实评论'
+                  : job.status === 'failed'
+                    ? '本次采集未完成'
+                    : job.status === 'stopped'
+                      ? '采集已停止'
+                      : '本次采集已完成'}{' '}
+                · {job.count} 条
+              </b>
+              {job.error && (
+                <p className="inline-error" role="alert">
+                  {job.error}
+                </p>
+              )}
+              {job.status === 'failed' && (
+                <div className="modal-action-row">
+                  <button className="btn small" onClick={() => setScope('note')}>
+                    查看这条作品已保存评论
+                  </button>
+                  <button className="btn small" onClick={() => navigate('settings')}>
+                    打开平台登录与验证
+                  </button>
+                </div>
+              )}
+              <details>
+                <summary>采集日志 · {job.logs.length}</summary>
+                {job.logs.slice(-10).map((log, i) => (
+                  <p key={i}>
+                    {new Date(log.at).toLocaleTimeString()} · {log.message}
+                  </p>
+                ))}
+              </details>
+            </section>
+          )}
           <div className="panel results-box">
+            <div className="comment-scope-controls">
+              <label>
+                评论范围
+                <select
+                  aria-label="评论范围"
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value as CommentScope)}
+                >
+                  <option value="note">目标作品全部已保存评论</option>
+                  <option value="job">选定采集任务</option>
+                  <option value="all">当前业务全部已保存评论</option>
+                </select>
+              </label>
+              {scope === 'job' && (
+                <label>
+                  采集任务
+                  <select
+                    aria-label="采集任务"
+                    value={job?.id || ''}
+                    onChange={(e) => setJobId(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      暂无采集任务
+                    </option>
+                    {jobs
+                      .filter((j) => j.noteId === noteId)
+                      .map((j) => (
+                        <option key={j.id} value={j.id}>
+                          {new Date(j.createdAt).toLocaleString()} · {j.count} 条 · {j.status}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              <p role="status">
+                已保存 {comments.length} 条 · 筛选显示 {shown.length} 条
+                {scope === 'all' ? ' · 当前业务' : ` · ${target?.title || noteId}`}
+              </p>
+            </div>
             <div className="results-heading">
               <div>
                 <h2>
                   评论与需求<span>{comments.length}</span>
                 </h2>
-                <p>{job?.keyword || '选择作品，开始第一次采集'}</p>
+                <p>
+                  {scope === 'all'
+                    ? '当前业务全部已保存评论'
+                    : target?.title || '选择作品，开始第一次采集'}
+                </p>
               </div>
               <a
                 className="btn small"
                 href={exportUrl(
                   'comments',
                   'csv',
-                  comments.map((c) => c.id),
+                  shown.map((c) => c.id),
                 )}
                 onClick={(e) => {
-                  if (!comments.length) {
+                  if (!shown.length) {
                     e.preventDefault();
                     notify('当前没有可导出的评论', true);
                   } else {
@@ -296,7 +413,7 @@ export function Comments() {
                     void downloadExport(
                       'comments',
                       'csv',
-                      comments.map((c) => c.id),
+                      shown.map((c) => c.id),
                     ).catch((e) => notify((e as Error).message, true));
                   }
                 }}
@@ -372,7 +489,9 @@ export function Comments() {
               <button
                 className="btn small"
                 onClick={() =>
-                  void saveLeads(shown.filter((c) => assessment(c).recommended).map((c) => c.id))
+                  void saveLeads(
+                    shown.filter((c) => assessment(c).recommended).map((c) => c.id),
+                  )
                 }
               >
                 <UserPlus size={14} />
@@ -381,13 +500,13 @@ export function Comments() {
             </div>
             <div className="live-bar">
               <span>
-                <i /> LIVE
+                <i /> {job?.status === 'running' ? 'LIVE' : 'SAVED'}
               </span>
               <b>
                 {job?.status === 'running' ? 'CAPTURING' : 'COMMENTS'}
                 <span>· {shown.length} CAPTURED</span>
               </b>
-              <SourceTag source={job?.source || 'demo'} />
+              <SourceTag source={job?.source || target?.source || 'live'} />
               <span className="live-bar-right">ROOT + REPLY</span>
             </div>
             {shown.length ? (
@@ -398,7 +517,9 @@ export function Comments() {
                       type="checkbox"
                       aria-label="选择当前所有评论"
                       checked={shown.length > 0 && shown.every((c) => selected.includes(c.id))}
-                      onChange={(e) => setSelected(e.target.checked ? shown.map((c) => c.id) : [])}
+                      onChange={(e) =>
+                        setSelected(e.target.checked ? shown.map((c) => c.id) : [])
+                      }
                     />
                   </label>
                   <span>类型 / 时间</span>
@@ -434,7 +555,7 @@ export function Comments() {
                     <span className="comment-region">{c.region || '未知'}</span>
                     <button className="comment-content" onClick={() => setFocused(c)}>
                       {c.parentId && <span className="reply-arrow">↳ </span>}
-                      {c.body}
+                      {c.body || '无文字评论'}
                     </button>
                     <span className={`intent-mini ${assessment(c).score >= 50 ? 'high' : ''}`}>
                       {assessment(c).score}
@@ -498,6 +619,10 @@ export function Comments() {
               </div>
             </div>
             <blockquote>{focused.body}</blockquote>
+            <WorkSource
+              key={focused.noteId}
+              note={data.notes.find((n) => n.id === focused.noteId)}
+            />
             {focused.parentId && (
               <p className="field-hint">
                 回复所属评论：
@@ -509,7 +634,9 @@ export function Comments() {
               <b>意向评分 {assessment(focused).score} / 99</b>
               <p>
                 原评论日期：
-                {focused.createdAt ? new Date(focused.createdAt).toLocaleString('zh-CN') : '未知'}
+                {focused.createdAt
+                  ? new Date(focused.createdAt).toLocaleString('zh-CN')
+                  : '未知'}
               </p>
               {assessment(focused).evidence.map((e, i) => (
                 <p key={i}>
@@ -522,7 +649,16 @@ export function Comments() {
               </p>
             </div>
             <div className="modal-action-row">
-              <button className="btn" onClick={() => void hartaHandoff(focused.noteId, focused.id).catch(e => notify(e.message, true))}>在 Harta 核实并跟进</button>
+              <button
+                className="btn"
+                onClick={() =>
+                  void hartaHandoff(focused.noteId, focused.id).catch((e) =>
+                    notify(e.message, true),
+                  )
+                }
+              >
+                在 Harta 核实并跟进
+              </button>
               <button
                 className="btn"
                 onClick={() => {
@@ -554,21 +690,28 @@ export function Leads() {
   const { data, refresh, notify, navigate } = useWorkspace();
   const [query, setQuery] = useState(''),
     [status, setStatus] = useState('all'),
+    [platform, setPlatform] = useState('all'),
     [focused, setFocused] = useState<Lead | null>(null),
     [memo, setMemo] = useState(''),
     [outreach, setOutreach] = useState(''),
     [saving, setSaving] = useState(false),
-    [salesRevision, setSalesRevision] = useState(0);
+    [salesRevision, setSalesRevision] = useState(0),
+    [salesDirty, setSalesDirty] = useState(false),
+    [closeRequested, setCloseRequested] = useState(false);
   const leads = data.leads
     .filter(
       (l) =>
         (status === 'all' || l.status === status) &&
-        [l.name, l.region, l.content, l.memo].join(' ').includes(query),
+        (platform === 'all' || (l.platform || 'xiaohongshu') === platform) &&
+        [l.name, l.region, l.content, l.memo]
+          .join(' ')
+          .toLowerCase()
+          .includes(query.trim().toLowerCase()),
     )
     .sort((a, b) => b.score - a.score);
   useEffect(() => {
     const requested = new URLSearchParams(location.search).get('lead');
-    const lead = data.leads.find(l => l.id === requested);
+    const lead = data.leads.find((l) => l.id === requested);
     if (lead) open(lead);
   }, []);
   const labels = {
@@ -582,6 +725,7 @@ export function Leads() {
     try {
       await api(`/leads/${encodeURIComponent(id)}`, patch, 'PATCH');
       await refresh();
+      setFocused((current) => (current?.id === id ? { ...current, ...patch } : current));
       notify('客户信息已更新');
     } catch (e) {
       notify((e as Error).message, true);
@@ -590,6 +734,8 @@ export function Leads() {
     }
   }
   function open(l: Lead) {
+    setSalesDirty(false);
+    setCloseRequested(false);
     setFocused(l);
     setMemo(l.memo);
     setOutreach(l.outreach);
@@ -601,12 +747,24 @@ export function Leads() {
         title="每一条线索，都值得认真对待。"
         description="集中管理潜在客户，记录跟进，保留每一次有价值的对话。"
         action={
-          <a className="btn" href={exportUrl('leads', 'csv')} onClick={e => {e.preventDefault(); void downloadExport('leads', 'csv', data.leads.map(l => l.id)).catch(e => notify(e.message, true));}}>
+          <a
+            className="btn"
+            href={exportUrl('leads', 'csv')}
+            onClick={(e) => {
+              e.preventDefault();
+              void downloadExport(
+                'leads',
+                'csv',
+                leads.map((l) => l.id),
+              ).catch((e) => notify(e.message, true));
+            }}
+          >
             <Download size={15} />
-            导出客户
+            导出筛选结果
           </a>
         }
       />
+      <WorkflowSteps active="leads" />
       <div className="lead-stats">
         {[
           ['全部线索', data.leads.length],
@@ -619,6 +777,11 @@ export function Leads() {
             <strong>{n}</strong>
           </div>
         ))}
+      </div>
+      <div className="modal-action-row">
+        <button className="btn" onClick={() => navigate('followup')}>
+          打开客户跟进与时间线
+        </button>
       </div>
       <SalesMetrics
         revision={salesRevision}
@@ -633,7 +796,10 @@ export function Leads() {
             <h2>
               我的客户线索<span>{data.leads.length}</span>
             </h2>
-            <p>按意向评分排序 · 评分来自关键词规则</p>
+            <p role="status">
+              显示 {leads.length} / {data.leads.length} 条 · 按需求证据评分排序 ·
+              模型建议与人工核实分别保留
+            </p>
           </div>
           <button className="btn primary small" onClick={() => navigate('comments')}>
             <UserPlus size={14} />
@@ -652,6 +818,18 @@ export function Leads() {
               </button>
             ))}
           </div>
+          <label className="field-label">
+            平台
+            <select
+              aria-label="线索平台"
+              value={platform}
+              onChange={(e) => setPlatform(e.target.value)}
+            >
+              <option value="all">全部平台</option>
+              <option value="douyin">抖音</option>
+              <option value="xiaohongshu">小红书</option>
+            </select>
+          </label>
           <div className="input-with-icon">
             <Search size={14} />
             <input
@@ -676,7 +854,7 @@ export function Leads() {
               </thead>
               <tbody>
                 {leads.map((l) => (
-                  <tr key={l.id}>
+                  <tr key={l.id} data-lead-id={l.id}>
                     <td>
                       <div className="customer-cell">
                         <span className="author-avatar color-2">{l.name.slice(0, 1)}</span>
@@ -705,6 +883,7 @@ export function Leads() {
                       <select
                         aria-label={`${l.name}跟进状态`}
                         value={l.status}
+                        disabled={saving}
                         onChange={(e) =>
                           void update(l.id, { status: e.target.value as Lead['status'] })
                         }
@@ -729,11 +908,22 @@ export function Leads() {
           </div>
         ) : (
           <Empty
-            title={query || status !== 'all' ? '没有符合条件的客户' : '你的下一位客户，就在评论里'}
+            title={
+              query || status !== 'all' || platform !== 'all'
+                ? '没有符合条件的客户'
+                : '你的下一位客户，就在评论里'
+            }
             sub="采集作品评论，将有价值的用户保存为线索，再从这里开始跟进。"
             action={
-              <button className="btn primary" onClick={() => navigate('comments')}>
-                开始采集
+              <button
+                className="btn primary"
+                onClick={() =>
+                  query || status !== 'all' || platform !== 'all'
+                    ? (setQuery(''), setStatus('all'), setPlatform('all'))
+                    : navigate('comments')
+                }
+              >
+                {query || status !== 'all' || platform !== 'all' ? '清除筛选' : '开始采集'}
                 <ArrowRight size={14} />
               </button>
             }
@@ -744,7 +934,11 @@ export function Leads() {
         <Modal
           title="客户跟进"
           sub="记录需求，准备一次有价值的交流"
-          onClose={() => setFocused(null)}
+          onClose={() =>
+            salesDirty || memo !== focused.memo || outreach !== focused.outreach
+              ? setCloseRequested(true)
+              : setFocused(null)
+          }
         >
           <div className="modal-body">
             <div className="customer-profile">
@@ -759,6 +953,10 @@ export function Leads() {
               <span className="score high">意向 {focused.score}</span>
             </div>
             <blockquote>{focused.content}</blockquote>
+            <WorkSource
+              key={focused.noteId}
+              note={data.notes.find((n) => n.id === focused.noteId)}
+            />
             <div className="intent-explainer">
               {focused.assessment && <AssessmentDetails assessment={focused.assessment} />}
               <b>评分依据 · {focused.assessment?.version || '待重新评估'}</b>
@@ -779,6 +977,7 @@ export function Leads() {
               key={focused.id}
               lead={focused}
               note={data.notes.find((n) => n.id === focused.noteId)}
+              onDirtyChange={setSalesDirty}
               onChange={() => setSalesRevision((n) => n + 1)}
             />
             <label className="field-label" htmlFor="memo">
@@ -804,7 +1003,16 @@ export function Leads() {
             />
             <p className="field-hint">话术仅保存在本机。复制后由你在平台中人工沟通。</p>
             <div className="modal-action-row">
-              <button className="btn" onClick={() => void hartaHandoff(focused.noteId, focused.commentId).catch(e => notify(e.message, true))}>进入 Harta 客户跟进</button>
+              <button
+                className="btn"
+                onClick={() =>
+                  void hartaHandoff(focused.noteId, focused.commentId).catch((e) =>
+                    notify(e.message, true),
+                  )
+                }
+              >
+                进入 Harta 客户跟进
+              </button>
               <button
                 className="btn"
                 onClick={() =>
@@ -832,6 +1040,29 @@ export function Leads() {
                 )}
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+      {closeRequested && (
+        <Modal
+          title="客户跟进尚未保存"
+          sub="请继续编辑并保存，或放弃本次未保存的修改。"
+          onClose={() => setCloseRequested(false)}
+        >
+          <div className="modal-body modal-action-row">
+            <button className="btn primary" onClick={() => setCloseRequested(false)}>
+              继续编辑
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                setCloseRequested(false);
+                setFocused(null);
+                setSalesDirty(false);
+              }}
+            >
+              放弃本次修改并关闭
+            </button>
           </div>
         </Modal>
       )}

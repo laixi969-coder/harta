@@ -13,6 +13,7 @@ export async function browserCall<T>(path: string, body?: any, signal?: AbortSig
     }
     return await browser.checkLogin(platform) as T;
   }
+  if (path === '/messaging') return await (await import('./messages.ts')).messaging(body) as T;
   if (path === '/status') return await browser.checkLogin(platform) as T;
   if (path === '/search') return await browser.browserSearch(body, signal) as T;
   if (path === '/comments') return await browser.browserComments(body, signal) as T;
@@ -26,4 +27,8 @@ export async function browserCall<T>(path: string, body?: any, signal?: AbortSig
   if (path === '/publish') return await (await import('./publish.ts')).publishNative(body) as T;
   if (path === '/reconcile-publish') return await (await import('./publish.ts')).reconcilePublish(body) as T;
   throw new Error('此浏览器操作未接入 Harta 获客引擎');
+}
+
+export async function browserScreenshot(platform: 'xiaohongshu' | 'douyin') {
+  return (await import('./messages.ts')).loginPreview(platform);
 }

@@ -1,5 +1,8 @@
+import { FollowUp } from './components/FollowUp';
+import { Inbox } from './components/Inbox';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ClipboardCheck,
   Search,
   Compass,
   Users,
@@ -34,6 +37,8 @@ const navs: { id: Page; name: string; icon: typeof Search }[] = [
   { id: 'discover', name: '发现作品', icon: Compass },
   { id: 'comments', name: '客户采集', icon: MessageSquareText },
   { id: 'leads', name: '客户线索', icon: Users },
+  { id: 'inbox', name: '私信工作台', icon: MessageSquareText },
+  { id: 'followup', name: '客户跟进', icon: ClipboardCheck },
   { id: 'studio', name: '内容工作室', icon: PenLine },
   { id: 'history', name: '任务记录', icon: History },
 ];
@@ -284,6 +289,8 @@ export default function App() {
             {page === 'discover' && <Discover />}
             {page === 'comments' && <Comments />}
             {page === 'leads' && <Leads />}
+            {page === 'followup' && <FollowUp />}
+            {page === 'inbox' && <Inbox />}
             {page === 'studio' && <Studio />}
             {page === 'history' && <HistoryPage />}
             {page === 'settings' && <SettingsPage />}
@@ -292,7 +299,7 @@ export default function App() {
                 <Workflow size={13} /> OpenFind · 让发现成为生意的起点
               </span>
               <span>
-                <Monitor size={12} /> 数据保存在本机 <i /> Harta 集成版 · 1c21422
+                <Monitor size={12} /> 数据保存在本机 <i /> Harta 集成版 · 8532f51
               </span>
             </footer>
           </main>

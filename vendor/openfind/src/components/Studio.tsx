@@ -1,3 +1,5 @@
+import { MediaGallery, MediaImage } from './Media';
+import { WorkflowSteps } from './WorkSource';
 import { useState, useRef } from 'react';
 import {
   PenLine,
@@ -27,12 +29,19 @@ import { AccountForm } from './Accounts';
 import { Modal, PageHeading, Empty, Busy, ExternalLink as SourceLink, SourceTag } from './ui';
 export function Studio() {
   const { data, navigate, editDraft, notify, refresh, newDraft } = useWorkspace();
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('all'),
+    [query, setQuery] = useState(''),
+    [platformFilter, setPlatformFilter] = useState('all');
   const drafts = data.drafts.filter(
     (d) =>
-      filter === 'all' ||
-      (filter === 'draft' && d.status === 'draft') ||
-      (filter === 'published' && d.status !== 'draft'),
+      (platformFilter === 'all' || d.platform === platformFilter) &&
+      [d.title, d.body, ...d.tags]
+        .join(' ')
+        .toLowerCase()
+        .includes(query.trim().toLowerCase()) &&
+      (filter === 'all' ||
+        (filter === 'draft' && d.status === 'draft') ||
+        (filter === 'published' && d.status !== 'draft')),
   );
   async function remove(id: string) {
     try {
@@ -61,6 +70,7 @@ export function Studio() {
           </div>
         }
       />
+      <WorkflowSteps active="studio" />
       <div className="studio-intro">
         <span className="studio-intro-icon">
           <PenLine size={24} />
@@ -96,16 +106,42 @@ export function Studio() {
               </button>
             ))}
           </div>
+          <label className="field-label">
+            发布平台
+            <select
+              aria-label="创作平台筛选"
+              value={platformFilter}
+              onChange={(e) => setPlatformFilter(e.target.value)}
+            >
+              <option value="all">全部平台</option>
+              <option value="xiaohongshu">小红书</option>
+              <option value="douyin">抖音</option>
+            </select>
+          </label>
+          <input
+            aria-label="搜索创作"
+            placeholder="搜索标题、正文或话题"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </div>
+        <p className="field-hint studio-filter-count" role="status">
+          显示 {drafts.length} / {data.drafts.length} 篇 · 草稿保存与发布记录分别保留
+        </p>
         {drafts.length ? (
           <div className="draft-grid">
             {drafts.map((d) => (
               <article className="draft-card" key={d.id}>
                 <button className="draft-cover" onClick={() => editDraft(d)}>
                   {d.kind === 'video' && d.video ? (
-                    <video src={mediaUrl(d.video)} muted preload="metadata" aria-label={d.title} />
+                    <video
+                      src={mediaUrl(d.video)}
+                      muted
+                      preload="metadata"
+                      aria-label={d.title}
+                    />
                   ) : (
-                    <img src={mediaUrl(d.images[0])} alt={d.title} />
+                    <MediaImage url={d.images[0]} alt={d.title} />
                   )}
                   <span className={`draft-state ${d.status !== 'draft' ? 'published' : ''}`}>
                     {d.status === 'draft'
@@ -116,6 +152,10 @@ export function Studio() {
                   </span>
                 </button>
                 <div>
+                  <span className="field-hint">
+                    {d.platform === 'douyin' ? '抖音' : '小红书'} ·{' '}
+                    {d.kind === 'video' ? '视频' : `${d.images.length} 张图片`}
+                  </span>
                   <h3>{d.title}</h3>
                   <p>
                     <Clock size={12} />
@@ -126,7 +166,13 @@ export function Studio() {
                       <PenLine size={13} />
                       继续编辑
                     </button>
-                    <button type="button" title="下载图文草稿包" onClick={() => void downloadDraft(d.id).catch(e => notify(e.message, true))}>
+                    <button
+                      type="button"
+                      title="下载图文草稿包"
+                      onClick={() =>
+                        void downloadDraft(d.id).catch((e) => notify(e.message, true))
+                      }
+                    >
                       <Download size={15} />
                     </button>
                     <button
@@ -143,11 +189,24 @@ export function Studio() {
           </div>
         ) : (
           <Empty
-            title="给灵感一个落脚的地方"
+            title={
+              query || platformFilter !== 'all' || filter !== 'all'
+                ? '当前筛选没有创作'
+                : '给灵感一个落脚的地方'
+            }
             sub="在发现作品中，点击任意图文的「一键克隆」，开始你的第一次创作。"
             action={
-              <button className="btn primary" onClick={() => navigate('discover')}>
-                去找灵感
+              <button
+                className="btn primary"
+                onClick={() =>
+                  query || platformFilter !== 'all' || filter !== 'all'
+                    ? (setQuery(''), setPlatformFilter('all'), setFilter('all'))
+                    : navigate('discover')
+                }
+              >
+                {query || platformFilter !== 'all' || filter !== 'all'
+                  ? '清除创作筛选'
+                  : '去找灵感'}
                 <ArrowRight size={15} />
               </button>
             }
@@ -179,7 +238,9 @@ export function Editor({
     [body, setBody] = useState(initial?.body || note?.body || ''),
     [tags, setTags] = useState((initial?.tags || note?.tags || []).join(' ')),
     [images, setImages] = useState<string[]>(initial?.images || note?.images || []),
-    [visibility, setVisibility] = useState<Draft['visibility']>(initial?.visibility || 'public'),
+    [visibility, setVisibility] = useState<Draft['visibility']>(
+      initial?.visibility || 'public',
+    ),
     [accountId, setAccountId] = useState(
       initial?.accountId ||
         data.accounts.find(
@@ -194,7 +255,8 @@ export function Editor({
     [busy, setBusy] = useState(''),
     [dirty, setDirty] = useState(false),
     [preview, setPreview] = useState(false),
-    [accountDialog, setAccountDialog] = useState(false);
+    [accountDialog, setAccountDialog] = useState(false),
+    [closeRequested, setCloseRequested] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const demo = source?.source === 'demo';
   const valid =
@@ -291,12 +353,17 @@ export function Editor({
     });
     changed();
   }
+  const requestClose = () => {
+    if (busy) return;
+    if (dirty) setCloseRequested(true);
+    else onClose();
+  };
   const published = saved && !dirty && saved.status !== 'draft';
   return (
     <Modal
       title={source ? '克隆创作' : '原创发布'}
       sub="保留灵感，加入你的表达。编辑、预览并保存图文作品。"
-      onClose={onClose}
+      onClose={requestClose}
       wide
     >
       <div className="editor-source">
@@ -348,7 +415,11 @@ export function Editor({
           {kind === 'video' ? (
             <div className="video-uploader">
               {video && <video src={mediaUrl(video)} controls />}
-              <button className="btn" disabled={!!busy} onClick={() => videoFile.current?.click()}>
+              <button
+                className="btn"
+                disabled={!!busy}
+                onClick={() => videoFile.current?.click()}
+              >
                 {busy === 'video' ? (
                   <Busy text="上传中" />
                 ) : (
@@ -401,7 +472,7 @@ export function Editor({
               <div className="editor-image-grid">
                 {images.map((url, i) => (
                   <div className="editor-image" key={url + '-' + i}>
-                    <img src={mediaUrl(url)} alt={`素材 ${i + 1}`} />
+                    <MediaImage url={url} alt={`素材 ${i + 1}`} />
                     <span className="image-index">
                       {i + 1}
                       {i === 0 ? ' · 封面' : ''}
@@ -458,7 +529,13 @@ export function Editor({
           {preview && (
             <div className="publish-preview">
               <h4>作品预览</h4>
-              {images[0] && <img src={mediaUrl(images[0])} alt="封面预览" />}
+              <MediaGallery
+                key={images.join('|') + kind}
+                cover={images[0] || ''}
+                images={images}
+                title={title || '草稿预览'}
+                video={kind === 'video' ? video : undefined}
+              />
               <h3>{title || '填写一个标题'}</h3>
               <p>{body}</p>
               <div className="tag-list">
@@ -539,7 +616,11 @@ export function Editor({
             <div>
               <label className="field-label" htmlFor="draft-account">
                 发布账号
-                <button type="button" className="text-btn" onClick={() => setAccountDialog(true)}>
+                <button
+                  type="button"
+                  className="text-btn"
+                  onClick={() => setAccountDialog(true)}
+                >
                   <Plus size={11} />
                   添加账号
                 </button>
@@ -592,7 +673,7 @@ export function Editor({
           {dirty ? '有未保存的修改' : saved ? '已保存到本机' : '完成后保存为草稿'}
         </span>
         <div>
-          <button className="btn" onClick={onClose}>
+          <button className="btn" onClick={requestClose} disabled={!!busy}>
             <ArrowLeft size={14} />
             返回作品列表
           </button>
@@ -602,7 +683,10 @@ export function Editor({
               disabled={!!busy}
               onClick={() => {
                 setBusy('reconcile');
-                void api<{ status: string; message?: string }>(`/drafts/${saved.id}/reconcile`, {})
+                void api<{ status: string; message?: string }>(
+                  `/drafts/${saved.id}/reconcile`,
+                  {},
+                )
                   .then(async (r) => {
                     await refresh();
                     notify(
@@ -619,7 +703,19 @@ export function Editor({
             </button>
           )}
           {saved && (
-            <button type="button" className="icon-btn" title="下载图文包" onClick={() => void downloadDraft(saved.id).catch(e => notify(e.message, true))}>
+            <button
+              type="button"
+              className="icon-btn"
+              title="保存并下载当前草稿包"
+              disabled={!!busy || !valid}
+              onClick={() => {
+                setBusy('download');
+                void persist()
+                  .then((d) => downloadDraft(d.id))
+                  .catch((e) => notify(e.message, true))
+                  .finally(() => setBusy(''));
+              }}
+            >
               <Download size={16} />
             </button>
           )}
@@ -679,6 +775,40 @@ export function Editor({
           </button>
         </div>
       </footer>
+      {closeRequested && (
+        <Modal
+          title="保存后再离开？"
+          sub="当前草稿有未保存的修改。"
+          onClose={() => setCloseRequested(false)}
+        >
+          <div className="modal-body">
+            <div className="modal-action-row">
+              <button className="btn" onClick={() => setCloseRequested(false)}>
+                继续编辑
+              </button>
+              <button className="btn" disabled={!!busy} onClick={onClose}>
+                放弃本次修改
+              </button>
+              <button
+                className="btn primary"
+                disabled={!!busy || !valid}
+                onClick={() => {
+                  setBusy('save');
+                  void persist()
+                    .then(() => {
+                      notify('草稿已保存');
+                      onClose();
+                    })
+                    .catch((e) => notify(e.message, true))
+                    .finally(() => setBusy(''));
+                }}
+              >
+                保存并返回
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {accountDialog && (
         <AccountForm
           onClose={() => setAccountDialog(false)}

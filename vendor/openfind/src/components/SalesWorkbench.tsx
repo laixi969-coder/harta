@@ -31,13 +31,26 @@ export function SalesMetrics({
   const [error, setError] = useState('');
   useEffect(() => {
     void api<typeof rows>('/sales/summary')
-      .then(setRows)
+      .then((rows) => {
+        setRows(rows);
+        setError('');
+      })
       .catch((e) => setError(e.message));
   }, [revision]);
   return (
     <section className="panel sales-metrics" aria-label="沟通与成交记录">
       <h3>从回复到结果 · 人工登记</h3>
-      <a className="btn small" href={apiUrl('/sales/export')} download onClick={e => {e.preventDefault(); void downloadAsset('/sales/export', 'openfind-sales-records.json').catch(e => setError(e.message));}}>
+      <a
+        className="btn small"
+        href={apiUrl('/sales/export')}
+        download
+        onClick={(e) => {
+          e.preventDefault();
+          void downloadAsset('/sales/export', 'openfind-sales-records.json').catch((e) =>
+            setError(e.message),
+          );
+        }}
+      >
         导出沟通记录
       </a>
       <p>意向分数不等于成交。以下统计来自实际沟通记录与成交凭证说明。</p>
@@ -76,10 +89,12 @@ export function SalesWorkbench({
   lead,
   note,
   onChange,
+  onDirtyChange,
 }: {
   lead: Lead;
   note?: Note;
   onChange: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { notify } = useWorkspace();
   const [record, setRecord] = useState<SalesCase | null>(null),
@@ -87,7 +102,7 @@ export function SalesWorkbench({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [dirty, setDirty] = useState(false);
-  const [kind, setKind] = useState<SalesEvent['kind']>('incoming'),
+  const [kind, setKind] = useState<SalesEvent['kind']>('note'),
     [channel, setChannel] = useState<SalesEvent['channel']>('message'),
     [content, setContent] = useState(''),
     [eventId, setEventId] = useState(() => crypto.randomUUID());
@@ -110,6 +125,9 @@ export function SalesWorkbench({
       alive = false;
     };
   }, [lead.id]);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
   const route = `/leads/${encodeURIComponent(lead.id)}/sales`;
   async function act(task: () => Promise<void>) {
     setBusy(true);
@@ -133,7 +151,21 @@ export function SalesWorkbench({
   return (
     <section className="sales-workbench" aria-label="沟通成交工作台">
       <h3>沟通与成交工作台</h3>
-      <button className="btn small" onClick={() => void hartaHandoff(lead.noteId, lead.commentId).catch(e => notify(e.message, true))}>查看 Harta 需求证据与跟进</button>
+      <p className="field-hint" role="status">
+        {dirty
+          ? '有未保存的跟进修改，保存后再切换客户'
+          : record
+            ? '已载入保存的进展 · 人工记录与平台回执分别保留'
+            : '正在读取客户进展'}
+      </p>
+      <button
+        className="btn small"
+        onClick={() =>
+          void hartaHandoff(lead.noteId, lead.commentId).catch((e) => notify(e.message, true))
+        }
+      >
+        查看 Harta 需求证据与跟进
+      </button>
       <p>先核实能否提供匹配的帮助 → 获得回复 → 明确需求和时间 → 提供方案 → 登记实际结果。</p>
       {error && (
         <p className="inline-error" role="alert">
@@ -143,7 +175,23 @@ export function SalesWorkbench({
       <fieldset className="sales-editor" disabled={busy || !record}>
         <details className="workflow-details">
           <summary>真实业务资料 · 生成话术前填写</summary>
-          <button className="btn" onClick={() => void act(async () => { const harta = await api<{profile: SalesProfile}>('/harta/context'); setProfile(current => ({...harta.profile, ...Object.fromEntries(Object.entries(current).filter(([,value]) => value.trim()))})); notify('已带入当前 Harta 业务身份、服务和地区；补齐帮助与价格后保存'); })}>带入 Harta 业务资料</button>
+          <button
+            className="btn"
+            onClick={() =>
+              void act(async () => {
+                const harta = await api<{ profile: SalesProfile }>('/harta/context');
+                setProfile((current) => ({
+                  ...harta.profile,
+                  ...Object.fromEntries(
+                    Object.entries(current).filter(([, value]) => value.trim()),
+                  ),
+                }));
+                notify('已带入当前 Harta 业务身份、服务和地区；补齐帮助与价格后保存');
+              })
+            }
+          >
+            带入 Harta 业务资料
+          </button>
           <div className="sales-fields">
             {Object.entries(profileFields).map(([key, label]) => (
               <label key={key}>
@@ -221,7 +269,14 @@ export function SalesWorkbench({
                 </select>
               </label>
               {(
-                ['need', 'timing', 'budget', 'objection', 'nextAction', 'orderReference'] as const
+                [
+                  'need',
+                  'timing',
+                  'budget',
+                  'objection',
+                  'nextAction',
+                  'orderReference',
+                ] as const
               ).map((key) => (
                 <label key={key}>
                   {
@@ -403,7 +458,11 @@ export function SalesWorkbench({
                         ? '评论'
                         : '其他渠道'}
                   </b>
-                  <small>{new Date(e.createdAt).toLocaleString()}</small>
+                  <small>
+                    {e.platformMessage
+                      ? `平台时间：${e.platformMessage.timeLabel || '未知'} · 同步于 ${new Date(e.createdAt).toLocaleString()}`
+                      : new Date(e.createdAt).toLocaleString()}
+                  </small>
                   <p>{e.content}</p>
                 </article>
               ))}

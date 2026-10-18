@@ -40,7 +40,8 @@ export function Acquisition() {
   const currentJob = data.jobs.find((j) => j.id === flow?.currentJobId);
   function select(id: string) {
     setFlowId(id);
-    history.replaceState(null, '', workbenchLocation({workflow: id}, 'acquisition'));
+    if (location.hash === '#acquisition')
+      history.replaceState(null, '', workbenchLocation({workflow: id}, 'acquisition'));
   }
   async function start() {
     setBusy(true);

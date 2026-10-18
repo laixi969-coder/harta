@@ -1,7 +1,7 @@
 # OpenFind embedded acquisition engine
 
 Source: https://github.com/laixi969-coder/openfind
-Pinned commit: 1c214229aa6d7cddf0bdd18c0885953eaa19f96b (retrieved 2026-10-17).
+Pinned commit: 8532f51ec89fefedb5a9eee53703097629f931ae (retrieved 2026-10-18).
 The repository owner requested integrating this engine into Harta. Upstream source and README are preserved here; the repository does not include a separate LICENSE file.
 
 Harta adaptations:
@@ -14,7 +14,7 @@ Harta adaptations:
 - Shared Harta demand expressions and exact seven-day eligibility; workflow work-format selection and topic-aware sampling.
 - Comment hydration supports the Douyin comments tab; pagination targets the comment pane and tracks expanded reply controls. Unknown Douyin comment counts remain unknown.
 - Full upstream React UI is built as an isolated Harta workbench, with authenticated business-scoped API transport; main Harta keeps its existing stack.
-- Native publishing/prepare/reconcile, drafts, media, exports, accounts, collection policy, sales case/profile/summary and optional semantic review endpoints use the same scoped worker. No private messaging endpoint is added.
+- Native publishing/prepare/reconcile, drafts, media, exports, accounts, collection policy, sales case/profile/summary and optional semantic review endpoints use the same scoped worker. Latest inbox routes are business scoped; suggestions remain drafts and external sending requires explicit exact-text approval.
 - Cover and gallery URLs are preserved in Harta; public platform CDN assets are validated against the current store and fetched over TLS without credentials or redirects. Legacy HTTP CDN addresses are upgraded to HTTPS.
 - Draft ZIPs include actual images. Uploaded video and binary exports stream through the authenticated bridge; credentials are never returned in snapshots.
 - Parent workbench navigation preserves business context; note/comment/lead actions hand off to Harta evidence review, content references and existing customer follow-up.
@@ -28,3 +28,5 @@ Workbench state refreshes every 3 seconds and connection/budget panels every 8 s
 
 
 2026-10-18 Harta 补充适配：语义复核复用宿主当前渠道和模型（不复制共享密钥），配置指纹隔离缓存，引用校验可有界重试；当前有效复核证据同步到宿主需求与客户页面。补充作品库范围、详情深链接、大图预览和键盘操作；宿主原生作品库/详情/参考选择同步补齐媒体交互，已保存素材不依赖采集引擎存活。
+
+2026-10-18 页面适配：评论按作品/任务/全部范围读取，来源图片与上下文贯穿评论、线索和跟进。独立跟进页读取 Harta 联系人/计划/时间线。工作室增加筛选、完整多图预览、未保存保护和下载前保存。登录预览沿用业务鉴权，兼容小红书非 button 登录控件和重复截图。
