@@ -203,3 +203,34 @@ section[data-view=today] #quick-growth-control{display:none!important}
   .cm-openfind-heading .btn{font-size:12px;max-width:120px}
   #cm-openfind iframe{flex:1;height:0;min-height:0}
 }
+/* Acquisition is page content in the Harta shell, with one business selector. */
+body:has(section[data-view="openfind"]:not(.hidden)){height:100dvh;overflow:hidden}
+body:has(section[data-view="openfind"]:not(.hidden))>.shell{height:100%;min-height:0}
+body:has(section[data-view="openfind"]:not(.hidden)) .rail{height:100%;overflow-y:auto}
+.main:has(section[data-view="openfind"]:not(.hidden)){height:100%;min-height:0;padding:0;display:flex;flex-direction:column;overflow:hidden}
+.main:has(section[data-view="openfind"]:not(.hidden))>.mast,.main:has(section[data-view="openfind"]:not(.hidden))>.topbar{display:none}
+section[data-view="openfind"]:not(.hidden){display:flex;flex:1;min-height:0;width:100%;max-width:none;padding:0;margin:0}
+#cm-openfind{height:100%;width:100%;min-width:0;display:flex;flex-direction:column}
+#cm-openfind iframe{display:block;border:0;flex:1;width:100%;height:0;min-height:0}
+#cm-openfind .cm-openfind-heading{display:flex;align-items:center;gap:16px;padding:12px 24px;margin:0;flex-shrink:0;border-bottom:1px solid var(--border)}
+.cm-openfind-heading h1{font-size:20px;margin:0;white-space:nowrap}
+#cm-openfind .cm-openfind-heading label{display:flex;flex-direction:row;align-items:center;gap:8px;margin-left:auto;min-width:0;font-size:12px}
+#cm-openfind .cm-openfind-heading select{min-height:44px;width:180px;max-width:100%;margin:0}
+.cm-acquisition-flow{display:flex;gap:4px;padding:8px 24px;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.cm-acquisition-flow[hidden]{display:none}
+.cm-acquisition-flow .btn{white-space:nowrap;flex-shrink:0}
+.cm-acquisition-flow .selected{background:var(--accent);color:var(--on-accent,#fff);border-color:var(--accent)}
+.cm-acquisition-more{position:relative;flex-shrink:0}
+.cm-acquisition-more>summary{list-style:none;cursor:pointer}
+.cm-acquisition-more>div{position:absolute;z-index:12;right:0;top:calc(100% + 6px);width:220px;padding:8px;display:grid;background:var(--bg);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px #0002}
+.cm-acquisition-more .btn{text-align:left;justify-content:flex-start}
+@media(max-width:860px){
+ body:has(section[data-view="openfind"]:not(.hidden))>.shell{height:auto}
+ #cm-openfind .cm-openfind-heading{gap:8px;padding:8px 12px;flex-wrap:wrap}
+ .cm-openfind-heading h1{font-size:17px}
+ #cm-openfind .cm-openfind-heading label{font-size:0;flex:1}
+ #cm-openfind .cm-openfind-heading select{width:100%;font-size:14px}
+ .cm-acquisition-more>summary{font-size:12px;padding:8px}
+ .cm-acquisition-flow{padding:4px 8px;gap:0}
+ .cm-acquisition-flow .btn{padding:8px 10px;font-size:13px}
+}

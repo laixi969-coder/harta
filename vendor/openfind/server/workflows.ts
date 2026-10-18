@@ -236,7 +236,7 @@ async function waitForPlatform(
     await delay(ms, undefined, { signal });
   }
 }
-export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor) {
+export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, readLink?: (url:string, signal:AbortSignal)=>Promise<Note>) {
   if (workflowRuns.has(w.id)) return;
   const abort = new AbortController();
   workflowRuns.set(w.id, abort);
@@ -307,6 +307,19 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor) 
     saveWorkflow(w);
   }
   try {
+    if (w.stage === 'search' && w.input.links?.length) {
+      if(!readLink) throw new Error('链接读取暂不可用');
+      while(w.searchIndex < w.input.links.length) {
+        abort.signal.throwIfAborted();
+        saveWorkflow(w,`读取指定作品 ${w.searchIndex+1}/${w.input.links.length}`);
+        const note=await readLink(w.input.links[w.searchIndex],abort.signal);
+        abort.signal.throwIfAborted();
+        if(note.platform!==w.input.platform || note.source!=='live') throw new Error('链接返回的作品平台不一致');
+        put('notes',note);w.noteIds=unique([...w.noteIds,note.id]);w.searchIndex++;saveWorkflow(w);
+      }
+      w.selectedNoteIds=scopedNotes(w,w.noteIds);w.stage='comments';
+      saveWorkflow(w,`已读取 ${w.selectedNoteIds.length} 条指定作品，开始采集评论`);
+    }
     if (w.stage === 'search') {
       const sorts = ['latest', 'general', 'popular'] as const;
       while (w.searchIndex < sorts.length) {

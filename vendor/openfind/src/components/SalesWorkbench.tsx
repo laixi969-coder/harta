@@ -89,13 +89,15 @@ export function SalesWorkbench({
   note,
   onChange,
   onDirtyChange,
+  showContactLink = true,
 }: {
   lead: Lead;
   note?: Note;
   onChange: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  showContactLink?: boolean;
 }) {
-  const { notify } = useWorkspace();
+  const { notify, setUnsaved } = useWorkspace();
   const [record, setRecord] = useState<SalesCase | null>(null),
     [profile, setProfile] = useState<SalesProfile>(emptySalesProfile),
     [busy, setBusy] = useState(false),
@@ -125,8 +127,10 @@ export function SalesWorkbench({
     };
   }, [lead.id]);
   useEffect(() => {
-    onDirtyChange?.(dirty);
-  }, [dirty, onDirtyChange]);
+    onDirtyChange?.(dirty || Boolean(content.trim()));
+    setUnsaved?.('sales-'+lead.id,dirty || Boolean(content.trim()));
+  }, [dirty, content, onDirtyChange, setUnsaved, lead.id]);
+  useEffect(()=>()=>setUnsaved?.('sales-'+lead.id,false),[lead.id,setUnsaved]);
   const route = `/leads/${encodeURIComponent(lead.id)}/sales`;
   async function act(task: () => Promise<void>) {
     setBusy(true);
@@ -157,14 +161,14 @@ export function SalesWorkbench({
             ? '已保存'
             : '正在读取客户进展'}
       </p>
-      <button
+      {showContactLink && <button
         className="btn small"
         onClick={() =>
           void hartaHandoff(lead.noteId, lead.commentId).catch((e) => notify(e.message, true))
         }
       >
-        在 Harta 跟进
-      </button>
+        客户档案
+      </button>}
       {error && (
         <p className="inline-error" role="alert">
           {error}

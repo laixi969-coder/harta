@@ -1,7 +1,9 @@
+import { CustomerRecord } from './components/CustomerRecord';
+import { isAcquisitionPage } from '../../../js/acquisition-route.js';
 import { FollowUp } from './components/FollowUp';
 import { Inbox } from './components/Inbox';
 import { NavigationDialog, useMobileNavigation } from './components/Navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   ClipboardCheck,
   Search,
@@ -26,7 +28,7 @@ import {
   Menu,
 } from 'lucide-react';
 import type { Snapshot, Note, Draft, Job } from '../shared/types';
-import { api, getState } from './api';
+import { api, getState, workbenchLocation } from './api';
 import { WorkspaceContext, type Page } from './context';
 import { Acquisition } from './components/Acquisition';
 import { Discover } from './components/Discover';
@@ -47,7 +49,14 @@ function currentPage(): Page {
   const p = location.hash.slice(1);
   return [...navs.map((n) => n.id), 'settings'].includes(p) ? (p as Page) : 'discover';
 }
+const embedded = window.parent !== window;
 export default function App() {
+  const unsaved = useRef(new Map<string,boolean>());
+  const [routeRevision,setRouteRevision] = useState(0);
+  const setUnsaved = useCallback((key:string,value:boolean) => {
+    if(value) unsaved.current.set(key,true); else unsaved.current.delete(key);
+    if(embedded) parent.postMessage({type:'harta-acquisition-dirty',customerId:new URLSearchParams(location.search).get('customerId'),dirty:unsaved.current.size>0},location.origin);
+  }, []);
   const mobile = useMobileNavigation();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [data, setData] = useState<Snapshot | null>(null),
@@ -69,23 +78,42 @@ export default function App() {
     }
   }, []);
   const navigate = useCallback((p: Page) => {
+    if(embedded && p === 'followup') { parent.postMessage({type:'harta-acquisition-native',view:'conversations',customerId:new URLSearchParams(location.search).get('customerId')},location.origin); return; }
+    if(unsaved.current.size && !window.confirm('有未保存的修改，放弃并继续？')) return;
+    unsaved.current.clear(); setEditor(null); setUnsaved('route',false);
     setNavigationOpen(false);
     location.hash = p;
     setPage(p);
-  }, []);
+  }, [setUnsaved]);
   useEffect(() => { if (!mobile) setNavigationOpen(false); }, [mobile]);
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [page]);
   useEffect(() => {
     void refresh();
     void api<{name:string}>('/harta/context').then(c => setBusinessName(c.name)).catch(() => {});
     const id = setInterval(() => void refresh(), 3000);
-    const hash = () => { setPage(currentPage()); setNavigationOpen(false); };
+    const hash = () => { setPage(currentPage()); setNavigationOpen(false); if(embedded) parent.postMessage({type:'harta-acquisition-page',page:currentPage(),params:Object.fromEntries([...new URLSearchParams(location.search)].filter(([key])=>['note','lead','job','platform','workflow'].includes(key))),customerId:new URLSearchParams(location.search).get('customerId')},location.origin); };
     window.addEventListener('hashchange', hash);
     return () => {
       clearInterval(id);
       window.removeEventListener('hashchange', hash);
     };
   }, [refresh]);
+  useEffect(() => {
+    if(!embedded) return;
+    const receive = (event:MessageEvent) => {
+      const message=event.data;
+      if(event.origin!==location.origin || event.source!==parent || message?.type!=='harta-acquisition-navigate' || message.customerId!==new URLSearchParams(location.search).get('customerId') || !isAcquisitionPage(message.page)) return;
+      const params=new URLSearchParams(location.search);
+      for(const key of ['note','lead','job','platform','workflow']) { params.delete(key); if(typeof message.params?.[key]==='string') params.set(key,message.params[key]); }
+      history.replaceState(null,'',location.pathname+'?'+params+'#'+message.page);
+      unsaved.current.clear(); setEditor(null); setUnsaved('route',false);
+      setCommentNoteId(message.params?.note || '');
+      setPage(message.page);setRouteRevision(n=>n+1);
+    };
+    window.addEventListener('message',receive);
+    parent.postMessage({type:'harta-acquisition-ready',customerId:new URLSearchParams(location.search).get('customerId')},location.origin);
+    return ()=>window.removeEventListener('message',receive);
+  },[setUnsaved]);
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(null), 5000);
@@ -117,6 +145,7 @@ export default function App() {
           interval: 1000,
         });
         setCommentNoteId(j.noteId!);
+        history.replaceState(null,'',workbenchLocation({note:j.noteId!},currentPage()));
         navigate('comments');
         await refresh();
         notify('评论采集已开始，包含楼中楼回复');
@@ -227,16 +256,18 @@ export default function App() {
         collect,
         commentNoteId,
         setCommentNoteId,
+        setUnsaved,
+        embedded,
       }}
     >
-      <div className={`app-shell ${collapsed ? 'collapsed' : ''}`}>
-        {mobile ? (
+      <div className={`app-shell ${embedded ? 'embedded' : ''} ${collapsed ? 'collapsed' : ''}`}>
+        {!embedded && (mobile ? (
           <NavigationDialog open={navigationOpen} onClose={() => setNavigationOpen(false)}>
             {sidebar}
           </NavigationDialog>
-        ) : sidebar}
+        ) : sidebar)}
         <div className="main-shell">
-          <header className="topbar">
+          {!embedded && <header className="topbar">
             <div className="breadcrumbs">
               <button
                 className={mobile ? "btn sidebar-toggle ui-menu-toggle" : "icon-btn sidebar-toggle"}
@@ -275,8 +306,8 @@ export default function App() {
                 H
               </button>
             </div>
-          </header>
-          <main className="main-content">
+          </header>}
+          <main className="main-content" key={routeRevision}>
             {error && (
               <div className="inline-error">
                 <AlertCircle size={15} />
@@ -287,19 +318,19 @@ export default function App() {
             {page === 'discover' && <Discover />}
             {page === 'comments' && <Comments />}
             {page === 'leads' && <Leads />}
-            {page === 'followup' && <FollowUp />}
+            {page === 'followup' && (embedded ? <CustomerRecord /> : <FollowUp />)}
             {page === 'inbox' && <Inbox />}
             {page === 'studio' && <Studio />}
             {page === 'history' && <HistoryPage />}
             {page === 'settings' && <SettingsPage />}
-            <footer className="workspace-footer">
+            {!embedded && <footer className="workspace-footer">
               <span>
                 <Workflow size={13} /> Harta
               </span>
               <span title="Harta 获客工作区">
                 <Monitor size={12} /> 数据保存在本机
               </span>
-            </footer>
+            </footer>}
           </main>
         </div>
         {toast && (

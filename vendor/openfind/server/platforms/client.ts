@@ -18,6 +18,7 @@ export async function browserCall<T>(path: string, body?: any, signal?: AbortSig
   if (path === '/search') return await browser.browserSearch(body, signal) as T;
   if (path === '/comments') return await browser.browserComments(body, signal) as T;
   if (path === '/inspect') return await browser.inspectPlatform(platform) as T;
+  if (path === '/read-link') return await browser.readWorkLink(body.url, signal) as T;
   if (path === '/detail') return await browser.readDetail(body.note) as T;
   if (path === '/close-read') { await browser.closeRead(body.cursor); return { ok: true } as T; }
   if (path === '/network') return await browser.setNetwork(platform, body.mode) as T;

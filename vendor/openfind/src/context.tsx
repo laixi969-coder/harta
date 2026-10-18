@@ -3,6 +3,8 @@ import type { Snapshot, Note, Draft } from '../shared/types';
 export type Page =
   'acquisition' | 'discover' | 'comments' | 'leads' | 'studio' | 'history' | 'settings' | 'inbox' | 'followup';
 export interface Workspace {
+  embedded?: boolean;
+  setUnsaved?: (key: string, dirty: boolean) => void;
   data: Snapshot;
   refresh: () => Promise<void>;
   notify: (text: string, error?: boolean) => void;

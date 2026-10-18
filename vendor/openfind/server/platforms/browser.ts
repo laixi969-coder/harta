@@ -956,3 +956,60 @@ export async function setNetwork(platform: Platform, mode: 'system' | 'direct') 
   await openLogin(platform);
   return checkLogin(platform);
 }
+
+// Read only official work/share links in the existing business-scoped login session.
+export async function readWorkLink(url:string, signal?:AbortSignal):Promise<Note> {
+  const {workLink}=await import('../../shared/work-links.ts');
+  const input=workLink(url),session=await requireSession(input.platform),page=await session.context.newPage();
+  let nativeId=input.id,detail:Note|undefined;
+  const cancel=()=>{void page.close().catch(()=>{});};
+  signal?.addEventListener('abort',cancel,{once:true});
+  await page.route('**/*',route=>{
+    const request=route.request();
+    if(request.isNavigationRequest()&&request.frame()===page.mainFrame()) {
+      try { const u=new URL(request.url());const hosts=input.platform==='douyin'?['douyin.com','www.douyin.com','v.douyin.com','iesdouyin.com','www.iesdouyin.com']:['xiaohongshu.com','www.xiaohongshu.com','xhslink.com','www.xhslink.com'];if(!['https:','http:'].includes(u.protocol)||!hosts.includes(u.hostname)) return route.abort(); } catch{return route.abort();}
+    }
+    return route.continue();
+  });
+  const capture=async(response:Response)=>{
+    try {
+      if(!/\/feed(?:\?|$)|\/aweme\/v1\/web\/aweme\/detail\//.test(response.url())) return;
+      const payload=await response.json();
+      const resolved=workLink(page.url());nativeId=resolved.id||nativeId;
+      const rows=input.platform==='xiaohongshu'?xhsNotes(payload):douyinNotes({aweme_list:[payload.aweme_detail||payload.data?.aweme_detail].filter(Boolean)});
+      const found=rows.find(n=>n.nativeId===nativeId);
+      if(found) detail={...found,url:resolved.url,detailState:'complete'};
+    } catch{}
+  };
+  page.on('response',capture);
+  try {
+    signal?.throwIfAborted();
+    await page.goto(input.url,{waitUntil:'domcontentloaded',timeout:45000});
+    const resolved=workLink(page.url());
+    if(resolved.platform!==input.platform||!resolved.id) throw new Error('分享链接未解析到作品，请复制完整作品链接重试');
+    nativeId=resolved.id;
+    const existing=get<Note>('notes',(input.platform==='douyin'?'dy:':'xhs:')+nativeId);
+    if(existing?.source==='live'&&existing.detailState==='complete') return existing;
+    for(let i=0;i<60&&!detail;i++) {
+      signal?.throwIfAborted();
+      if(input.platform==='xiaohongshu') {
+        const raw=await page.evaluate(id=>(window as any).__INITIAL_STATE__?.note?.noteDetailMap?.[id]?.note||null,nativeId).catch(()=>null);
+        if(raw) { const note=xhsNotes({data:{items:[{id:nativeId,note_card:raw}]}})[0];if(note) detail={...note,url:resolved.url,detailState:'complete'}; }
+      }
+      if(input.platform==='douyin'&&!detail) {
+        const raw=await page.evaluate(id=>{
+          const roots=[(window as any)._ROUTER_DATA,(window as any).__INITIAL_STATE__,(window as any).__NEXT_DATA__];
+          const serialized=document.getElementById('RENDER_DATA')?.textContent;
+          if(serialized) { try {roots.push(JSON.parse(decodeURIComponent(serialized)));} catch{} }
+          const stack=roots.filter(Boolean),seen=new Set<object>();let count=0;
+          while(stack.length&&count++<5000) {const item=stack.pop();if(!item||typeof item!=='object'||seen.has(item))continue;seen.add(item);if(String(item.aweme_id||'')===id&&(item.video||item.images)&&item.author)return item;for(const value of Object.values(item))if(value&&typeof value==='object')stack.push(value);}
+          return null;
+        },nativeId).catch(()=>null);
+        if(raw) {const note=douyinNotes({aweme_list:[raw]})[0];if(note)detail={...note,url:resolved.url,detailState:'complete'};}
+      }
+      if(!detail) await delay(250);
+    }
+    if(!detail) throw new Error('未读取到作品内容，请检查平台登录、链接有效性或访问验证后继续');
+    return detail;
+  } finally {signal?.removeEventListener('abort',cancel);await page.close().catch(()=>{});}
+}

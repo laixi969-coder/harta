@@ -34,7 +34,7 @@ export function Comments() {
   const jobs = data.jobs.filter((j) => j.type === 'comments');
   const initialJob = jobs.find((j) => j.noteId === commentNoteId) || jobs[0];
   const [noteId, setNoteId] = useState(
-      commentNoteId || initialJob?.noteId || data.notes[0]?.id || '',
+      data.notes.find(n=>n.id===new URLSearchParams(location.search).get('note'))?.id || commentNoteId || initialJob?.noteId || data.notes[0]?.id || '',
     ),
     [jobId, setJobId] = useState(''),
     [scope, setScope] = useState<CommentScope>('note'),
@@ -645,7 +645,17 @@ export function Comments() {
   );
 }
 export function Leads() {
-  const { data, refresh, notify, navigate } = useWorkspace();
+  const { data, refresh, notify, navigate, embedded, setUnsaved } = useWorkspace();
+  const [contacts,setContacts] = useState<{commentId:string;noteId:string;platform:string;stage:string}[]>([]);
+  const [contactsLoaded,setContactsLoaded] = useState(false);
+  useEffect(()=>{
+    if(!embedded) return;
+    let alive=true;
+    const load=()=>void api<typeof contacts>('/harta/contacts').then(rows=>{if(alive){setContacts(rows);setContactsLoaded(true);}}).catch(()=>{});
+    load();const timer=setInterval(load,8000);
+    return ()=>{alive=false;clearInterval(timer);};
+  },[embedded]);
+  const contactFor = (lead:Lead)=>contacts.find(c=>c.commentId===lead.commentId&&c.noteId===lead.noteId&&c.platform===(lead.platform||'xiaohongshu'));
   const [query, setQuery] = useState(''),
     [status, setStatus] = useState('all'),
     [platform, setPlatform] = useState('all'),
@@ -656,10 +666,11 @@ export function Leads() {
     [salesRevision, setSalesRevision] = useState(0),
     [salesDirty, setSalesDirty] = useState(false),
     [closeRequested, setCloseRequested] = useState(false);
+  useEffect(()=>{setUnsaved?.('candidate',Boolean(focused&&(memo!==focused.memo||outreach!==focused.outreach)));return ()=>setUnsaved?.('candidate',false);},[focused,memo,outreach,setUnsaved]);
   const leads = data.leads
     .filter(
       (l) =>
-        (status === 'all' || l.status === status) &&
+        (status === 'all' || (embedded ? status === 'saved' ? Boolean(contactFor(l)) : !contactFor(l) : l.status === status)) &&
         (platform === 'all' || (l.platform || 'xiaohongshu') === platform) &&
         [l.name, l.region, l.content, l.memo]
           .join(' ')
@@ -701,7 +712,7 @@ export function Leads() {
   return (
     <>
       <PageHeading
-        title="线索管理"
+        title={embedded ? "核实线索" : "线索管理"}
         action={
           <a
             className="btn"
@@ -723,9 +734,7 @@ export function Leads() {
       <div className="lead-stats">
         {[
           ['全部线索', data.leads.length],
-          ['高意向客户', data.leads.filter((l) => l.score >= 50).length],
-          ['待跟进', data.leads.filter((l) => l.status === 'new').length],
-          ['需求已确认', data.leads.filter((l) => l.status === 'qualified').length],
+          ...(embedded ? [['未入库',contactsLoaded ? data.leads.filter(l=>!contactFor(l)).length : '—'],['已入库',contactsLoaded ? data.leads.filter(l=>contactFor(l)).length : '—']] : [['高意向客户', data.leads.filter((l) => l.score >= 50).length],['待跟进', data.leads.filter((l) => l.status === 'new').length],['需求已确认', data.leads.filter((l) => l.status === 'qualified').length]]),
         ].map(([label, n]) => (
           <div key={label}>
             <span>{label}</span>
@@ -762,7 +771,7 @@ export function Leads() {
         </div>
         <div className="results-toolbar">
           <div className="filter-tabs">
-            {[['all', '全部客户'], ...Object.entries(labels)].map(([id, t]) => (
+            {(embedded ? [['all','全部线索'],['unreviewed','未入库'],['saved','已入库']] : [['all', '全部客户'], ...Object.entries(labels)]).map(([id, t]) => (
               <button
                 key={id}
                 className={status === id ? 'active' : ''}
@@ -802,7 +811,7 @@ export function Leads() {
                   <th>客户</th>
                   <th>需求与来源</th>
                   <th>意向评分</th>
-                  <th>跟进状态</th>
+                  <th>{embedded ? '核实状态' : '跟进状态'}</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -834,7 +843,7 @@ export function Leads() {
                       <small className="muted">{l.commentCreatedAt ? new Date(l.commentCreatedAt).toLocaleDateString() : '评论日期未知'}</small>
                     </td>
                     <td>
-                      <select
+                      {embedded ? <span className="source-tag">{contactsLoaded ? contactFor(l)?.stage || '待核实' : '读取中'}</span> : <select
                         aria-label={`${l.name}跟进状态`}
                         value={l.status}
                         disabled={saving}
@@ -847,11 +856,11 @@ export function Leads() {
                             {t}
                           </option>
                         ))}
-                      </select>
+                      </select>}
                     </td>
                     <td>
                       <button className="text-btn" onClick={() => open(l)}>
-                        查看与跟进
+                        {embedded ? '查看需求' : '查看与跟进'}
                         <ChevronRight size={13} />
                       </button>
                     </td>
@@ -886,7 +895,7 @@ export function Leads() {
       </section>
       {focused && (
         <Modal
-          title="客户跟进"
+          title={embedded ? '需求核实' : '客户跟进'}
           onClose={() =>
             salesDirty || memo !== focused.memo || outreach !== focused.outreach
               ? setCloseRequested(true)
@@ -912,15 +921,17 @@ export function Leads() {
             />
             <p className="field-hint">评论时间：{focused.commentCreatedAt ? new Date(focused.commentCreatedAt).toLocaleString('zh-CN') : '未知'}</p>
             {focused.assessment ? <AssessmentDetails assessment={focused.assessment} /> : <p>{focused.reason}</p>}
-            <SalesWorkbench
+            {embedded && <button className="btn primary" onClick={()=>void hartaHandoff(focused.noteId,focused.commentId).catch(e=>notify(e.message,true))}>{contactFor(focused) ? '打开客户档案' : '核实这条需求'}</button>}
+            {!embedded && <SalesWorkbench
               key={focused.id}
               lead={focused}
               note={data.notes.find((n) => n.id === focused.noteId)}
               onDirtyChange={setSalesDirty}
               onChange={() => setSalesRevision((n) => n + 1)}
-            />
+            />}
+            <details open={embedded ? undefined : true}><summary>线索备注与话术</summary>
             <label className="field-label" htmlFor="memo">
-              跟进备注
+              线索备注
             </label>
             <textarea
               id="memo"
@@ -950,7 +961,7 @@ export function Leads() {
                   )
                 }
               >
-                进入 Harta 客户跟进
+                核实并查看客户档案
               </button>
               <button
                 className="btn"
@@ -978,7 +989,7 @@ export function Leads() {
                   </>
                 )}
               </button>
-            </div>
+            </div></details>
           </div>
         </Modal>
       )}

@@ -1,3 +1,4 @@
+import { parseWorkLinks, workLink } from '../shared/work-links.ts';
 import inboxRouter, { pollInbox } from './inbox.ts';
 import { imageAsset } from './media.ts';
 import salesRouter from './sales.ts';
@@ -377,18 +378,41 @@ app.get('/api/state', (_req, res) => {
     settings: settings(),
   });
 });
+async function readLinkedWork(url:string, signal:AbortSignal):Promise<Note> {
+  const link=workLink(url);
+  const existing=link.id ? get<Note>('notes',(link.platform==='douyin'?'dy:':'xhs:')+link.id) : undefined;
+  if(existing?.source==='live'&&existing.detailState==='complete') return existing;
+  const state=protectionStatus(link.platform);
+  const blocked=protectionView(link.platform).paused || (state.policy!.search.dailyLimit <= state.counts.search);
+  if(blocked) throw new Error('平台已暂停或今日读取额度不足，请处理后继续流程');
+  const wait=Math.max(0,readInterval(state,'search')-(Date.now()-(state.lastReadAt||0)));
+  if(wait) await delay(wait,undefined,{signal});signal.throwIfAborted();
+  reservePlatformAction(link.platform,'search');
+  try {
+    const note=await browserCall<Note>('/read-link',{url:link.url,platform:link.platform},signal);
+    if(note.platform!==link.platform || note.source!=='live' || !note.nativeId) throw new Error('未读取到有效作品');
+    recordPlatformSuccess(link.platform);return note;
+  } catch(error) { if(!signal.aborted) recordPlatformFailure(link.platform,(error as Error).message);throw error; }
+}
 const acquisitionSchema = z.object({
+  links:z.array(z.string().max(2000)).min(1).max(10).optional(),
   noteType: z.enum(['all', 'image', 'video']).default('all'),
   keyword: z.string().trim().min(1).max(100),
   platform: z.enum(['xiaohongshu', 'douyin']),
   mode: z.enum(['demo', 'live']),
   searchLimit: z.number().int().min(1).max(40).default(20),
-  maxNotes: z.number().int().min(1).max(5).default(3),
+  maxNotes: z.number().int().min(1).max(10).default(3),
   commentLimit: z.number().int().min(1).max(50).default(20),
   supplement: z.boolean().default(true),
 });
 app.post('/api/workflows', (req, res) => {
   const input = acquisitionSchema.parse(req.body);
+  if(input.links) {
+    let parsed:ReturnType<typeof parseWorkLinks>;
+    try { parsed=parseWorkLinks(input.links.join('\n')); } catch(error) { return res.status(400).json({error:(error as Error).message}); }
+    if(parsed.platform!==input.platform || input.mode!=='live') return res.status(400).json({error:'链接采集仅支持同平台真实作品'});
+    input.links=parsed.links;input.maxNotes=parsed.links.length;input.supplement=false;input.noteType='all';
+  } else if(input.maxNotes>5) return res.status(400).json({error:'关键词流程最多采样5篇作品'});
   if (active() || publishing.size) {
     res.status(409).json({ error: '已有任务运行，请先暂停或等待完成' });
     return;
@@ -400,7 +424,7 @@ app.post('/api/workflows', (req, res) => {
     return;
   }
   const w = createWorkflow(input);
-  void runWorkflow(w, runJob);
+  void runWorkflow(w, runJob, readLinkedWork);
   res.status(201).json(w);
 });
 app.post('/api/workflows/:id/review', async (req, res) => {
@@ -445,7 +469,7 @@ app.post('/api/workflows/:id/:action', (req, res) => {
       res.status(409).json({ error: '请等待当前任务结束；只有暂停的流程可以继续' });
       return;
     }
-    void runWorkflow(w, runJob);
+    void runWorkflow(w, runJob, readLinkedWork);
   } else {
     res.status(404).json({ error: '未知操作' });
     return;

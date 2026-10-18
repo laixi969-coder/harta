@@ -1,5 +1,5 @@
 import { MediaGallery, MediaImage } from './Media';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Plus,
   PenLine,
@@ -211,7 +211,7 @@ export function Editor({
   draft?: Draft;
   onClose: () => void;
 }) {
-  const { data, refresh, notify, navigate } = useWorkspace();
+  const { data, refresh, notify, navigate, setUnsaved } = useWorkspace();
   const source = note || data.notes.find((n) => n.id === initial?.noteId);
   const [platform, setPlatform] = useState<Platform>(
     initial?.platform || source?.platform || data.settings.platform || 'xiaohongshu',
@@ -243,6 +243,7 @@ export function Editor({
     [preview, setPreview] = useState(false),
     [accountDialog, setAccountDialog] = useState(false),
     [closeRequested, setCloseRequested] = useState(false);
+  useEffect(()=>{setUnsaved?.('editor',dirty);return ()=>setUnsaved?.('editor',false);},[dirty,setUnsaved]);
   const file = useRef<HTMLInputElement>(null);
   const demo = source?.source === 'demo';
   const valid =

@@ -38,7 +38,7 @@ import { useWorkspace } from '../context';
 import { Empty, Busy, SourceTag, PageHeading, Modal, ExternalLink } from './ui';
 import { acquisitionPriority } from '../../server/domain';
 export function Discover() {
-  const { data, notify, refresh, navigate, clone, collect } = useWorkspace();
+  const { data, notify, refresh, navigate, clone, collect, embedded } = useWorkspace();
   const params = new URLSearchParams(location.search);
   const requestedNote = data.notes.find(n => n.id === params.get('note'));
   const requestedPlatform = params.get('platform') || requestedNote?.platform;
@@ -243,25 +243,25 @@ export function Discover() {
   ];
   return (
     <>
-      <div className="acquisition-entry">
+      {!embedded && <div className="acquisition-entry">
         <span>把搜索、评论采集与候选判断一次完成</span>
         <button className="btn primary" onClick={() => navigate('acquisition')}>
           打开一键获客 <ArrowRight size={14} />
         </button>
-      </div>
+      </div>}
       <PageHeading
         title="发现作品"
         action={
-          <span className="platform-status">
+          <div className="modal-action-row"><button className="btn" onClick={()=>navigate('acquisition')}>粘贴作品链接</button><span className="platform-status">
             <span className="xhs-icon">{platform === 'douyin' ? '抖音' : '小红书'}</span>
             {platform === 'douyin' ? '抖音' : '小红书'}
             <span className="status-mini">
               {data.settings.mode === 'demo' ? '演示模式' : '真实模式'}
             </span>
-          </span>
+          </span></div>
         }
       />
-      <section className="agent-panel">
+      <details className="agent-options" open={embedded ? undefined : true}><summary>任务助手</summary><section className="agent-panel">
         <div className="agent-label">
           <span className="sparkle-box">
             <Sparkles size={18} />
@@ -313,8 +313,8 @@ export function Discover() {
             <span>规则解析器 · 可在下方调整</span>
           </div>
         )}
-      </section>
-      <div className="workflow-steps">
+      </section></details>
+      {!embedded && <div className="workflow-steps">
         {steps.map((s, i) => (
           <div
             className={`workflow-step ${i === 1 && job?.status === 'running' ? 'current' : ''} ${i < 2 && job?.status === 'completed' ? 'done' : ''}`}
@@ -334,13 +334,12 @@ export function Discover() {
             {i < 3 && <ChevronRight size={14} className="step-arrow" />}
           </div>
         ))}
-      </div>
+      </div>}
       <div className="discover-layout">
         <section className="search-panel panel">
           <div className="section-title">
             <SlidersHorizontal size={17} />
-            <h2>采集设置</h2>
-            <span>01</span>
+            <h2>搜索作品</h2>
           </div>
           <form
             onSubmit={(e) => {
@@ -348,13 +347,13 @@ export function Discover() {
               void start();
             }}
           >
-            <div className="field-hint">组合获客：先搜近期作品，再按评论需求选采集对象。</div>
+
             <div className="prompt-examples" aria-label="获客搜索策略">
               {(
                 [
-                  ['latest', '近期需求（主线）', 20],
-                  ['general', '相关作品（补充）', 20],
-                  ['popular', '高互动（少量探索）', 10],
+                  ['latest', '近期需求', 20],
+                  ['general', '相关作品', 20],
+                  ['popular', '高互动', 10],
                 ] as const
               ).map(([value, label, count]) => (
                 <button
@@ -370,7 +369,7 @@ export function Discover() {
                 </button>
               ))}
             </div>
-            <label className="field-label" htmlFor="collection">
+            {!embedded && <><label className="field-label" htmlFor="collection">
               采集功能
             </label>
             <select
@@ -382,7 +381,7 @@ export function Discover() {
             >
               <option value="search">关键词搜索笔记</option>
               <option value="comments">作品评论与楼中楼</option>
-            </select>
+            </select></>}
             <label className="field-label" htmlFor="keyword">
               搜索关键词<span>必填</span>
             </label>
@@ -397,7 +396,7 @@ export function Discover() {
                 required
               />
             </div>
-            <div className="field-hint">从一个关键词开始，发现你的内容机会。</div>
+
             <label className="field-label" htmlFor="search-platform">
               数据平台
             </label>
@@ -413,6 +412,7 @@ export function Discover() {
               <option value="xiaohongshu">小红书 · 图文与视频</option>
               <option value="douyin">抖音 · 视频与图文</option>
             </select>
+            <details className="search-advanced" open={embedded ? undefined : true}><summary>筛选与采集设置</summary>
             <div className="field-row">
               <div>
                 <label className="field-label" htmlFor="limit">
@@ -527,6 +527,7 @@ export function Discover() {
               />
               刷新平台数据（默认复用5分钟内已有结果）
             </label>
+            </details>
             <div className="search-actions">
               <button
                 type="submit"
@@ -567,7 +568,7 @@ export function Discover() {
               </div>
             )}
           </form>
-          <div className="search-tip">
+          {!embedded && <div className="search-tip">
             <div>
               <span>一点小提示</span>
               <Sparkles size={14} />
@@ -582,10 +583,10 @@ export function Discover() {
               试试「装修」
               <ArrowRight size={12} />
             </button>
-          </div>
+          </div>}
         </section>
         <section className="results-panel">
-          <div className="result-stats">
+          {!embedded && <div className="result-stats">
             <div>
               <span>
                 发现作品 <ImageIcon size={14} />
@@ -624,14 +625,14 @@ export function Discover() {
                 {job?.pages || 0} 页 · 耗时 {job?.elapsed || 0} 秒
               </em>
             </div>
-          </div>
+          </div>}
           <div className="results-box panel">
             <div className="results-heading">
               <div>
                 <h2>
                   发现的作品 <span>{notes.length}</span>
                 </h2>
-                <p>从内容里，找到下一次增长的可能。</p>
+
               </div>
               <div className="results-export">
                 <a
@@ -738,7 +739,7 @@ export function Discover() {
                 下方按本机已读评论的需求与时效重排；无评论样本时使用作品日期和评论数初筛，点赞量不决定客户意向。
               </p>
             )}
-            <div className="live-bar">
+            {!embedded && <div className="live-bar">
               <span>
                 <i /> LIVE
               </span>
@@ -756,7 +757,7 @@ export function Discover() {
               </b>
               <SourceTag source={job?.source || 'demo'} />
               <span className="live-bar-right">{view === 'cards' ? 'CARD VIEW' : 'EVENT LOG'}</span>
-            </div>
+            </div>}
             {job?.searchEvidence && (
               <p className="field-hint" style={{ padding: '0 16px' }}>
                 已核对平台排序：
@@ -883,7 +884,7 @@ export function Discover() {
           <Check size={14} />
           全选图文
         </button>
-        <span>选中作品，批量带走你的灵感</span>
+        <span>选中作品后批量操作</span>
       </div>
       {detail && (
         <Modal title="作品详情" sub="查看内容、互动数据与来源" onClose={() => setDetail(null)} wide>

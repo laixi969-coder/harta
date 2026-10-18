@@ -1,3 +1,4 @@
+import { openAcquisitionPage, acquisitionActiveSection, resumeAcquisitionRoute } from './openfind-workbench.js';
 import { installCommerceUI, renderCommerceUI, resumeOpenFindHandoff } from './commerce-ui.js';
 import { installResponsiveNavigation } from './responsive-navigation.js';
 import { renderGrowthSettings, renderPostGrowth, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
@@ -708,12 +709,13 @@ function addMaterialFiles(files) {
 }
 
 function nav(view) {
+  if (view === 'prospecting') { openAcquisitionPage('discover'); return; }
+  if (view !== 'openfind' && new URLSearchParams(location.search).has('acqPage')) history.replaceState(null, '', '/');
   state.view = view;
-  const activeView = view === 'today' ? (state.contentOnly || !currentPack() || currentPack()?.tier === '今日' ? 'content-home' : 'pack') : view === 'acquisition' ? (document.querySelector('[data-view=acquisition]').dataset.journey === 'content' ? 'content-home' : 'prospecting') : view === 'leads' ? 'conversations' : view;
+  const activeView = view === 'today' ? (state.contentOnly || !currentPack() || currentPack()?.tier === '今日' ? 'content-home' : 'pack') : view === 'acquisition' ? (document.querySelector('[data-view=acquisition]').dataset.journey === 'content' ? 'content-home' : 'prospecting') : view === 'leads' ? 'conversations' : view === 'openfind' ? acquisitionActiveSection() : ['prospecting-archive','review'].includes(view) ? 'prospecting' : view;
   updateNavigation(activeView);
   const secondary=document.querySelector(`.rail-more [data-nav="${activeView}"]`);
   document.querySelector('.rail-more').open=Boolean(secondary);
-  renderCommerceUI();
   renderAcquisitionUI();
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const on = a.dataset.nav === activeView;
@@ -726,6 +728,7 @@ function nav(view) {
   document.querySelectorAll("[data-view]").forEach((p) => {
     p.classList.toggle("hidden", p.dataset.view !== view);
   });
+  renderCommerceUI();
   window.scrollTo({top:0,behavior:"instant"});
 }
 
@@ -2393,6 +2396,7 @@ async function boot() {
   nav(connectionReturn ? 'connections' : 'workbench');
   if (connectionReturn) history.replaceState(null, '', '/');
   await resumeOpenFindHandoff();
+  resumeAcquisitionRoute();
   // 刷新前正在出的档，刷新后也得有人等它：轮询丢了页面就会永远说「正在出档」。
   // 可能不止一个在跑，全都盯上。
   for (const c of state.workspace.customers || []) {

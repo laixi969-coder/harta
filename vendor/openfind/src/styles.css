@@ -4992,3 +4992,41 @@ dialog.modal > :not(.modal-head) { flex-shrink: 0; }
   .selection-bar { left: 50%; max-width: calc(100vw - 24px); }
   .running-indicator { max-width: calc(100vw - 24px); }
 }
+/* Embedded pages inherit the single Harta navigation and business context. */
+.app-shell.embedded{display:block;min-height:100dvh}
+.embedded .main-shell{margin:0;width:100%;min-width:0}
+.embedded .main-content{padding:20px 24px;max-width:none;width:100%;margin:0}
+.embedded .running-indicator{bottom:12px;right:12px}
+.embedded .toast{left:50%;max-width:calc(100vw - 24px)}
+@media(max-width:680px){.embedded .main-content{padding:16px 12px}.embedded .main-shell{padding:0}}
+.agent-options{margin-bottom:16px}
+.agent-options>summary,.search-advanced>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--ui-muted);font-size:13px}
+.agent-options .agent-panel{margin-top:8px}
+.embedded .source-quote{margin:16px 0;padding:12px 16px;border-left:3px solid var(--ui-brand);background:var(--ui-brand-soft);overflow-wrap:anywhere}
+.embedded .discover-layout{align-items:start}
+@media(max-width:1100px){.embedded .discover-layout{grid-template-columns:minmax(0,1fr)}.embedded .search-panel{position:static}}
+@media(max-width:680px){
+ .embedded .lead-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+ .embedded .lead-stats>div{padding:12px;min-width:0}
+ .embedded .lead-stats strong{font-size:22px}
+ .embedded .lead-stats span{font-size:12px;white-space:nowrap}
+ .embedded .results-box:has(.lead-table) .results-toolbar{display:flex;flex-wrap:wrap;gap:12px}
+ .embedded .results-box:has(.lead-table) .filter-tabs{flex-basis:100%;display:flex;gap:8px}
+ .embedded .results-box:has(.lead-table) .filter-tabs button{min-height:44px;white-space:nowrap}
+ .embedded .results-box:has(.lead-table) .field-label{display:flex;align-items:center;gap:12px;white-space:nowrap;flex:1;margin:0}
+ .embedded .results-box:has(.lead-table) .input-with-icon{flex-basis:100%}
+ .embedded .lead-table,.embedded .lead-table tbody{display:block;width:100%;min-width:0}
+ .embedded .lead-table thead{display:none}
+ .embedded .lead-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:16px;border-top:1px solid var(--border)}
+ .embedded .lead-table td{display:block;padding:0;border:0;min-width:0;white-space:normal;overflow-wrap:anywhere}
+ .embedded .lead-table td:nth-child(1),.embedded .lead-table td:nth-child(2),.embedded .lead-table td:nth-child(5){grid-column:1/-1}
+ .embedded .lead-table td:nth-child(3){grid-column:1}
+ .embedded .lead-table td:nth-child(4){grid-column:2;align-self:center}
+ .embedded .lead-table td:nth-child(5) .text-btn{min-height:44px;display:flex;align-items:center;justify-content:flex-end;width:100%}
+ .embedded .customer-cell b{white-space:normal}
+}
+.acquisition-links{grid-column:1/-1;display:grid;gap:8px;min-width:0}
+.acquisition-links textarea{resize:vertical;min-height:130px;overflow-wrap:anywhere}
+.acquisition-links [role=status]{font-size:13px;color:var(--ui-muted)}
+.collection-budget-options{margin:12px 0}
+.collection-budget-options>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:13px;color:var(--ui-muted)}

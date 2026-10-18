@@ -73,7 +73,8 @@ export function WorkSource({ note }: { note?: Note }) {
   );
 }
 export function WorkflowSteps({ active }: { active: Page }) {
-  const { data, navigate } = useWorkspace();
+  const { data, navigate, embedded } = useWorkspace();
+  if(embedded) return null;
   return (
     <nav className="workflow-steps" aria-label="获客与创作流程">
       {(
