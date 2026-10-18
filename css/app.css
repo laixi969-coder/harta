@@ -3095,3 +3095,18 @@ section[data-view="agents"] > .hook h1 { font-size:32px; line-height:1.35; lette
 #acq-context .acq-business { margin-bottom:0; }
 @media(max-width:1050px) { .agent-detail-layout { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:600px) { .agent-heading { flex-direction:column; gap:12px; } }
+
+/* Keep setup controls available without placing every form in the first screen. */
+.settings-section > summary, .llm-add-card > summary {
+  cursor: pointer; font-size: var(--t-3); font-weight: 600; line-height: 1.6;
+}
+.settings-section[open] > summary { margin-bottom: 18px; }
+.workspace-tile-caption:empty { display: none; }
+.settings-section summary:focus-visible, .llm-add-card summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 5px;
+}
+
+section[data-view="settings"] > .settings-section:not([open]) { padding: 16px 22px; }
+.llm-section-title { margin: 0 0 14px; font-size: var(--t-3); }
+.llm-current > details { grid-column: 1 / -1; font-size: var(--t-5); }
+.llm-current > details > summary { cursor: pointer; }

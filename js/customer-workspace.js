@@ -9,7 +9,7 @@ export function arrangeWorkspace(customer, pack) {
     for(const [key,label] of Object.entries(titles)) {
       const button=document.createElement('button');button.type='button';button.setAttribute('aria-label',label);
       const title=document.createElement('strong');title.className='workspace-tile-title';title.textContent={content:'内容成品',research:'创作偏好',materials:'参考资料',overview:'历史待办'}[key];
-      const caption=document.createElement('span');caption.className='workspace-tile-caption';caption.textContent=label;
+      const caption=document.createElement('span');caption.className='workspace-tile-caption';caption.textContent='';
       const count=document.createElement('span');count.className='workspace-tile-count';
       const arrow=document.createElement('span');arrow.className='workspace-tile-arrow';arrow.textContent='↗';arrow.setAttribute('aria-hidden','true');
       button.append(title,caption,count,arrow);button.dataset.workspaceView=key;button.setAttribute('aria-controls','workspace-'+key);nav.append(button);
@@ -24,7 +24,7 @@ export function arrangeWorkspace(customer, pack) {
     // 全局待办移到独立入口，客户内容页只呈现当前业务。
     const actions=document.getElementById('go-today').parentElement;actions.classList.add('workspace-primary-actions');document.getElementById('hook-line').parentElement.append(actions);
     const gate=document.getElementById('hook-gate');const details=document.createElement('details');details.className='workspace-context';
-    const summary=document.createElement('summary');summary.textContent='使用提醒';details.append(summary,gate);panels.content.prepend(details);
+    const summary=document.createElement('summary');summary.textContent='发布提示';details.append(summary,gate);panels.content.prepend(details);
     const consolePanel=document.getElementById('content-console');
     const tools=document.createElement('details');tools.className='workspace-tools';
     const toolTitle=document.createElement('summary');toolTitle.textContent='筛选、排期与导出';tools.append(toolTitle);
@@ -32,7 +32,7 @@ export function arrangeWorkspace(customer, pack) {
     consolePanel.append(tools);
     const checks=document.getElementById('checks-card');
     const checkDetails=document.createElement('details');checkDetails.id='workspace-checks';checkDetails.className='workspace-context';
-    const checkTitle=document.createElement('summary');checkTitle.textContent='查看发布前检查与风险提示';
+    const checkTitle=document.createElement('summary');checkTitle.textContent='发布前检查';
     checks.before(checkDetails);checkDetails.append(checkTitle,checks);
     const history=document.getElementById('history');const archive=document.createElement('details');archive.className='workspace-history';
     const hs=document.createElement('summary');hs.textContent='查看历史批次';archive.append(hs,history);panels.content.prepend(archive);
@@ -42,11 +42,12 @@ export function arrangeWorkspace(customer, pack) {
   root.classList.toggle('is-prospect', !cooperating);
   const contentButton = document.querySelector('[data-workspace-view="content"]');
   contentButton.setAttribute('aria-label', cooperating ? '内容交付' : '诊断报告');
-  contentButton.querySelector('.workspace-tile-caption').textContent = cooperating ? '内容交付' : '诊断报告';
+  contentButton.querySelector('.workspace-tile-caption').textContent = '';
   contentButton.querySelector('.workspace-tile-title').textContent = cooperating ? '内容成品' : '诊断报告';
   document.querySelector('[data-workspace-view="research"]').hidden = !cooperating;
   let empty=document.getElementById('workspace-materials-empty');
-  if(!empty){empty=document.createElement('p');empty.id='workspace-materials-empty';empty.className='meta';empty.textContent='这里保留已上传的业务资料与历史跟进记录。可从客户页面补充资料。';document.getElementById('workspace-materials').prepend(empty);}
+  if(!empty){empty=document.createElement('p');empty.id='workspace-materials-empty';empty.className='meta';empty.textContent='暂无参考资料，可在业务资料页补充。';document.getElementById('workspace-materials').prepend(empty);}
+  empty.hidden = ['material-record-card','acquisition-card'].some(id=>!document.getElementById(id).classList.contains('hidden'));
   const values={content:cooperating ? (pack ? `${Object.values(pack.copies||{}).flat().length} 篇` : '待出首批') : `${customer.packs?.length || 0} 份报告`,research:'选填',materials:customer.materialReady ? '已读取' : '可补充',overview:customer.job ? '生成中' : '查看待办'};
   for(const [key,value] of Object.entries(values))document.querySelector(`[data-workspace-view="${key}"] .workspace-tile-count`).textContent=value;
   show();

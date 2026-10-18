@@ -16,7 +16,7 @@ export function keywordLibraryView(target, status, batches, customerId) {
       if(!entry.body) {
         content.innerHTML=`<p class="meta">${esc(batch.sources.join('、'))} · ${esc(new Date(batch.createdAt).toLocaleDateString())} · 合并${batch.duplicateCount}条重复记录</p>
           <p>${esc(Object.entries(batch.summary).map(([k,v])=>`${k} ${v}`).join(' · '))}</p>
-          <p class="meta">分类为规则推断；语义分组覆盖 ${batch.analysis?.analyzedCount||0}/${batch.items.length} 个词，其余仍参与研究。</p>
+          <details><summary>分类与覆盖范围</summary><p class="meta">规则分类；语义分组 ${batch.analysis?.analyzedCount||0}/${batch.items.length} 个词。其余词仍参与研究。</p></details>
           ${[...(batch.warnings||[]),batch.analysis?.warning].filter(Boolean).map(w=>`<p class="meta">${esc(w)}</p>`).join('')}
           <details class="keyword-topics"><summary>查看需求主题</summary>${(batch.analysis?.groups||[]).map(g=>`<p><b>${esc(g.topic)}</b> · ${esc(g.scenario)}<br>${esc(g.angle)} <span class="meta">（模型建议）</span></p>`).join('')}</details>
           <div class="keyword-table" role="region" tabindex="0" aria-label="${esc(batch.scope.name)}关键词明细"><table><caption class="meta">需求词与原始来源；来源可展开查看</caption><thead><tr><th scope="col">关键词</th><th scope="col">品类 / 品牌</th><th scope="col">意图 / 阶段</th><th scope="col">拆解</th><th scope="col">原始数据与来源</th></tr></thead><tbody></tbody></table></div>

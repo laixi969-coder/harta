@@ -319,7 +319,7 @@ function renderJobCenter() {
         <div class="job-row-main">
           <div class="job-title"><button type="button" class="job-customer" data-using="${esc(customer.id)}">${esc(customer.name)}</button><span>运行中</span></div>
           <div class="job-meter is-live" role="progressbar" aria-label="${esc(customer.name)}${esc(job.kind)}进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><i style="--job-scale:${progress / 100}"></i></div>
-          <p>${progress}% · ${esc(job.stage || `正在${jobLabel(job.kind)}`)} · 已运行 ${elapsedLabel(job.startedAt, now)}</p>
+          <p>${esc(jobLabel(job.kind))} · ${progress}% · ${elapsedLabel(job.startedAt, now)}</p>
         </div>
         <button type="button" class="go" data-using="${esc(customer.id)}">查看</button>
       </div>`;
@@ -338,7 +338,7 @@ function renderJobCenter() {
   ];
   box.classList.toggle("hidden", !rows.length);
   box.innerHTML = rows.length
-    ? `<div class="job-center-head"><span>生成任务</span><small>${active.length ? "自动刷新，不用守着" : "最近结果"}</small></div>${rows.join("")}`
+    ? `<div class="job-center-head"><span>生成任务</span><small>${active.length ? "运行中" : "最近结果"}</small></div>${rows.join("")}`
     : "";
 }
 
@@ -405,15 +405,19 @@ function renderPackJob() {
       : "";
   const expect = prev ? `上一批用了 ${prev}；本批耗时取决于资料与模型` : meta.band;
   box.classList.remove("hidden");
+  const detailsOpen = box.querySelector('details')?.open;
   box.innerHTML = `
     <div class="pack-job-head">
-      <b>正在${esc(job.kind)}</b>
+      <b>${esc(jobLabel(job.kind))}中</b>
       <span class="pack-job-percent">${progress}%</span>
     </div>
     <div class="job-meter is-live" role="progressbar" aria-label="${esc(mine.name || "")}正在${esc(job.kind)}的进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><i style="--job-scale:${progress / 100}"></i></div>
-    <p class="pack-job-stage">${esc(job.stage || `正在${job.kind}`)} · 已运行 ${elapsedLabel(job.startedAt)}</p>
-    ${chips.length ? `<p class="pack-job-steps">${chips.join('<i class="step-arrow">→</i>')}</p>` : ""}
-    <p class="meta">${expect ? `${esc(expect)}。` : ""}关掉页面也不丢，回来看进度还在；出好了这一页自己刷新。</p>`;
+    <p class="pack-job-stage">已运行 ${elapsedLabel(job.startedAt)}</p>
+    <details ${detailsOpen ? 'open' : ''}><summary>生成详情</summary>
+      <p>${esc(job.stage || jobLabel(job.kind))}</p>
+      ${chips.length ? `<p class="pack-job-steps">${chips.join('<i class="step-arrow">→</i>')}</p>` : ""}
+      ${expect ? `<p class="meta">${esc(expect)}</p>` : ''}
+    </details>`;
 }
 
 
@@ -642,7 +646,7 @@ function renderCustomerMaterialRecord(customer) {
   let business = document.getElementById('customer-business');
   if (!business) {
     business = document.createElement('div'); business.id = 'customer-business';
-    business.innerHTML = '<h3>业务信息与沟通补充</h3><label for="business-pitch">业务简介</label><textarea id="business-pitch" maxlength="300" rows="3"></textarea><label for="business-city">服务城市</label><input id="business-city" maxlength="40"><label for="business-notes">客户补充、合作范围与目标</label><textarea id="business-notes" maxlength="12000" rows="5" placeholder="记录客户提供的信息、确认的服务范围及获客目标"></textarea><button class="btn" type="button" id="save-customer-business">保存业务信息</button><p class="meta">保存后用于下一次诊断和内容生成。</p>';
+    business.innerHTML = '<h3>业务信息</h3><label for="business-pitch">业务简介</label><textarea id="business-pitch" maxlength="300" rows="3"></textarea><label for="business-city">服务城市</label><input id="business-city" maxlength="40"><label for="business-notes">客户补充、合作范围与目标</label><textarea id="business-notes" maxlength="12000" rows="5" placeholder="记录客户提供的信息、确认的服务范围及获客目标"></textarea><button class="btn" type="button" id="save-customer-business">保存业务信息</button><p class="meta">用于下次诊断和内容生成。</p>';
     panel.prepend(business);
   }
   if (business.dataset.customer !== customer.id) {
@@ -654,7 +658,7 @@ function renderCustomerMaterialRecord(customer) {
   }
   document.getElementById("material-record-count").textContent = `附件 / ${String(sources.length).padStart(2, "0")}`;
   document.getElementById("material-record-engine").textContent = materialEngineText(analysis);
-  document.getElementById("material-record-overview").textContent = analysis.overview || '可以在此上传客户补充的资料，再更新诊断或制定获客方向。';
+  document.getElementById("material-record-overview").textContent = analysis.overview || '可上传补充资料。';
   const pitch = document.getElementById("material-record-pitch");
   pitch.textContent = analysis.suggestedPitch ? `一句话卖点：${analysis.suggestedPitch}` : "";
   pitch.classList.toggle("hidden", !analysis.suggestedPitch);
@@ -1561,10 +1565,9 @@ function renderCustomers() {
   const order = [...(desk.unmarked || []), ...(desk.send || []), ...(desk.judge || []), ...(desk.done || [])];
   const priority = new Map(order.map((row, index) => [row.id, index]));
   const all = state.workspace.customers || [];
-  const descriptions = { all: '业务资料、研究、报告和内容历史集中保留。', new: '初次接触：先出诊断报告，用报告开启沟通。', following: '继续洽谈：查看报告、补充资料、记录反馈，推进合作。', cooperating: '持续交付：完善业务资料与获客方向，再生成平台内容。' };
-  document.getElementById('customer-stage-nav').innerHTML = '<button type="button" data-stage-filter="all">全部业务</button>' + Object.entries(CUSTOMER_STAGES).map(([key, label], index) => `<button type="button" data-stage-filter="${key}" aria-pressed="${state.customerStageFilter === key}"><span class="meta">0${index + 1}</span><strong>${label}<span>${all.filter(c => customerStage(c) === key).length}</span></strong><span>${descriptions[key]}</span></button>`).join('');
+  document.getElementById('customer-stage-nav').innerHTML = '<button type="button" data-stage-filter="all">全部业务</button>' + Object.entries(CUSTOMER_STAGES).map(([key, label], index) => `<button type="button" data-stage-filter="${key}" aria-pressed="${state.customerStageFilter === key}"><span class="meta">0${index + 1}</span><strong>${label}<span>${all.filter(c => customerStage(c) === key).length}</span></strong></button>`).join('');
   document.getElementById('customer-stage-title').textContent = state.customerStageFilter === 'all' ? '全部业务' : CUSTOMER_STAGES[state.customerStageFilter];
-  document.getElementById('customer-stage-description').textContent = descriptions[state.customerStageFilter];
+  document.getElementById('customer-stage-description').textContent = '';
   const add = document.getElementById('customer-stage-add');
   add.dataset.customerEntry = state.customerStageFilter === 'cooperating' ? 'cooperating' : 'new';
   add.textContent = state.customerStageFilter === 'cooperating' ? '录入已合作客户' : '诊断新客户';
@@ -1600,7 +1603,7 @@ function openCustomerEntry(stage) {
   state.customerStageFilter = stage;
   document.querySelector(`input[name="track"][value="${stage === 'cooperating' ? '存量' : '拓新'}"]`).checked = true;
   document.getElementById('customer-create-title').textContent = stage === 'cooperating' ? '录入已合作客户' : '诊断新客户';
-  document.getElementById('customer-create-note').textContent = stage === 'cooperating' ? '保存后进入业务资料，补充获客目标和平台方向，再启动首批内容。' : '先填客户名称、行业和业务简介，即可开始诊断。现有资料可以附上，沟通后再逐步补充。';
+  document.getElementById('customer-create-note').textContent = stage === 'cooperating' ? '名称与业务简介必填，其他资料选填。' : '填写名称、行业和简介；附件选填。';
   document.getElementById('create-customer').textContent = stage === 'cooperating' ? '保存并补充业务资料' : '开始诊断';
   renderCustomers(); nav('customers');
   document.getElementById('customer-create').classList.remove('hidden');
@@ -2065,7 +2068,7 @@ const ICON_EYE =
 
 function providerCard(id, p, active) {
   const isActive = active === id;
-  const folded = Boolean(state.llmFolded[id]);
+  const folded = state.llmFolded[id] ?? true;
   const tab = state.llmTabs[id] || "text";
   const enabled = new Set(p.enabled || []);
   const rows = (p.models || []).map((m) => ({ m, cat: modelCategory(m), on: enabled.has(m) }));
@@ -2206,28 +2209,26 @@ async function loadLlm() {
   }[activeProvider?.visionStatus || "unknown"];
   const activeSummary = activeProvider
     ? `<article class="llm-current ${activeReady ? "is-ready" : "is-missing"}">
-        <span class="llm-current-k">实际使用中的模型</span>
+        <span class="llm-current-k">当前模型</span>
         <strong>${esc(activeProvider.name)} · ${activeProvider.model ? esc(modelPretty(activeProvider.model)) : "尚未选择模型"}</strong>
         ${activeProvider.model ? `<code>${esc(activeProvider.model)}</code>` : ""}
-        <p>${esc(activeVision)}。日常生成内容、报告和处理纯文字资料都使用这一组。其他渠道里的“渠道预选”不会参与日常任务。资料含图片或视频画面时，会先尝试当前渠道，再按卡片顺序尝试其他支持图片的模型；资料摘要会注明实际使用的模型。</p>
+        <p>${esc(activeVision)}</p>
+        <details><summary>模型使用规则</summary><p>展开渠道选择模型，点击闪电切换。内容、报告和文字资料使用当前模型；图片或视频画面按渠道顺序尝试支持图片的模型。</p></details>
       </article>`
     : "";
   // 一个人可能同时挂着火山、硅基流动、一个自建中转，所以自定义接口不止一个
   const cards = Object.entries(data.providers)
     .map(([id, p]) => providerCard(id, p, data.active))
     .join("");
-  box.innerHTML = `<article class="card">
-      <h2>模型接口</h2>
-      <p class="meta">先在渠道内选择模型，再点卡片顶部的闪电切换实际渠道。日常生成内容和报告始终只使用一个“正在使用”的模型。</p>
-    </article>
+  box.innerHTML = `<h2 class="llm-section-title">模型接口</h2>
     ${activeSummary}
     <div class="llm-grid" id="llm-grid">${cards}
-      <article class="llm-card llm-add-card">
-        <strong>再加一个接口</strong>
-        <p class="meta">任何 OpenAI 兼容的地址都行。加好之后跟上面几张一样填密钥、同步模型。</p>
-        <input id="llm-new-name" maxlength="20" placeholder="好认就行，比如 火山方舟（最多 20 字）">
+      <details class="llm-card llm-add-card">
+        <summary>添加模型接口</summary>
+        <p class="meta">支持 OpenAI 兼容接口。</p>
+        <input id="llm-new-name" maxlength="20" placeholder="渠道名称（最多 20 字）">
         <div class="acts"><button class="do" id="llm-add" type="button">加上</button></div>
-      </article>
+      </details>
     </div>`;
   bindEyes(box);
   // 刚点开的那行输入，重画完把焦点接回去，不然「改密钥」要点两回
@@ -2296,8 +2297,8 @@ async function loadCrew() {
   const top = hunts.find((h) => h.replied > 0 || h.deals > 0);
   if (line) {
     line.textContent = top
-      ? `反馈最多的方向：${top.hunt}——${top.replied} 条有客户反馈${top.deals ? ` · ${top.deals} 笔成交` : ""}。全是实际记录，没有一条是编的。`
-      : "全组还没有标记过客户反馈。有人点过“有客户反馈”或填写过跟进记录，这里才会显示结果。";
+      ? `已登记反馈最多：${top.hunt} · ${top.replied} 条${top.deals ? ` · ${top.deals} 笔成交` : ""}。`
+      : "暂无已登记的客户反馈。";
   }
   box.innerHTML = hunts.length
     ? hunts
@@ -2305,7 +2306,7 @@ async function loadCrew() {
           (h) => `<div class="row hunt-stat">
       <div class="row-main">
         <div class="row-head"><strong>${esc(h.hunt)}</strong></div>
-        <div class="meta">${h.sales} 人在打 · ${h.customers} 个客户 · 出过 ${h.packs} 份档</div>
+        <div class="meta">${h.sales} 位成员 · ${h.customers} 个客户 · ${h.packs} 份内容与报告</div>
       </div>
       <div class="stat-pills">
         <span><b>${h.replied}</b> 客户反馈</span>
@@ -3168,7 +3169,7 @@ document.body.addEventListener("click", async (e) => {
   const fold = e.target.closest("[data-llm-fold]");
   if (fold) {
     const fid = fold.dataset.llmFold;
-    state.llmFolded[fid] = !state.llmFolded[fid];
+    state.llmFolded[fid] = !(state.llmFolded[fid] ?? true);
     loadLlm();
     return;
   }
@@ -3528,7 +3529,7 @@ boot();
 function showResearchConfig(config) {
   document.getElementById("research-rsshub-url").value = config.rsshubUrl || "";
   document.getElementById("research-searxng-url").value = config.searxngUrl || "";
-  document.getElementById("research-config-status").textContent = `5118：${config.keywordReady ? "已配置" : "未配置"}；外部搜索：${config.searxngReady ? "SearXNG 已配置" : config.searchReady ? "Brave 已配置" : "未配置"}；行业资讯：${config.rsshubReady ? "RSSHub 已配置" : "未配置"}；正文读取：${config.crawlerReady ? "Crawl4AI 已安装" : "基础读取器"}。点击测试连接核实当前可用性。`;
+  document.getElementById("research-config-status").textContent = `5118：${config.keywordReady ? "已配置" : "未配置"}；外部搜索：${config.searxngReady ? "SearXNG 已配置" : config.searchReady ? "Brave 已配置" : "未配置"}；行业资讯：${config.rsshubReady ? "RSSHub 已配置" : "未配置"}；正文读取：${config.crawlerReady ? "Crawl4AI 已安装" : "基础读取器"}。`;
 }
 function renderGrowthResearch(customer, pack) {
   renderGrowthSettings(customer);

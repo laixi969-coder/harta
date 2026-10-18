@@ -10,7 +10,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>灵鹿增长 · 获客工作台</title>
-  <link rel="stylesheet" href="css/app.css?v=20261013-black">
+  <link rel="stylesheet" href="css/app.css?v=20261018-distill">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
@@ -127,8 +127,6 @@
         <div id="history" class="history"></div>
         <article class="card form" id="keyword-card">
           <details class="keyword-intake" id="keyword-import-panel" open><summary>导入关键词资料</summary>
-          <h2>导入领域、品类或品牌关键词</h2>
-          <p class="meta">导入后自动去重，供研究和内容创作使用。</p>
           <div class="keyword-scope">
             <div><label for="keyword-scope-type">归属类型</label><select id="keyword-scope-type"><option>领域</option><option>产品品类</option><option>品牌</option></select></div>
             <div><label for="keyword-scope-name">归属名称</label><select id="keyword-scope-name"></select><div id="keyword-scope-new-wrap" hidden><label for="keyword-scope-new">新增归属名称</label><input id="keyword-scope-new" maxlength="100" placeholder="填写新的名称，已有名称请从上方选择"></div><p class="meta" id="keyword-scope-hint"></p></div>
@@ -148,12 +146,11 @@
         </article>
         <article class="card form" id="growth-card">
           <details class="growth-input" id="growth-edit-panel" open><summary>补充偏好（选填）</summary>
-          <h2>有特别要求，告诉我就好</h2>
 
           <div id="growth-settings"></div>
           <label for="growth-direction">接下来希望怎样调整？</label>
           <textarea id="growth-direction" rows="3" maxlength="2000" placeholder="例如：优先做小红书，吸引更重视品质的客户；每周能拍两条视频，不方便出镜。"></textarea>
-          <p class="meta">最多 2000 字。保存后用于下一批，历史内容保持原样。</p>
+          <p class="meta">用于下一批，历史内容不变。</p>
           <div class="acts"><button class="btn" type="button" id="save-growth-direction">保存方向</button></div>
           </details>
           <details class="research-advanced"><summary>查看参考资料</summary><div id="growth-research" aria-live="polite"></div></details>
@@ -225,7 +222,7 @@
           <p class="chapter-name">一 · 客户分析</p>
         <article class="card hidden" id="landscape-card">
           <h2>行业现状</h2>
-          <p class="meta">公开检索能看到的，不是对这家的断言。</p>
+          <p class="meta">公开资料，仅供参考。</p>
           <p id="landscape"></p>
         </article>
         <article class="card" id="demand-card">
@@ -239,7 +236,7 @@
         </article>
         <article class="card hidden" id="questions-card">
           <h2>建议先确认的问题</h2>
-          <p class="meta">补充以下信息后可重新生成报告。</p>
+          <p class="meta">补充后可重新生成。</p>
           <div id="questions"></div>
         </article>
         </div>
@@ -352,7 +349,7 @@
       </section>
       <section class="hidden" data-view="customers">
         <div class="hook">
-          <p class="kicker">客户</p>
+
           <h1>业务资料</h1>
         </div>
         <div class="acts"><button class="btn" data-cm="go-workbench">建立业务</button></div><details><summary>按原合作分类查看（选用）</summary><nav id="customer-stage-nav" class="customer-stage-nav" aria-label="客户阶段入口"></nav></details>
@@ -385,7 +382,7 @@
           <input id="city" maxlength="40" placeholder="广州（最多 40 字）">
           <label for="pitch">业务简介</label>
           <textarea id="pitch" class="short-textarea" rows="3" maxlength="300" aria-describedby="pitch-count" placeholder="他们卖什么；可直接粘贴，框会自动换行"></textarea>
-          <p class="field-meta"><span>最多 300 字，内容会完整保存</span><span id="pitch-count" data-char-count="pitch">0 / 300</span></p>
+          <p class="field-meta"><span>业务介绍</span><span id="pitch-count" data-char-count="pitch">0 / 300</span></p>
           </fieldset>
           <details class="customer-evidence"><summary>补充现有资料（可选）</summary>
           <div class="material-desk" id="material-desk">
@@ -435,7 +432,7 @@
           <div class="customer-create-footer">
           <label for="cmaterial">销售补充（可选）</label>
           <textarea id="cmaterial" class="long-textarea" rows="8" maxlength="12000" aria-describedby="cmaterial-count" placeholder="会议信息、客户原话、暂时没有文件的材料；可粘贴长文"></textarea>
-          <p class="field-meta"><span>最多 12,000 字；全部保存，生成报告时会优先读取这段</span><span id="cmaterial-count" data-char-count="cmaterial">0 / 12,000</span></p>
+          <p class="field-meta"><span>补充资料</span><span id="cmaterial-count" data-char-count="cmaterial">0 / 12,000</span></p>
           </div>
           </details>
           </div>
@@ -448,14 +445,14 @@
         <div class="hook">
           <p class="kicker">客户报告</p>
           <h1>交付给客户</h1>
-          <p class="meta">PDF 可直接发送，Word 可继续编辑。内容批次在内容库导出。</p>
+          <p class="meta">导出 PDF 或可编辑的 Word。</p>
         </div>
         <div id="pack-list" class="chase"></div>
       </section>
 
       <section class="hidden" data-view="ledger">
         <div class="hook">
-          <p class="kicker">跟进记录</p>
+
           <h1>跟进记录</h1>
           <p class="meta" id="ledger-count"></p>
           <button class="btn" id="ledger-new" type="button" aria-controls="ledger-form-card" aria-expanded="false">新增跟进</button>
@@ -482,7 +479,7 @@
 
       <section class="hidden" data-view="crew">
         <div class="hook">
-          <p class="kicker">全组</p>
+
           <h1>团队概览</h1>
           <p class="meta" id="crew-line">仅管理员可见，显示汇总数据。</p>
         </div>
@@ -498,11 +495,11 @@
 
       <section class="hidden" data-view="settings">
         <div class="hook">
-          <p class="kicker">设置</p>
+
           <h1 id="settings-line"></h1>
         </div>
-        <article class="card form">
-          <h2>密码</h2>
+        <details class="card form settings-section">
+          <summary>修改密码</summary>
           <label for="old-pass">旧密码</label>
           <div class="pass-wrap">
             <input id="old-pass" type="password" maxlength="128" autocomplete="current-password">
@@ -514,29 +511,29 @@
             <button type="button" class="eye" data-eye="new-pass" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></button>
           </div>
           <div class="acts"><button class="btn" id="change-pass" type="button">更改密码</button></div>
-        </article>
-        <article class="card form hidden" id="whitelist-card">
-          <h2>开通账号</h2>
-          <p class="meta">开通后，将生成的激活码私下发给本人，让对方完成注册。</p>
-          <label for="white-email">他的邮箱</label>
+        </details>
+        <details class="card form settings-section hidden" id="whitelist-card">
+          <summary>账号管理</summary>
+          <p class="meta">将激活码私下发给本人注册。</p>
+          <label for="white-email">邮箱</label>
           <input id="white-email" type="email" maxlength="254" placeholder="name@company.com">
           <div class="acts"><button class="btn" id="add-white" type="button">开通</button></div>
           <div id="activation-result" class="hidden" role="status"></div>
           <div id="white-list" class="chase" style="margin-top:14px"></div>
-        </article>
-        <article class="card form hidden" id="research-settings">
-          <h2>需求研究数据源</h2>
-          <p class="meta">配置搜索与关键词来源。密钥仅保存在服务器，留空保留原值。</p>
+        </details>
+        <details class="card form settings-section hidden" id="research-settings">
+          <summary>需求研究数据源</summary>
+          <p class="meta">密钥保存在服务器，留空不改。</p>
           <p><a href="https://www.5118.com/apistore/detail/8cf3d6ed-2b12-ed11-8da8-e43d1a103141" target="_blank" rel="noopener noreferrer">开通 5118 长尾词 API</a> · <a href="https://api-dashboard.search.brave.com/" target="_blank" rel="noopener noreferrer">开通 Brave Search API</a></p>
-          <div class="research-fields"><div class="research-field"><label for="research-searxng-url">SearXNG 自建搜索地址（开源，可替代 Brave）</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">SearXNG 需启用 JSON 搜索；留空使用 Brave。</p></div><div class="research-field"><label for="research-rsshub-url">RSSHub 行业资讯地址（开源）</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">按业务词匹配 36 氪最新快讯，不含历史搜索。</p></div><div class="research-field"><label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password"></div><div class="research-field"><label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password"></div></div>
+          <div class="research-fields"><div class="research-field"><label for="research-searxng-url">SearXNG 搜索地址</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">SearXNG 需启用 JSON 搜索；留空使用 Brave。</p></div><div class="research-field"><label for="research-rsshub-url">RSSHub 资讯地址</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">按业务词匹配 36 氪最新快讯，不含历史搜索。</p></div><div class="research-field"><label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password"></div><div class="research-field"><label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password"></div></div>
           <div class="acts"><button class="btn" type="button" id="save-research-config">保存数据源</button><button class="btn ghost" type="button" id="test-research-config">测试连接</button></div>
           <p class="meta">测试使用已保存配置，会消耗 API 额度。</p><p class="meta" id="research-config-status" role="status"></p>
-        </article>
+        </details>
         <div id="llm-box"></div>
       </section>
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-  <script type="module" src="js/app.js?v=20261013-copy"></script>
+  <script type="module" src="js/app.js?v=20261018-distill"></script>
 </body>
 </html>

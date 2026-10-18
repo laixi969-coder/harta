@@ -12,7 +12,7 @@ export function nextAction(customer, acquisition = {}) {
   if (due) return {title:`继续跟进：${due.title}`,note:due.nextStep || '已到跟进时间，查看上次沟通。',action:'open-need',id:due.id,label:'继续跟进'};
   const changed = [...(customer?.drops || []), ...(customer?.packs || [])].find(p => p.productReview?.required);
   if (changed) return {title:'先核对资料已更新的内容',note:'产品资料发生变化，发布前核对价格、参数和承诺。',action:'open-pack',id:changed.id,label:'核对内容'};
-  if (scoped('signals').some(s=>s.status==='pending'&&!s.isAuthorReply)) return {title:'核实发现的需求，再联系客户',note:'查看原文，核实后加入跟进。',action:'search',label:'查看待核实需求'};
+  if (scoped('signals').some(s=>s.status==='pending'&&!s.isAuthorReply)) return {title:'核实待跟进需求',note:'',action:'search',label:'查看待核实需求'};
   if (customer?.drops?.length) return {title:'继续你的内容获客',note:'查看成品并发布。',action:'go-content-home',label:'查看已有内容'};
-  return {title:'业务已建好，先做第一篇获客内容',note:'也可选择主动获客，查找需求。',action:'go-content-home',label:'开始内容获客'};
+  return {title:'开始获客',note:'选择内容创作或查找需求。',action:'go-content-home',label:'开始内容获客'};
 }
