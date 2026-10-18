@@ -122,3 +122,49 @@ section[data-view=today] #quick-growth-control{display:none!important}
 .cm-work-gallery img { width: 170px; height: 220px; object-fit: cover; border-radius: 10px; }
 @media(max-width:700px) { .cm-openfind-heading { padding: 10px; flex-wrap: wrap; } #cm-openfind iframe { min-height: 740px; } }
 .cm-work-video { width: min(100%, 520px); max-height: 480px; background: #171923; border-radius: 10px; }
+
+/* Saved works use the same media interactions in discovery, review and content references. */
+.cm-discovery-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0;border-bottom:1px solid var(--border);padding-bottom:10px}
+.cm-discovery-tabs button{border:0;background:transparent;padding:10px 14px;border-radius:8px;color:var(--ink-2);font:inherit;cursor:pointer}
+.cm-discovery-tabs [aria-selected=true]{background:var(--accent);color:var(--on-accent)}
+.cm-work-cover{position:relative;display:block;padding:0;border:0;background:var(--panel-2);cursor:pointer;overflow:hidden;text-align:left}
+.cm-work-cover img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .2s ease}
+.cm-work-cover:hover img{transform:scale(1.025)}
+.cm-discovery-card>.cm-work-cover{width:calc(100% + 36px);height:auto;aspect-ratio:4/3;margin:-18px -18px 16px;border-radius:var(--r-sm) var(--r-sm) 0 0}
+.cm-cover-type,.cm-cover-hint{position:absolute;background:#222a;color:#fff;padding:5px 9px;font-size:12px;border-radius:5px;bottom:10px;left:10px}
+.cm-cover-hint{left:auto;right:10px;opacity:0;transition:opacity .2s}
+.cm-work-cover:hover .cm-cover-hint,.cm-work-cover:focus-visible .cm-cover-hint{opacity:1}
+.cm-work-title{padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cm-work-title:hover{color:var(--accent)}
+.cm-card-description{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--ink-2)}
+.cm-discovery-card .acts{gap:7px}.cm-discovery-card .acts .btn{font-size:12px;padding:7px 9px}
+.cm-media-gallery{min-width:0}.cm-gallery-stage{display:flex;align-items:center;justify-content:center;min-height:160px;max-height:580px;overflow:auto;background:var(--panel-2);border-radius:12px}
+.cm-gallery-open{display:block;width:100%;padding:0;border:0;cursor:zoom-in;background:transparent}
+.cm-gallery-stage img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain}
+.cm-gallery-stage video{display:block;width:100%;max-height:520px}
+.cm-gallery-stage.zoomed{display:block;max-height:70dvh}.cm-gallery-stage.zoomed img{width:auto;max-width:none;max-height:none;min-width:100%}.cm-gallery-stage.zoomed button{cursor:zoom-out}
+.cm-gallery-controls{display:flex;justify-content:center;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 0;font-variant-numeric:tabular-nums}
+.cm-gallery-thumbs{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity}
+.cm-gallery-thumbs button{flex:0 0 62px;padding:2px;border:2px solid transparent;border-radius:8px;overflow:hidden;background:var(--panel-2);cursor:pointer;scroll-snap-align:center}
+.cm-gallery-thumbs img{display:block;width:54px;height:64px;object-fit:cover;border-radius:4px}
+.cm-gallery-thumbs [aria-pressed=true]{border-color:var(--accent)}
+.cm-work-preview{width:min(1180px,calc(100vw - 32px));max-height:90dvh;padding:24px;border:1px solid var(--border);border-radius:16px;color:var(--ink-1);background:var(--bg);overflow:auto;box-shadow:0 18px 80px #17192333}
+.cm-work-preview::backdrop{background:#171923a6;backdrop-filter:blur(4px)}
+.cm-preview-heading{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:20px}.cm-preview-heading h2{margin:0;font-size:22px}
+.cm-preview-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px;align-items:start}
+.cm-preview-content{min-width:0}.cm-preview-content h3{font-size:23px;line-height:1.45;margin:0 0 12px;text-wrap:pretty}
+.cm-work-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;max-width:65ch}.cm-work-stats{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}.cm-work-stats b{display:block;font-size:19px;color:var(--ink-1)}
+.cm-work-tags{display:flex;flex-wrap:wrap;gap:7px}.cm-work-tags span{padding:4px 7px;background:var(--panel-2);border-radius:5px;font-size:12px}
+.cm-preview-content .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.cm-preview-content .cm-error:empty{display:none}
+.cm-work-cover .cm-cover-empty,.cm-gallery-open>.cm-cover-empty{display:flex;width:100%;min-height:160px;padding:20px;color:var(--ink-2);background:var(--panel-2)}
+.cm-reference-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;max-height:520px;overflow:auto;padding:6px}
+.cm-reference-card{min-width:0;border:1px solid var(--border);border-radius:8px;padding:10px}.cm-reference-card .cm-work-cover{width:100%;height:140px;margin-bottom:8px}.cm-reference-card label{font-size:12px;line-height:1.5}
+.cm-media-gallery button:focus-visible,.cm-work-cover:focus-visible,.cm-work-title:focus-visible,.cm-discovery-tabs button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+@media(max-width:760px){.cm-work-preview{padding:14px;width:calc(100vw - 16px);max-height:94dvh}.cm-preview-layout{grid-template-columns:1fr;gap:18px}.cm-preview-content h3{font-size:19px}.cm-gallery-stage img,.cm-gallery-stage video{max-height:52dvh}.cm-discovery [data-cm-form=discovery-filter]{grid-template-columns:1fr}.cm-gallery-controls{gap:10px}}
+@media(prefers-reduced-motion:reduce){.cm-work-cover img,.cm-cover-hint{transition:none}}
+.cm-discovery-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}
+.cm-work-preview{inset:0;margin:auto;box-sizing:border-box}
+.cm-work-preview .cm-preview-heading{position:sticky;top:-24px;z-index:2;background:var(--bg);padding:10px 0}
+.cm-work-preview .cm-gallery-stage img,.cm-work-preview .cm-gallery-stage video{max-height:50dvh}
+.cm-work-preview .cm-gallery-stage.zoomed img{max-height:none}
+@media(max-width:760px){.cm-work-preview .cm-preview-heading{top:-14px}}

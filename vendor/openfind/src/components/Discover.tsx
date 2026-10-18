@@ -40,7 +40,8 @@ import { acquisitionPriority } from '../../server/domain';
 export function Discover() {
   const { data, notify, refresh, navigate, clone, collect } = useWorkspace();
   const params = new URLSearchParams(location.search);
-  const requestedPlatform = params.get('platform');
+  const requestedNote = data.notes.find(n => n.id === params.get('note'));
+  const requestedPlatform = params.get('platform') || requestedNote?.platform;
   const initialJob =
     data.jobs.find((j) => j.id === params.get('job')) ||
     data.jobs.find(
@@ -66,6 +67,7 @@ export function Discover() {
     [busy, setBusy] = useState(false),
     [query, setQuery] = useState(''),
     [view, setView] = useState<'cards' | 'logs'>('cards'),
+    [scope, setScope] = useState<'job' | 'library'>(params.get('note') ? 'library' : 'job'),
     [filter, setFilter] = useState('all'),
     [resultSort, setResultSort] = useState(
       data.settings.mode === 'live' ? 'acquisition' : 'default',
@@ -73,7 +75,7 @@ export function Discover() {
     [selected, setSelected] = useState<string[]>([]),
     [advanced, setAdvanced] = useState(false),
     [forceRefresh, setForceRefresh] = useState(false),
-    [detail, setDetail] = useState<Note | null>(null),
+    [detail, setDetail] = useState<Note | null>(requestedNote || null),
     [detailBusy, setDetailBusy] = useState(''),
     [zipBusy, setZipBusy] = useState(false),
     [jobId, setJobId] = useState(params.get('job') || ''),
@@ -87,8 +89,9 @@ export function Discover() {
     data.workflows.some((w) => w.status === 'running');
   const notes = useMemo(() => {
     const byId = new Map(data.notes.map((n) => [n.id, n]));
+    if (scope === 'library' || !job) return data.notes.filter(n => n.platform === platform && n.source === data.settings.mode);
     return (job?.resultIds || []).map((id) => byId.get(id)).filter((n): n is Note => !!n);
-  }, [data.notes, job]);
+  }, [data.notes, data.settings.mode, job, scope, platform]);
   const priorities = useMemo(
     () => new Map(notes.map((n) => [n.id, acquisitionPriority(n, data.comments)])),
     [notes, data.comments],
@@ -150,6 +153,7 @@ export function Discover() {
       setJobId(j.id);
       history.replaceState(null, '', workbenchLocation({platform: input.platform, job: j.id}, 'discover'));
       setSelected([]);
+      setScope('job');
       setQuery('');
       setFilter('all');
       setView('cards');
@@ -665,6 +669,7 @@ export function Discover() {
                 </button>
               </div>
             </div>
+            <label className="field-hint">作品范围 <select aria-label="作品范围" value={scope} onChange={e => {setScope(e.target.value as 'job' | 'library');setSelected([]);}}><option value="job">当前搜索任务</option><option value="library">当前平台全部已保存作品</option></select></label>
             <div className="results-toolbar">
               <div className="filter-tabs">
                 {[
@@ -990,7 +995,7 @@ export function NoteCard({
         ) : (
           <span className="video-badge">
             <Play size={11} fill="currentColor" />
-            视频
+            {n.type === 'video' ? '视频' : '图文 · 待读取详情'}
           </span>
         )}
         {n.likes >= 10000 && (

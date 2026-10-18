@@ -216,6 +216,8 @@ export interface QualificationReview {
   semanticStatus: string;
 }
 export interface SemanticReview {
+  managedBy?: 'harta';
+  providerName?: string;
   validationWarning?: string;
   verdict: 'purchase' | 'service' | 'interest' | 'discussion' | 'resolved';
   reason: string;
@@ -226,6 +228,9 @@ export interface SemanticReview {
   inputHash: string;
 }
 export interface LlmSettings {
+  managedBy?: 'harta';
+  providerName?: string;
+  ready?: boolean;
   requestTimeoutSeconds: number;
   reviewTimeoutSeconds: number;
   enabled: boolean;

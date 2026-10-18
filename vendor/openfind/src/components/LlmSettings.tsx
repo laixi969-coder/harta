@@ -21,8 +21,7 @@ export function LlmSettingsPanel() {
       '/llm',
       {
         enabled: form.enabled,
-        baseUrl: form.baseUrl,
-        model: form.model,
+        ...(!form.managedBy ? { baseUrl: form.baseUrl, model: form.model } : {}),
         maxComments: form.maxComments,
         requestTimeoutSeconds: form.requestTimeoutSeconds,
         reviewTimeoutSeconds: form.reviewTimeoutSeconds,
@@ -75,12 +74,20 @@ export function LlmSettingsPanel() {
               checked={form.enabled}
               onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
             />
-            启用语义补充复核：将脱敏评论、标题及同串回复发送到所填模型服务
+            启用语义补充复核：将脱敏评论、标题及同串回复发送到{form.managedBy ? ' Harta 当前模型' : '所填模型服务'}
           </label>
           <p className="field-hint">
             默认关闭；不发送结构化昵称、用户
             ID、属地、账号凭证，识别到的号码、邮箱和链接会遮蔽。敏感主题在本地拦截。测试连接只发送固定测试文本。未配置或调用失败时，继续使用本地规则。
           </p>
+          {form.managedBy && (
+            <div className="connection-test" role="status">
+              <strong>沿用 Harta 当前模型</strong>
+              <p>{form.providerName} · {form.model || '尚未选择模型'}</p>
+              <p>{form.ready ? '已接通，无需填写服务地址或密钥。切换 Harta 模型后自动生效，旧模型复核缓存随之失效。' : '当前配置不完整，请联系管理员在 Harta「设置 → 模型」选择可用模型。'}</p>
+            </div>
+          )}
+          {!form.managedBy && <>
           <div className="field-row">
             <label>
               服务 Base URL
@@ -117,8 +124,9 @@ export function LlmSettingsPanel() {
               清除已存 Key{clear ? '（保存后生效）' : ''}
             </button>
           )}
+          </>}
           <div className="field-row">
-            <label>
+            {!form.managedBy && <label>
               模型 ID
               <input
                 aria-label="复核模型 ID"
@@ -132,7 +140,7 @@ export function LlmSettingsPanel() {
                   <option key={m.id} value={m.id} />
                 ))}
               </datalist>
-            </label>
+            </label>}
             <label>
               单次复核评论上限
               <input
@@ -174,11 +182,11 @@ export function LlmSettingsPanel() {
           <p className="field-hint">
             建议单次120秒、整轮900秒；每5条保存一次。超时保留结果，继续时跳过有效缓存。此设置只影响模型，不改变平台验证码、限流或采集间隔。
           </p>
-          <p className="field-hint">
+          {!form.managedBy && <p className="field-hint">
             支持 OpenAI 兼容的 /models 与 /chat/completions JSON
             接口；同步的是所填服务当前可见列表，不代表每个模型均支持文本生成。列表中保留选中模型，避免自动升级改变判断。
-          </p>
-          {form.modelsSyncedAt && (
+          </p>}
+          {!form.managedBy && form.modelsSyncedAt && (
             <details>
               <summary>
                 模型列表（{form.models.length}）· 上次同步{' '}
@@ -203,12 +211,12 @@ export function LlmSettingsPanel() {
             </p>
           )}
           <div className="settings-actions">
-            <button className="btn" disabled={!!busy} onClick={() => void act('models')}>
+            {!form.managedBy && <button className="btn" disabled={!!busy} onClick={() => void act('models')}>
               {busy === 'models' ? '同步中…' : '同步最新模型列表'}
-            </button>
+            </button>}
             <button
               className="btn"
-              disabled={!!busy || !form.model || !form.baseUrl}
+              disabled={!!busy || (form.managedBy ? !form.ready : !form.model || !form.baseUrl)}
               onClick={() => void act('test')}
             >
               {busy === 'test' ? '测试生成中…' : '测试模型连接'}

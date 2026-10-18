@@ -1,5 +1,6 @@
 import { openFindRoute, proxyOpenFind } from './lib/openfind-proxy.mjs';
 import { openFind } from './lib/openfind-live.mjs';
+import { serveWorkMedia } from './lib/openfind-work-media.mjs';
 import {hostedBrowser} from './lib/hosted-browser.mjs';
 import { platformAuthState, startPlatformAuth, pollPlatformAuth, cancelPlatformAuth, removePlatformAuth, completeDouyinAuth } from './lib/platform-auth.mjs';
 import { uploadDeliveryAsset, deliveryAsset, deliveryState, bindDeliveryIdentity, queueDelivery, cancelDelivery, claimDelivery, authorizeDelivery, completeDelivery, saveReplyRule, replyMonitors, receiveBrowserEvents, monitorError } from './lib/browser-delivery.mjs';
@@ -302,6 +303,17 @@ async function handleApi(req, res, url) {
     }catch(error){return json(res,error.statusCode||400,{error:error.message});}
   }
 
+  if (url.pathname.startsWith('/api/openfind/media/') && req.method === 'GET') {
+    const user = requireUser(req, res); if (!user) return;
+    const match = url.pathname.match(/^\/api\/openfind\/media\/([^/]+)\/([^/]+)$/);
+    if (!match) return json(res,404,{error:'找不到作品素材'});
+    const customerId=decodeURIComponent(match[1]), workId=decodeURIComponent(match[2]);
+    const space=readWorkspace(user.email);
+    if (!space.customers.some(c=>c.id===customerId)) return json(res,404,{error:'找不到当前业务'});
+    const work=space.acquisition?.works?.find(w=>w.customerId===customerId && w.id===workId);
+    if (!work) return json(res,404,{error:'找不到当前业务的作品'});
+    return await serveWorkMedia(req,res,work,url.searchParams);
+  }
   if (url.pathname.startsWith('/api/openfind/workbench/')) {
     const user = requireUser(req, res); if (!user) return;
     try {

@@ -1,13 +1,5 @@
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const media = (work, url) => '/api/openfind/workbench/' + encodeURIComponent(work.customerId) + '/media/remote?url=' + encodeURIComponent(url);
-export function nativeWorkCover(work) {
-  return work.cover ? `<img class="cm-work-cover" src="${esc(media(work,work.cover))}" alt="${esc(work.title)}" loading="lazy" referrerpolicy="same-origin">` : '<div class="cm-work-cover cm-cover-empty" aria-label="暂无封面">暂无封面</div>';
-}
-export function nativeWorkGallery(work) {
-  const images = work.images?.length ? work.images : work.cover ? [work.cover] : [];
-  if (work.type === 'video' && work.videoUrl) return `<video class="cm-work-video" controls preload="none" poster="${esc(work.cover ? media(work, work.cover) : '')}" src="${esc(media(work, work.videoUrl))}" aria-label="${esc(work.title)}"></video>`;
-  return images.length ? `<div class="cm-work-gallery" aria-label="作品图片">${images.map((url,i)=>`<a href="${esc(media(work,url))}" target="_blank" rel="noopener"><img src="${esc(media(work,url))}" alt="${esc(work.title)} · 图片 ${i+1}" loading="lazy"></a>`).join('')}</div>` : '';
-}
+export { nativeWorkCover, nativeWorkGallery } from './work-media.js';
 export function mountOpenFindWorkbench(business, customers) {
   const host = document.getElementById('cm-openfind'); if (!host) return;
   if (!business) { host.innerHTML = '<p>请先在工作台添加业务，再打开 OpenFind。</p>'; return; }
@@ -23,9 +15,3 @@ export function mountOpenFindWorkbench(business, customers) {
   if (select.dataset.signature !== signature) { select.innerHTML = customers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join(''); select.dataset.signature = signature; }
   select.value = business.id;
 }
-document.addEventListener('error', event => {
-  const image = event.target;
-  if (image instanceof HTMLImageElement && image.matches('.cm-work-cover,.cm-work-gallery img')) {
-    const fallback = document.createElement('span'); fallback.className = 'cm-cover-empty'; fallback.textContent = '图片暂不可用 · 可重新读取详情'; image.replaceWith(fallback);
-  }
-}, true);

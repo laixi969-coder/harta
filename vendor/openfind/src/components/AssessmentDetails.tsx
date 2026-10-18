@@ -29,7 +29,7 @@ export function AssessmentDetails({ assessment: a }: { assessment: LeadAssessmen
       {a.semantic && (
         <section className="semantic-result">
           <b>
-            模型补充建议 · {a.semantic.model} · {a.semantic.verdict}
+            模型补充建议 · {a.semantic.providerName ? a.semantic.providerName + ' · ' : ''}{a.semantic.model} · {a.semantic.verdict}
           </b>
           {a.semantic.validationWarning && (
             <p className="inline-error">证据校验：{a.semantic.validationWarning}</p>

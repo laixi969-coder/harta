@@ -25,3 +25,6 @@ Each business runs in a separate child process with a separate SQLite database a
 Sales case revisions sync only to already verified Harta contacts, preserving original evidence. Opt-out and Harta contact blocks propagate without auto-resuming contact. Model review transport supports upstream configurable deadlines.
 
 Workbench state refreshes every 3 seconds and connection/budget panels every 8 seconds, avoiding duplicate upstream polls exhausting Harta's existing API rate limit across tabs.
+
+
+2026-10-18 Harta 补充适配：语义复核复用宿主当前渠道和模型（不复制共享密钥），配置指纹隔离缓存，引用校验可有界重试；当前有效复核证据同步到宿主需求与客户页面。补充作品库范围、详情深链接、大图预览和键盘操作；宿主原生作品库/详情/参考选择同步补齐媒体交互，已保存素材不依赖采集引擎存活。

@@ -39,6 +39,9 @@ export function openFindPanel(customerId,business={}){
     ${(s.jobs||[]).slice(0,5).map(j=>`<article class="cm-row"><div><strong>${esc(names[j.platform]||j.platform||'')} · ${j.type==='search'?'搜索':'采集评论'} · ${esc(j.keyword)} · ${esc(statuses[j.status]||j.status)}</strong><p>已取得 ${j.count||0} 条${j.error?' · '+esc(j.error):''}</p><details><summary>任务日志</summary>${j.logs.map(l=>`<p class="meta">${esc(l.message)}</p>`).join('')}</details></div>${j.status==='running'?button('stop-job','停止采集',j.id):''}</article>`).join('')}
   </section>`;
 }
+export async function refreshOpenFindWork(work) {
+  await request(work.customerId,'detail',{workId:work.id});ctx.render();
+}
 export function openFindWorkActions(work){return work&&['抖音','小红书'].includes(work.platform)?`${button('comments','自动采集评论',work.id)}${button('detail','读取完整作品',work.id)}`:'';}
 export function initOpenFindUI(context){
   ctx=context;
