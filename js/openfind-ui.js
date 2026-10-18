@@ -19,7 +19,7 @@ async function request(customerId,action,input={}){
 }
 async function refresh(customerId){
   if(!customerId||loading.has(customerId))return;loading.add(customerId);
-  try{await request(customerId);if(!document.activeElement?.closest('[data-of-form]'))ctx.render();}
+  try{await request(customerId);if(!document.activeElement?.closest('[data-of-form]') && !(document.activeElement?.matches('input,textarea,select,[contenteditable=true]') && document.activeElement.closest('[data-cm-form]')))ctx.render();}
   catch(error){states.set(customerId,{...(states.get(customerId)||{}),error:error.message});}
   finally{loading.delete(customerId);}
 }
@@ -71,5 +71,5 @@ export function initOpenFindUI(context){
   document.body.addEventListener('pointerup',async event=>{const image=event.target.closest('[data-of-frame]'),start=pointerStart;pointerStart=null;if(!image||!start||start.customerId!==ctx.getBusiness()){if(start)loading.delete(start.customerId);return;}const box=image.getBoundingClientRect(),toX=(event.clientX-box.left)*1280/box.width,toY=(event.clientY-box.top)*860/box.height;
     try{await request(start.customerId,'pointer',{...start,...(Math.abs(toX-start.x)+Math.abs(toY-start.y)>10?{toX,toY}:{})});frames.set(start.customerId,{...await request(start.customerId,'frame',{platform:start.platform}),platform:start.platform});ctx.render();}catch(error){ctx.toast(error.message);}finally{loading.delete(start.customerId);}
   });
-  clearInterval(timer);timer=setInterval(()=>{if(document.querySelector('[data-view=prospecting]')?.getClientRects().length)void refresh(ctx.getBusiness());},5000);
+  clearInterval(timer);timer=setInterval(()=>{if(['prospecting','conversations'].some(view=>document.querySelector(`[data-view=${view}]`)?.getClientRects().length))void refresh(ctx.getBusiness());},5000);
 }

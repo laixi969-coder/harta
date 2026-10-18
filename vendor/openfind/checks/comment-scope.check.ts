@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { commentJob, scopedComments } from '../src/comment-scope.ts';
+import { commentJob, scopedComments, withinCommentWindow } from '../src/comment-scope.ts';
 import type { Comment, Job } from '../shared/types.ts';
 const comments = [
   { id: 'a1', noteId: 'a' },
@@ -44,4 +44,21 @@ test('switching target cannot display an unrelated task; saved scope includes ea
   assert.deepEqual(scopedComments(comments, 'a', 'job', jobs[2]), []);
   assert.deepEqual(scopedComments(comments, 'no-task', 'note'), []);
   assert.equal(scopedComments(comments, 'a', 'all').length, 3);
+});
+
+test('comment filters enforce exact rolling windows and reject unknown or future dates', () => {
+  const now = Date.parse('2026-10-18T14:00:00Z'),
+    day = 86400000;
+  assert.equal(withinCommentWindow(new Date(now - 7 * day).toISOString(), '7', now), true);
+  assert.equal(withinCommentWindow(new Date(now - 7 * day - 1).toISOString(), '7', now), false);
+  assert.equal(withinCommentWindow(new Date(now - 7.9 * day).toISOString(), '7', now), false);
+  assert.equal(withinCommentWindow(new Date(now - 3 * day - 1).toISOString(), '3', now), false);
+  assert.equal(
+    withinCommentWindow(new Date(now - 30 * day - 1).toISOString(), '30', now),
+    false,
+  );
+  assert.equal(withinCommentWindow(new Date(now + 1).toISOString(), '7', now), false);
+  assert.equal(withinCommentWindow('', '7', now), false);
+  assert.equal(withinCommentWindow('invalid', '7', now), false);
+  assert.equal(withinCommentWindow('', 'all', now), true);
 });

@@ -1,3 +1,4 @@
+import { followUpPlan } from '../followup-plan';
 import { useEffect, useState } from 'react';
 import { api, hartaHandoff, workbenchLocation } from '../api';
 import { useWorkspace } from '../context';
@@ -53,6 +54,8 @@ export function FollowUp() {
   const contact = contacts.find(
     (c) => c.commentId === lead?.commentId && c.platform === (lead?.platform || 'xiaohongshu'),
   );
+  const uniqueContacts = [...new Map(contacts.map((c) => [c.id, c])).values()];
+  const dueCount = uniqueContacts.filter((c) => followUpPlan(c) === 'due').length;
   const open = (id: string) => {
     if (salesDirty && id !== selected) {
       setPendingId(id);
@@ -81,19 +84,31 @@ export function FollowUp() {
         </p>
       )}
       <section className="panel native-contact-summary" aria-label="Harta 联系人与计划">
-        <h2>Harta 联系人与计划 · {contactsLoaded ? contacts.length : '读取中'}</h2>
+        <h2>Harta 联系人与计划 · {contactsLoaded ? uniqueContacts.length : '读取中'}</h2>
+        {contactsLoaded && (
+          <p role="status">
+            已到跟进时间 {dueCount} 位 · 尚未安排{' '}
+            {uniqueContacts.filter((c) => followUpPlan(c) === 'unplanned').length} 位
+          </p>
+        )}
         <div className="native-contact-grid">
-          {contacts.map((c) => (
+          {uniqueContacts.map((c) => (
             <article key={c.id + ':' + c.commentId}>
               <b>
                 {c.name} · {c.stage}
               </b>
               <p>
-                {c.stopped
-                  ? '已停止联系'
-                  : c.nextAt
-                    ? `计划：${new Date(c.nextAt).toLocaleString()}`
-                    : '尚未安排跟进时间'}
+                <span className={followUpPlan(c) === 'due' ? 'followup-due' : ''}>
+                  {followUpPlan(c) === 'stopped'
+                    ? '已停止主动跟进'
+                    : followUpPlan(c) === 'closed'
+                      ? '已成交'
+                      : followUpPlan(c) === 'invalid'
+                        ? '跟进时间无效，请在 Harta 修正'
+                        : c.nextAt
+                          ? `${followUpPlan(c) === 'due' ? '已到跟进时间' : '计划'}：${new Date(c.nextAt).toLocaleString()}`
+                          : '尚未安排跟进时间'}
+                </span>
               </p>
               <p>{c.nextStep || '下一步待核实'}</p>
               <button
@@ -114,6 +129,7 @@ export function FollowUp() {
           <p>完成评论人工核实后，联系人和计划会显示在这里。</p>
         )}
       </section>
+      <p className="field-hint">以下统计为 OpenFind 沟通记录；Harta 已有跟进计划显示在上方。</p>
       <SalesMetrics revision={revision} onOpen={open} />
       <div className="followup-layout">
         <aside className="panel followup-list" aria-label="选择跟进线索">

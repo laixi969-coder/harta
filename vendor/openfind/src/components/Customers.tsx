@@ -1,5 +1,5 @@
 import { WorkSource, WorkflowSteps } from './WorkSource';
-import { commentJob, scopedComments, type CommentScope } from '../comment-scope';
+import { commentJob, scopedComments, withinCommentWindow, type CommentScope } from '../comment-scope';
 import { hartaHandoff } from '../api';
 import { SalesWorkbench, SalesMetrics } from './SalesWorkbench';
 import { AssessmentDetails } from './AssessmentDetails';
@@ -84,8 +84,7 @@ export function Comments() {
           (kind === 'root' && !c.parentId) ||
           (kind === 'reply' && !!c.parentId) ||
           (kind === 'intent' && assessment(c).recommended)) &&
-        (days === 'all' ||
-          (assessment(c).ageDays !== null && assessment(c).ageDays! <= Number(days))) &&
+        withinCommentWindow(c.createdAt, days) &&
         (!query ||
           [c.author, c.body, c.region].join(' ').toLowerCase().includes(query.toLowerCase())),
     )

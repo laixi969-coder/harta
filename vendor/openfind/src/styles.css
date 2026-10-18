@@ -4925,3 +4925,5 @@ blockquote {
 .comment-task-status{padding:16px 22px;margin-bottom:16px;font-size:13px;line-height:1.8}.comment-task-status summary{cursor:pointer;color:var(--muted)}
 
 .followup-list>.field-label{display:grid;gap:8px}.followup-list>.field-label>input{width:100%;min-width:0}
+
+.followup-due{display:inline-block;color:#a23e25;background:#fff3e9;border-radius:5px;padding:3px 7px;font-weight:600}
