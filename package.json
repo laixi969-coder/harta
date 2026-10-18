@@ -5,20 +5,28 @@
   "scripts": {
     "dev": "node server.mjs",
     "test": "vitest run",
-    "eval:sales": "PROMPTFOO_DISABLE_TELEMETRY=1 npx --yes promptfoo@0.124.1 eval --no-cache --max-concurrency 1 -c evals/sales/promptfooconfig.json"
+    "eval:sales": "PROMPTFOO_DISABLE_TELEMETRY=1 npx --yes promptfoo@0.124.1 eval --no-cache --max-concurrency 1 -c evals/sales/promptfooconfig.json",
+    "test:openfind": "node --experimental-strip-types --test vendor/openfind/checks/*.check.ts"
   },
   "devDependencies": {
     "vitest": "^3.2.4"
   },
   "dependencies": {
     "exceljs": "4.4.0",
+    "express": "5.1.0",
     "formidable": "^3.5.4",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.2",
+    "multer": "2.4.0",
     "pdf-parse": "1.1.1",
     "pdfkit": "^0.20.2",
     "playwright-core": "1.59.1",
     "qrcode": "^1.5.4",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.4",
+    "undici": "8.12.2",
+    "zod": "4.1.0"
+  },
+  "engines": {
+    "node": ">=22.19.0"
   }
 }

@@ -1,5 +1,13 @@
 /* finesse · register=product · A=light-red-brown/dark-orange · B=650/400 · C=sidebar-workbench
  * D=css-feedback · E=flat-surface · SOUL=4 SPECTACLE=1 DENSITY=7 */
+.cm-discovery-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.cm-discovery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:14px;margin-top:16px}
+.cm-discovery-card{padding:18px;border:1px solid var(--border);border-radius:var(--r-sm);min-width:0;overflow-wrap:anywhere}
+.cm-discovery-card h3{margin:6px 0 12px}.cm-discovery-card .acts{margin-top:16px;flex-wrap:wrap}
+.cm-discovery [data-cm-form=discovery-filter]{display:grid;grid-template-columns:2fr repeat(3,1fr);align-items:end;gap:12px}
+.cm-discovery [data-cm-form=discovery-filter] .cm-error{grid-column:1/-1}
+.cm-import-result{padding:12px;background:var(--panel-2);border-radius:var(--r-sm)}
+@media(max-width:700px){.cm-discovery-heading{display:block}.cm-discovery [data-cm-form=discovery-filter]{grid-template-columns:1fr 1fr}}
 :root,[data-theme="light"] {
  --page:#f4f5f7;--wash:#f4f5f7;--bg:#fdfdfc;--panel-2:#eff1f3;--zone:#f4f5f7;
  --ink-1:#23262c;--ink-2:#424955;--ink-3:#41464c;--border:#d7dbe1;--rule:#687080;
@@ -99,3 +107,5 @@ section[data-view=today] #quick-growth-control{display:none!important}
 }
 .agent-guide ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:0;list-style-position:inside;margin:20px 0}.agent-guide li{padding:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;line-height:1.6}.agent-guide>p{line-height:1.8}.agent-trial>.acts{margin:18px 0}
 @media(max-width:800px){.agent-guide ol{grid-template-columns:repeat(2,minmax(0,1fr));}}
+.of-panel{margin:20px 0}.of-connections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0}.of-connections article{padding:14px;border:1px solid var(--border);border-radius:var(--r-sm)}.of-search{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.of-search .acts,.of-search .meta,.of-search .cm-error{grid-column:1/-1}.of-schedule{margin:18px 0}.of-frame img{width:100%;height:auto;touch-action:none;border:1px solid var(--border)}.of-frame{margin:16px 0}.of-panel .cm-row{align-items:flex-start}.of-panel .cm-row>div{min-width:0;overflow-wrap:anywhere}
+@media(max-width:700px){.of-connections,.of-search{grid-template-columns:1fr}}

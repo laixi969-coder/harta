@@ -1,8 +1,10 @@
+import { openFind } from './lib/openfind-live.mjs';
 import {hostedBrowser} from './lib/hosted-browser.mjs';
 import { platformAuthState, startPlatformAuth, pollPlatformAuth, cancelPlatformAuth, removePlatformAuth, completeDouyinAuth } from './lib/platform-auth.mjs';
 import { uploadDeliveryAsset, deliveryAsset, deliveryState, bindDeliveryIdentity, queueDelivery, cancelDelivery, claimDelivery, authorizeDelivery, completeDelivery, saveReplyRule, replyMonitors, receiveBrowserEvents, monitorError } from './lib/browser-delivery.mjs';
 import { issuePairing, redeemPairing, authenticateConnector, connections, revokeConnection, queueCollection, cancelCollection, connectorJobs, claimCollection, completeCollection, contactHandoff } from './lib/platform-connector.mjs';
 import { commerceWorkspace, commerceAction, startOutreachDraft } from './lib/commerce-workspace.mjs';
+import { importOpenFind } from './lib/openfind-import.mjs';
 import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, validHost, sameOriginMutation, sessionCookie, readJsonBody } from './lib/request-guard.mjs';
 import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, saveAccount, preparePublication, confirmPublication, recordInquiry, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
 import { agentWorkspace, createAgent, saveAgent, agentAction, startAgentTrial } from './lib/business-agents.mjs';
@@ -299,6 +301,14 @@ async function handleApi(req, res, url) {
     }catch(error){return json(res,error.statusCode||400,{error:error.message});}
   }
 
+  if (url.pathname === '/api/openfind' && ['GET', 'POST'].includes(req.method)) {
+    const user = requireUser(req, res); if (!user) return;
+    try {
+      const input = req.method === 'POST' ? await readBody(req) : {customerId:url.searchParams.get('customerId')};
+      const state = req.method === 'POST' ? await openFind.action(user.email,input) : await openFind.state(user.email,input.customerId);
+      return json(res,200,{state,...(['frame','pointer'].includes(input.action)?{}:{workspace:publicWorkspace(readWorkspace(user.email))})});
+    } catch(error) { return json(res,400,{error:error.message||'获客引擎未完成操作'}); }
+  }
   if (url.pathname === '/api/acquisition' && req.method === 'GET') {
     const user = requireUser(req, res);
     if (!user) return;
@@ -311,8 +321,9 @@ async function handleApi(req, res, url) {
     if (!user) return;
     const action = url.pathname.slice('/api/acquisition/'.length);
     const handlers = { commerce: commerceAction, import: importSignals, stop: stopSearch, review: reviewSignal, account: saveAccount, 'prepare-publication': preparePublication, publication: confirmPublication, inquiry: recordInquiry, lead: leadAction, 'agent-create': createAgent, 'agent-save': saveAgent, 'agent-action': agentAction };
-    const body = await readBody(req);
+    const body = await readBody(req, action === 'openfind-import' ? 2 * 1024 * 1024 : MAX_BODY);
     try {
+      if (action === 'openfind-import') return json(res, 200, { workspace: publicWorkspace(importOpenFind(user.email, body)) });
       if (action === 'suggestion') return json(res, 200, await generateContactSuggestion(user.email, body));
       if (action === 'outreach') { const result=startOutreachDraft(user.email,body); return json(res,202,{workspace:publicWorkspace(result.workspace)}); }
       if (action === 'agent-trial') {
@@ -1055,3 +1066,6 @@ server.listen(PORT, "127.0.0.1", () => {
 
 // Only durable user-created connections are resumed; boot creates no platform session.
 hostedBrowser.startWorker();
+
+openFind.startWorker();
+for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>{openFind.stop();void hostedBrowser.stop();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),3000).unref();});
