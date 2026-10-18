@@ -496,9 +496,10 @@ export async function browserSearch(
     await assertNoChallenge(run.page);
     run.error = undefined;
     await run.page.bringToFront();
-    if (!run.queue.length && !run.responses) {
+    if (!run.queue.length && (!run.responses || run.more === false)) {
       const field = run.page.getByPlaceholder('搜索你感兴趣的内容', { exact: true });
       if (platform === 'douyin' && (await field.isVisible().catch(() => false))) {
+        run.more = undefined; run.responses = 0; run.seen.clear(); run.minRequestTime = Date.now();
         await field.fill(input.keyword);
         await field.press('Enter');
         run.filtersApplied = false;
@@ -544,16 +545,18 @@ export async function browserSearch(
       await run.page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
       await delay(1500);
       await assertNoChallenge(run.page);
+      const searchField = run.page.getByPlaceholder('搜索你感兴趣的内容', { exact: true });
+      // A visible filter shell does not prove the keyword was hydrated from the URL.
+      const keywordReady = await searchField.inputValue().then(value => value.trim() === input.keyword.trim()).catch(() => false);
       // A non-default sort intentionally ignores initial general responses.
       // Only resubmit when the search application itself did not hydrate.
       if (
-        !(await run.page
+        !keywordReady || !(await run.page
           .getByText('筛选', { exact: true })
           .first()
           .isVisible()
           .catch(() => false))
       ) {
-        const searchField = run.page.getByPlaceholder('搜索你感兴趣的内容', { exact: true });
         await searchField.waitFor({ state: 'visible', timeout: 15000 });
         await searchField.click({ timeout: 5000 });
         await searchField.press('ControlOrMeta+A');
