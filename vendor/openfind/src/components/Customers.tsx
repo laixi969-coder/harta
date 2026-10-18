@@ -1,4 +1,4 @@
-import { WorkSource, WorkflowSteps } from './WorkSource';
+import { WorkSource } from './WorkSource';
 import { commentJob, scopedComments, withinCommentWindow, type CommentScope } from '../comment-scope';
 import { hartaHandoff } from '../api';
 import { SalesWorkbench, SalesMetrics } from './SalesWorkbench';
@@ -17,8 +17,8 @@ import {
   ExternalLink,
   Copy,
   Check,
-  UserPlus,
   Flame,
+  UserPlus,
   ChevronRight,
   Save,
   MapPin,
@@ -145,9 +145,7 @@ export function Comments() {
   return (
     <>
       <PageHeading
-        eyebrow="LISTEN TO YOUR AUDIENCE"
-        title="找到评论背后，真实的需求。"
-        description="采集作品评论与楼中楼回复，识别意向，把对的人留在线索库。"
+        title="评论采集"
         action={
           <button className="btn" onClick={() => navigate('leads')}>
             <Users size={15} />
@@ -156,13 +154,11 @@ export function Comments() {
           </button>
         }
       />
-      <WorkflowSteps active="comments" />
       <div className="discover-layout">
         <section className="panel search-panel">
           <div className="section-title">
             <MessageSquareText size={17} />
-            <h2>评论采集</h2>
-            <span>02</span>
+            <h2>采集设置</h2>
           </div>
           <label className="field-label" htmlFor="comment-note">
             目标作品
@@ -174,7 +170,7 @@ export function Comments() {
               </option>
             ))}
           </select>
-          <div className="field-hint">也可以在作品卡片上点击「一键采集客户」。</div>
+          <details className="workflow-details"><summary>作品 ID</summary>
           <label className="field-label" htmlFor="comment-note-id">
             笔记 ID
           </label>
@@ -183,7 +179,7 @@ export function Comments() {
             value={noteId}
             onChange={(e) => chooseNote(e.target.value)}
             placeholder="已采集作品的笔记 ID"
-          />
+          /></details>
           <div className="field-row">
             <div>
               <label className="field-label" htmlFor="comment-limit">
@@ -225,10 +221,6 @@ export function Comments() {
             </div>
           </div>
           <WorkSource key={noteId} note={target} />
-          <div className="included-feature">
-            <Check size={14} />
-            包含一级评论与楼中楼回复
-          </div>
           <div className="search-actions">
             <button
               className="btn primary"
@@ -253,61 +245,9 @@ export function Comments() {
               <Square size={14} />
             </button>
           </div>
-          <div className="field-hint">
-            {job?.source === 'demo'
-              ? '目标作品为演示数据，评论也为本地演示'
-              : '采集结果自动去重并保存在本机'}
-          </div>
-          <div className="search-tip">
-            <div>
-              <span>从对话里发现机会</span>
-              <Flame size={14} />
-            </div>
-            <p>
-              优先看近7天的购买咨询；近3天先跟进，8–30天先确认需求是否仍在。作品旧不代表评论里的需求旧。
-            </p>
-            <button onClick={() => setKind('intent')}>
-              筛选高意向评论
-              <ArrowRight size={12} />
-            </button>
-          </div>
+          {job?.source === 'demo' && <p className="field-hint">演示评论</p>}
         </section>
         <section className="results-panel">
-          <div className="result-stats four">
-            <div>
-              <span>一级评论</span>
-              <strong>{comments.filter((c) => !c.parentId).length}</strong>
-              <em>真实对话的起点</em>
-            </div>
-            <div>
-              <span>楼中楼回复</span>
-              <strong>{comments.filter((c) => c.parentId).length}</strong>
-              <em>不遗漏延伸讨论</em>
-            </div>
-            <div>
-              <span>已采页数</span>
-              <strong>{job?.pages || 0}</strong>
-              <em>
-                {job?.status === 'running'
-                  ? '正在采集'
-                  : job?.status === 'failed'
-                    ? '任务失败，已保留旧数据'
-                    : job?.status === 'stopped'
-                      ? '采集已停止'
-                      : job
-                        ? '任务已保存'
-                        : '尚无采集任务'}
-              </em>
-            </div>
-            <div>
-              <span>运行时间</span>
-              <strong>
-                {job?.elapsed || 0}
-                <small>秒</small>
-              </strong>
-              <em>{job?.source === 'live' ? '真实数据' : '演示数据'}</em>
-            </div>
-          </div>
           {job && (
             <section className="panel comment-task-status" aria-label="评论采集状态">
               <b>
@@ -336,7 +276,43 @@ export function Comments() {
                 </div>
               )}
               <details>
-                <summary>采集日志 · {job.logs.length}</summary>
+                <summary>采集详情</summary>
+          <div className="result-stats four">
+            <div>
+              <span>一级评论</span>
+              <strong>{comments.filter((c) => !c.parentId).length}</strong>
+
+            </div>
+            <div>
+              <span>楼中楼回复</span>
+              <strong>{comments.filter((c) => c.parentId).length}</strong>
+
+            </div>
+            <div>
+              <span>已采页数</span>
+              <strong>{job?.pages || 0}</strong>
+              <em>
+                {job?.status === 'running'
+                  ? '正在采集'
+                  : job?.status === 'failed'
+                    ? '任务失败，已保留旧数据'
+                    : job?.status === 'stopped'
+                      ? '采集已停止'
+                      : job
+                        ? '任务已保存'
+                        : '尚无采集任务'}
+              </em>
+            </div>
+            <div>
+              <span>运行时间</span>
+              <strong>
+                {job?.elapsed || 0}
+                <small>秒</small>
+              </strong>
+              <em>{job?.source === 'live' ? '真实数据' : '演示数据'}</em>
+            </div>
+          </div>
+
                 {job.logs.slice(-10).map((log, i) => (
                   <p key={i}>
                     {new Date(log.at).toLocaleTimeString()} · {log.message}
@@ -628,25 +604,8 @@ export function Comments() {
                 {data.comments.find((c) => c.id === focused.parentId)?.body || focused.parentId}
               </p>
             )}
-            <div className="intent-explainer">
-              <AssessmentDetails assessment={assessment(focused)} />
-              <b>意向评分 {assessment(focused).score} / 99</b>
-              <p>
-                原评论日期：
-                {focused.createdAt
-                  ? new Date(focused.createdAt).toLocaleString('zh-CN')
-                  : '未知'}
-              </p>
-              {assessment(focused).evidence.map((e, i) => (
-                <p key={i}>
-                  {e.label}：{e.excerpt}（+{e.points}）
-                </p>
-              ))}
-              <p>
-                {assessment(focused).reason}。规则版本 {assessment(focused).version}
-                ，评分用于排序，不代表购买概率。
-              </p>
-            </div>
+            <p className="field-hint">评论时间：{focused.createdAt ? new Date(focused.createdAt).toLocaleString('zh-CN') : '未知'} · 意向 {assessment(focused).score}</p>
+            <AssessmentDetails assessment={assessment(focused)} />
             <div className="modal-action-row">
               <button
                 className="btn"
@@ -742,9 +701,7 @@ export function Leads() {
   return (
     <>
       <PageHeading
-        eyebrow="TURN INTEREST INTO OPPORTUNITY"
-        title="每一条线索，都值得认真对待。"
-        description="集中管理潜在客户，记录跟进，保留每一次有价值的对话。"
+        title="客户线索"
         action={
           <a
             className="btn"
@@ -763,7 +720,6 @@ export function Leads() {
           </a>
         }
       />
-      <WorkflowSteps active="leads" />
       <div className="lead-stats">
         {[
           ['全部线索', data.leads.length],
@@ -779,7 +735,7 @@ export function Leads() {
       </div>
       <div className="modal-action-row">
         <button className="btn" onClick={() => navigate('followup')}>
-          打开客户跟进与时间线
+          客户跟进
         </button>
       </div>
       <SalesMetrics
@@ -796,8 +752,7 @@ export function Leads() {
               我的客户线索<span>{data.leads.length}</span>
             </h2>
             <p role="status">
-              显示 {leads.length} / {data.leads.length} 条 · 按需求证据评分排序 ·
-              模型建议与人工核实分别保留
+              显示 {leads.length} / {data.leads.length} 条
             </p>
           </div>
           <button className="btn primary small" onClick={() => navigate('comments')}>
@@ -876,7 +831,7 @@ export function Leads() {
                         <Flame size={13} />
                         <b>{l.score}</b>
                       </div>
-                      <small className="muted">{l.reason}</small>
+                      <small className="muted">{l.commentCreatedAt ? new Date(l.commentCreatedAt).toLocaleDateString() : '评论日期未知'}</small>
                     </td>
                     <td>
                       <select
@@ -932,7 +887,6 @@ export function Leads() {
       {focused && (
         <Modal
           title="客户跟进"
-          sub="记录需求，准备一次有价值的交流"
           onClose={() =>
             salesDirty || memo !== focused.memo || outreach !== focused.outreach
               ? setCloseRequested(true)
@@ -956,22 +910,8 @@ export function Leads() {
               key={focused.noteId}
               note={data.notes.find((n) => n.id === focused.noteId)}
             />
-            <div className="intent-explainer">
-              {focused.assessment && <AssessmentDetails assessment={focused.assessment} />}
-              <b>评分依据 · {focused.assessment?.version || '待重新评估'}</b>
-              <p>{focused.reason}</p>
-              <p>
-                原评论时间：
-                {focused.commentCreatedAt
-                  ? new Date(focused.commentCreatedAt).toLocaleString('zh-CN')
-                  : '未知'}
-              </p>
-              {focused.assessment?.evidence.map((e, i) => (
-                <p key={i}>
-                  {e.label}：{e.excerpt}（+{e.points}）
-                </p>
-              ))}
-            </div>
+            <p className="field-hint">评论时间：{focused.commentCreatedAt ? new Date(focused.commentCreatedAt).toLocaleString('zh-CN') : '未知'}</p>
+            {focused.assessment ? <AssessmentDetails assessment={focused.assessment} /> : <p>{focused.reason}</p>}
             <SalesWorkbench
               key={focused.id}
               lead={focused}

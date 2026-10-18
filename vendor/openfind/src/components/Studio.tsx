@@ -1,9 +1,8 @@
 import { MediaGallery, MediaImage } from './Media';
-import { WorkflowSteps } from './WorkSource';
 import { useState, useRef } from 'react';
 import {
-  PenLine,
   Plus,
+  PenLine,
   ArrowRight,
   Image as ImageIcon,
   Upload,
@@ -55,9 +54,7 @@ export function Studio() {
   return (
     <>
       <PageHeading
-        eyebrow="MAKE IT YOUR OWN"
-        title="把灵感，变成你的下一篇作品。"
-        description="从优质内容出发，调整图片和文案，沉淀属于你的内容资产。"
+        title="内容工作室"
         action={
           <div className="original-creation-tools">
             <button className="btn" onClick={() => navigate('discover')}>
@@ -70,24 +67,13 @@ export function Studio() {
           </div>
         }
       />
-      <WorkflowSteps active="studio" />
-      <div className="studio-intro">
-        <span className="studio-intro-icon">
-          <PenLine size={24} />
-        </span>
-        <div>
-          <h3>好内容，值得再向前一步。</h3>
-          <p>发现灵感 → 克隆为草稿 → 编辑图文 → 检查账号与发布</p>
-        </div>
-        <span>YOUR CONTENT STUDIO</span>
-      </div>
       <section className="panel results-box">
         <div className="results-heading">
           <div>
             <h2>
               我的创作<span>{data.drafts.length}</span>
             </h2>
-            <p>每一次保存，都让灵感离发布更近一步。</p>
+
           </div>
         </div>
         <div className="results-toolbar">

@@ -4927,3 +4927,27 @@ blockquote {
 .followup-list>.field-label{display:grid;gap:8px}.followup-list>.field-label>input{width:100%;min-width:0}
 
 .followup-due{display:inline-block;color:#a23e25;background:#fff3e9;border-radius:5px;padding:3px 7px;font-weight:600}
+
+/* Task-first disclosure: results stay visible; history and diagnostics open on demand. */
+.native-contact-summary > summary, .sales-metrics > summary, .sales-plan > summary {
+  cursor: pointer; font-size: 14px; font-weight: 600; line-height: 1.8;
+}
+.native-contact-summary[open] > summary, .sales-metrics[open] > summary { margin-bottom: 16px; }
+.followup-next-action { font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.followup-next-action b { margin-right: 8px; }
+.contact-event details, .sales-timeline details { font-size: 13px; }
+.contact-event summary, .sales-timeline summary { cursor: pointer; color: var(--muted); }
+.sales-workbench > h3 { margin-bottom: 8px; }
+
+.followup-tools { display: flex; flex-wrap: wrap; gap: 12px; }
+.followup-tools > details { flex: 1; min-width: min(100%, 240px); margin: 0; padding: 12px 18px; }
+.followup-tools > details[open] { flex-basis: 100%; }
+
+.followup-list > .followup-mobile-picker { display: none; }
+@media (max-width: 760px) {
+  .followup-list > button { display: none; }
+  .followup-list { display: grid; gap: 10px; }
+  .followup-list > .followup-mobile-picker { display: grid; margin: 0; }
+  .followup-mobile-picker select { width: 100%; min-width: 0; }
+  .followup-list > .field-label { margin: 0; }
+}

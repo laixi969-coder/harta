@@ -28,7 +28,7 @@ export function WorkSource({ note }: { note?: Note }) {
             {note.type === 'video' ? '视频作品' : `${note.images.length} 张图片`}
           </p>
           <button className="text-btn" onClick={() => setOpen(true)}>
-            查看图片与完整上下文
+            查看作品详情
           </button>
         </div>
       </article>

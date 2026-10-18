@@ -250,9 +250,7 @@ export function Discover() {
         </button>
       </div>
       <PageHeading
-        eyebrow="DISCOVER & CONNECT"
-        title="让好内容，带来新客户。"
-        description="找到行业爆款，发现潜在需求，把每一次灵感变成增长机会。"
+        title="发现作品"
         action={
           <span className="platform-status">
             <span className="xhs-icon">{platform === 'douyin' ? '抖音' : '小红书'}</span>

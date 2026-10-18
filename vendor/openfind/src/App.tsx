@@ -296,10 +296,10 @@ export default function App() {
             {page === 'settings' && <SettingsPage />}
             <footer className="workspace-footer">
               <span>
-                <Workflow size={13} /> OpenFind · 让发现成为生意的起点
+                <Workflow size={13} /> Harta × OpenFind
               </span>
-              <span>
-                <Monitor size={12} /> 数据保存在本机 <i /> Harta 集成版 · 8532f51
+              <span title="Harta 集成版 · OpenFind 8532f51">
+                <Monitor size={12} /> 数据保存在本机
               </span>
             </footer>
           </main>

@@ -38,8 +38,8 @@ export function SalesMetrics({
       .catch((e) => setError(e.message));
   }, [revision]);
   return (
-    <section className="panel sales-metrics" aria-label="沟通与成交记录">
-      <h3>从回复到结果 · 人工登记</h3>
+    <details className="panel sales-metrics">
+      <summary>沟通与成交统计</summary>
       <a
         className="btn small"
         href={apiUrl('/sales/export')}
@@ -53,9 +53,8 @@ export function SalesMetrics({
       >
         导出沟通记录
       </a>
-      <p>意向分数不等于成交。以下统计来自实际沟通记录与成交凭证说明。</p>
       {error && <p role="alert">{error}</p>}
-      {rows.map((r) => (
+      {rows.filter((r) => r.source === 'live' || r.contacted || r.replied || r.won || r.due).map((r) => (
         <p key={r.source}>
           <b>{r.source === 'live' ? '真实线索' : '演示线索'}</b> · 已联系 {r.contacted} · 已回复{' '}
           {r.replied} · 已登记成交 {r.won} · 登记金额 ¥{r.amount.toFixed(2)} · 到期跟进 {r.due}
@@ -66,7 +65,7 @@ export function SalesMetrics({
           ))}
         </p>
       ))}
-    </section>
+    </details>
   );
 }
 const profileFields = {
@@ -150,12 +149,12 @@ export function SalesWorkbench({
   }
   return (
     <section className="sales-workbench" aria-label="沟通成交工作台">
-      <h3>沟通与成交工作台</h3>
+      <h3>跟进记录</h3>
       <p className="field-hint" role="status">
         {dirty
-          ? '有未保存的跟进修改，保存后再切换客户'
+          ? '有未保存的修改'
           : record
-            ? '已载入保存的进展 · 人工记录与平台回执分别保留'
+            ? '已保存'
             : '正在读取客户进展'}
       </p>
       <button
@@ -164,9 +163,8 @@ export function SalesWorkbench({
           void hartaHandoff(lead.noteId, lead.commentId).catch((e) => notify(e.message, true))
         }
       >
-        查看 Harta 需求证据与跟进
+        在 Harta 跟进
       </button>
-      <p>先核实能否提供匹配的帮助 → 获得回复 → 明确需求和时间 → 提供方案 → 登记实际结果。</p>
       {error && (
         <p className="inline-error" role="alert">
           {error}
@@ -223,8 +221,7 @@ export function SalesWorkbench({
           <p>正在加载沟通记录…</p>
         ) : (
           <>
-            <div className="sales-plan">
-              <b>下一步沟通建议</b>
+            <details className="sales-plan"><summary>沟通建议与草稿</summary>
               <p>{plan?.goal}</p>
               {plan?.draft && (
                 <>
@@ -245,13 +242,14 @@ export function SalesWorkbench({
               )}
               {note && safeUrl(note.url) && (
                 <a className="btn" href={safeUrl(note.url)} target="_blank" rel="noreferrer">
-                  打开原作品，核对评论并进入平台沟通
+                  打开原作品
                 </a>
               )}
               <p className="field-hint">
-                原作品入口不是私信发送接口。请核对用户名和原评论，由你在平台实际回复；本工作台记录结果，不自动群发或假装消息已送达。报价、库存、案例和承诺均需核实。
+                请在平台核对原评论后联系。
               </p>
-            </div>
+            </details>
+            <details className="workflow-details"><summary>更新阶段与计划 · {salesStages[record.stage]}</summary>
             <div className="sales-fields">
               <label>
                 销售阶段
@@ -378,9 +376,10 @@ export function SalesWorkbench({
                 重新载入已保存进展
               </button>
             </div>
-            <h4>记录已发生的沟通</h4>
+            </details>
+            <h4>添加记录</h4>
             <p className="field-hint">
-              这是人工登记，不会向客户发送消息。未获回复不反复催促；对方拒绝后停止主动沟通。先保存上方修改，再添加记录。
+              仅保存记录，不发送消息。
             </p>
             <div className="field-row">
               <label>
@@ -416,7 +415,7 @@ export function SalesWorkbench({
               value={content}
               maxLength={3000}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="粘贴实际消息、客户回复或凭证说明，保留准确措辞"
+              placeholder={kind === 'note' ? '记录核实结果或下一步' : '填写实际发生的沟通或凭证'}
             />
             <button
               className="btn"
@@ -447,7 +446,7 @@ export function SalesWorkbench({
             {record.stopped && (
               <p className="inline-error">对方已拒绝联系：已停止主动跟进并清空跟进时间。</p>
             )}
-            <div className="sales-timeline">
+            <details className="workflow-details"><summary>历史记录 · {record.events.length}</summary><div className="sales-timeline">
               {[...record.events].reverse().map((e) => (
                 <article key={e.id}>
                   <b>
@@ -463,10 +462,10 @@ export function SalesWorkbench({
                       ? `平台时间：${e.platformMessage.timeLabel || '未知'} · 同步于 ${new Date(e.createdAt).toLocaleString()}`
                       : new Date(e.createdAt).toLocaleString()}
                   </small>
-                  <p>{e.content}</p>
+                  {e.content.length > 180 ? <details><summary>展开完整记录</summary><p>{e.content}</p></details> : <p>{e.content}</p>}
                 </article>
               ))}
-            </div>
+            </div></details>
           </>
         )}
       </fieldset>

@@ -4,7 +4,7 @@ import { api, hartaHandoff, workbenchLocation } from '../api';
 import { useWorkspace } from '../context';
 import { PageHeading, Empty, Modal } from './ui';
 import { SalesWorkbench, SalesMetrics } from './SalesWorkbench';
-import { WorkSource, WorkflowSteps } from './WorkSource';
+import { WorkSource } from './WorkSource';
 interface Contact {
   id: string;
   name: string;
@@ -68,23 +68,20 @@ export function FollowUp() {
   return (
     <>
       <PageHeading
-        eyebrow="CUSTOMER FOLLOW-UP"
-        title="让需求证据，接上下一步行动。"
-        description="保留原评论、人工核实和实际沟通时间线，按约定安排跟进。"
+        title="客户跟进"
         action={
           <button className="btn" onClick={() => navigate('leads')}>
             返回线索管理
           </button>
         }
       />
-      <WorkflowSteps active="followup" />
       {error && (
         <p className="inline-error" role="alert">
           Harta 联系人暂时无法读取：{error}
         </p>
       )}
-      <section className="panel native-contact-summary" aria-label="Harta 联系人与计划">
-        <h2>Harta 联系人与计划 · {contactsLoaded ? uniqueContacts.length : '读取中'}</h2>
+      <div className="followup-tools">
+      <details className="panel native-contact-summary"><summary>跟进计划 · {contactsLoaded ? uniqueContacts.length : '读取中'} 位{contactsLoaded && ` · 到期 ${dueCount} 位`}</summary>
         {contactsLoaded && (
           <p role="status">
             已到跟进时间 {dueCount} 位 · 尚未安排{' '}
@@ -128,9 +125,9 @@ export function FollowUp() {
         {contactsLoaded && !contacts.length && (
           <p>完成评论人工核实后，联系人和计划会显示在这里。</p>
         )}
-      </section>
-      <p className="field-hint">以下统计为 OpenFind 沟通记录；Harta 已有跟进计划显示在上方。</p>
+      </details>
       <SalesMetrics revision={revision} onOpen={open} />
+      </div>
       <div className="followup-layout">
         <aside className="panel followup-list" aria-label="选择跟进线索">
           <label className="field-label">
@@ -140,6 +137,15 @@ export function FollowUp() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
+          </label>
+          <label className="field-label followup-mobile-picker">
+            选择客户
+            <select aria-label="选择跟进客户" value={selected} onChange={(e) => open(e.target.value)}>
+              {!lead && <option value="">请选择客户</option>}
+              {data.leads.filter((l) => l.id === selected || [l.name, l.content].join(' ').includes(query.trim())).map((l) => (
+                <option key={l.id} value={l.id}>{l.name} · {l.platform === 'douyin' ? '抖音' : '小红书'}</option>
+              ))}
+            </select>
           </label>
           {data.leads
             .filter((l) => [l.name, l.content].join(' ').includes(query.trim()))
@@ -152,7 +158,7 @@ export function FollowUp() {
                 <b>{l.name}</b>
                 <small>
                   {l.platform === 'douyin' ? '抖音' : '小红书'} ·{' '}
-                  {contacts.find((c) => c.commentId === l.commentId)?.stage || '候选待人工核实'}
+                  {contacts.find((c) => c.commentId === l.commentId)?.stage || '待核实'}
                 </small>
                 <span>{l.content}</span>
               </button>
@@ -162,19 +168,21 @@ export function FollowUp() {
           {lead ? (
             <>
               <h2>{lead.name}</h2>
+              {contact && <p className={followUpPlan(contact) === 'due' ? 'followup-due' : 'field-hint'}>{contact.stage} · {followUpPlan(contact) === 'stopped' ? '已停止跟进' : followUpPlan(contact) === 'closed' ? '已成交' : followUpPlan(contact) === 'invalid' ? '跟进时间无效' : contact.nextAt ? `${followUpPlan(contact) === 'due' ? '已到跟进时间' : '计划'} ${new Date(contact.nextAt).toLocaleString()}` : '未安排时间'}</p>}
               <blockquote>{lead.content}</blockquote>
+              {contact?.nextStep && <p className="followup-next-action"><b>下一步</b> {contact.nextStep}</p>}
               <WorkSource
                 key={lead.noteId}
                 note={data.notes.find((n) => n.id === lead.noteId)}
               />
               {contact && (
                 <details className="workflow-details">
-                  <summary>Harta 核实与跟进时间线 · {contact.events.length}</summary>
+                  <summary>核实记录 · {contact.events.length}</summary>
                   {[...contact.events].reverse().map((e) => (
                     <article className="contact-event" key={e.id}>
                       <b>{e.stage}</b>
                       <time>{new Date(e.at).toLocaleString()}</time>
-                      <p>{e.note}</p>
+                      {e.note.length > 180 ? <details><summary>展开完整记录</summary><p>{e.note}</p></details> : <p>{e.note}</p>}
                     </article>
                   ))}
                 </details>

@@ -101,17 +101,14 @@ export function Acquisition() {
   return (
     <>
       <PageHeading
-        eyebrow="ONE-CLICK ACQUISITION"
-        title="从搜索，到值得复核的需求。"
-        description="选好平台和关键词，自动搜索、挑选作品、采集评论并保存候选。结果与判断依据留在同一页。"
+        title="一键获客"
       />
       <CollectionBudget platform={platform} />
       <section className="acquisition-setup" aria-label="一键获客设置">
         <div className="acquisition-intro">
           <Workflow size={22} />
           <div>
-            <h2>组合获客流程</h2>
-            <p>最新作品为主 · 近期需求优先 · 相关与高互动补充</p>
+            <h2>搜索条件</h2>
           </div>
           <SourceTag source={data.settings.mode} />
         </div>
@@ -189,7 +186,7 @@ export function Acquisition() {
                 checked={supplement}
                 onChange={(e) => setSupplement(e.target.checked)}
               />
-              作品不足时补充相关、高互动搜索（遵守剩余额度）
+              作品不足时补充搜索
             </label>
             <button className="btn primary" disabled={busy || active || !keyword.trim()}>
               <Play size={15} />
@@ -198,7 +195,7 @@ export function Acquisition() {
           </div>
         </form>
         <p className="field-hint">
-          默认最多采样3篇，每篇20条评论。仅将近7天明确需求保存为候选，仍需核对产品与地区匹配；不自动发送消息。登录、验证、额度或连接问题会暂停并保留进度。
+          仅保存近7天需求候选；核实业务与地点后再联系。
         </p>
       </section>
       <section className="acquisition-results" aria-label="流程结果">
@@ -265,6 +262,8 @@ export function Acquisition() {
                 </>
               )}
             </div>
+            <p className="workflow-message" role="status">{flow.status === 'completed' ? `已完成 · ${comments.length} 条评论 · ${leads.length} 条候选` : flow.message}</p>
+            <details className="workflow-details"><summary>执行详情</summary>
             <ol className="acquisition-steps">
               {['搜索与选样', '评论采集', '线索判断', '结果保存'].map((label, i) => (
                 <li
@@ -293,9 +292,7 @@ export function Acquisition() {
                 {flow.reviewProgress.pending}）
               </p>
             )}
-            <p className="workflow-message" role="status">
-              {flow.message}
-            </p>
+
             {currentJob && (
               <p className="field-hint">
                 当前步骤已读取 {currentJob.pages} 批、{currentJob.count} 条。
@@ -305,6 +302,7 @@ export function Acquisition() {
             <p className="field-hint">
               候选作品包含本次搜索及同平台、同关键词的历史发现；评论与线索只统计本流程读取或有效缓存复用的结果。
             </p>
+            </details>
             <div className="acquisition-metrics">
               {[
                 [notes.length, '候选作品'],
@@ -318,6 +316,7 @@ export function Acquisition() {
                 </div>
               ))}
             </div>
+            {flow.qualificationReview && <details className="workflow-details"><summary>复核明细</summary>
             {flow.qualificationReview?.comparison && (
               <QualificationComparison
                 comparison={flow.qualificationReview.comparison}
@@ -374,6 +373,7 @@ export function Acquisition() {
                 })}
               </section>
             )}
+            </details>}
             <div className="acquisition-toolbar">
               <h3>
                 本次候选线索 <small>近7天 · 明确需求 · 待人工复核</small>
@@ -418,7 +418,7 @@ export function Acquisition() {
                   : '符合规则的候选将自动保存到这里，已读评论也会保留。'}
               </p>
             )}
-            <details open className="workflow-details">
+            <details className="workflow-details">
               <summary>作品与选样依据（{notes.length}）</summary>
               <div className="workflow-note-list">
                 {notes.map((n) => (
@@ -454,7 +454,7 @@ export function Acquisition() {
                 ))}
               </div>
             </details>
-            <details open className="workflow-details">
+            <details className="workflow-details">
               <summary>原始评论与判断（{comments.length}）</summary>
               <label className="field-label">
                 筛选复核结论
