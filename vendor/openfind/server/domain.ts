@@ -1,3 +1,4 @@
+import { demandLanguage, demandTime } from '../../../js/demand-rules.js';
 import type { Comment, Lead, Note, LeadAssessment } from '../shared/types.ts';
 export function parseIntent(text: string) {
   const n = text.match(/(\d+)\s*[篇条个]/);
@@ -58,11 +59,7 @@ export function intentScore(
 ): LeadAssessment {
   const evidence: LeadAssessment['evidence'] = [];
   const exclusions: string[] = [];
-  const timestamp = Date.parse(createdAt);
-  const ageDays =
-    Number.isFinite(timestamp) && timestamp <= now + 300000
-      ? Math.max(0, Math.floor((now - timestamp) / 86400000))
-      : null;
+  const { ageDays } = demandTime(createdAt, now);
   const fresh =
     ageDays === null
       ? 0
@@ -84,24 +81,8 @@ export function intentScore(
     /hpv|hiv|艾滋|宫颈|尖锐湿疣|癌症|肿瘤|感染|确诊|治疗|病情|抑郁|焦虑症|怀孕|不孕|性取向|宗教信仰/iu.test(
       body + '\n' + context,
     );
-  const resolved =
-    /(?:已经|刚刚|刚|早就|已)(?:买到|买了|买好|购买|下单|预约|解决|找到|选好)|买好了|问题解决了|不用了|不需要了|不买了|不想买|不打算买|不要链接|不用给.{0,2}链接|不问价|已成交/.exec(
-      body,
-    );
-  const seller = /加我|私我|看我主页|看主页|厂家直销|我这有|我家有|专业代办/.exec(body);
-  const purchasePath =
-    /链接.{0,3}(?:给|发)(?:我|一个|个|一下)|(?:有|给|发).{0,4}链接(?:吗|么|[?？])|(?:求|蹲)个?链接|(?:在)?哪(?:里|儿)?买(?:的)?|怎么预约|如何预约|怎么买|想订|想下单|求联系方式|怎么联系/.exec(
-      body,
-    );
-  const priceQuestion = /\d+(?:\.\d+)?\s*(?:w|万|元|块).{0,8}(?:吗|么|[?？])/i.exec(body);
-  const demand =
-    purchasePath ||
-    priceQuestion ||
-    /多少钱|花多少|花了多少|求报价|报价多少|什么价|多少价|问价|价格多少|预算|费用多少|怎么收费|想买|想做|想订|想了解|准备买|准备装修|求推荐|需要一个|需要一套|怎么预约|求链接|怎么买|哪里买|哪里有卖|还没买/.exec(
-      body,
-    );
+  const { resolved, seller, purchasePath, demand, urgent } = demandLanguage(body);
   const action = purchasePath;
-  const urgent = /今天|明天|这周|本周|近期|最近|急需|着急|马上/.exec(body);
   if (demand) evidence.push({ label: '明确表达需求或询价', excerpt: demand[0], points: 35 });
   if (action) evidence.push({ label: '明确询问购买或联系路径', excerpt: action[0], points: 20 });
   if (urgent && demand) evidence.push({ label: '表达近期计划', excerpt: urgent[0], points: 10 });
@@ -128,7 +109,7 @@ export function intentScore(
           ? 'demand'
           : 'considering';
   return {
-    version: 'intent-rules-2.2',
+    version: 'intent-rules-2.3',
     assessedAt: new Date(now).toISOString(),
     score,
     stage,
@@ -193,7 +174,7 @@ export function acquisitionPriority(note: Note, comments: Comment[], now = Date.
   const sample = comments.filter((c) => c.noteId === note.id && c.source === note.source);
   const recent = sample.filter((c) => {
     const a = assessComment(c, note, now);
-    return a.ageDays !== null && a.ageDays <= 7 && !a.exclusions.length && !!c.body.trim();
+    return demandTime(c.createdAt, now).recent && !a.exclusions.length && !!c.body.trim();
   });
   const needs = recent.filter((c) => assessComment(c, note, now).recommended);
   const people = new Set(needs.map((c) => c.authorId || c.id)).size;

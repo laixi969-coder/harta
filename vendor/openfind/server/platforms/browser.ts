@@ -53,6 +53,7 @@ interface ReadRun {
   sort?: SearchInput['sort'];
   filtersApplied?: boolean;
   inFlight?: number;
+  expandedReplies?: Set<string>;
 }
 const lastResultPages = new Map<Platform, Page>();
 const networkEvents: Record<string, { url: string; error: string }[]> = {};
@@ -411,16 +412,35 @@ async function assertNoChallenge(page: Page) {
     }
   }
 }
+async function pendingReply(run: ReadRun) {
+  const controls = run.page.getByText(/展开\s*\d+\s*条回复|展开更多回复|查看更多回复/).and(run.page.locator(':visible'));
+  const keys = await controls.evaluateAll(elements => elements.map((element, index) => {
+    const parent = element.closest('.parent-comment,[data-e2e="comment-item"]');
+    const record = parent?.querySelector('[id^="comment-"]')?.id || parent?.textContent?.slice(0, 160) || String(index);
+    return record + ':' + element.textContent;
+  }));
+  const index = keys.findIndex(key => !run.expandedReplies?.has(key));
+  return index < 0 ? null : { control: controls.nth(index), key: keys[index] };
+}
 async function collectPage(run: ReadRun, signal?: AbortSignal) {
   await assertNoChallenge(run.page);
+  if (run.kind === 'comments' && !run.queue.length && run.more === false && !(await pendingReply(run)))
+    return { items: [], readId: run.id, nextCursor: null, evidence: run.diagnostic };
   const start = Date.now(),
     before = run.responses;
+  let lastScroll = start;
   while (Date.now() - start < 25_000) {
     signal?.throwIfAborted();
     if (run.error) throw new Error(run.error);
     if (run.queue.length && !run.inFlight && Date.now() - run.lastResponse > 1000) break;
     if (!run.queue.length && run.responses > before && run.more === false) break;
     if (run.page.isClosed()) throw new Error('采集浏览器已关闭，已获取数据保留');
+    // Long comment threads often need several wheel steps before the next
+    // platform page is requested. One step followed only by waiting stalls.
+    if (run.kind === 'comments' && run.responses > 0 && !run.queue.length && !run.inFlight && run.more !== false && Date.now() - lastScroll > 1800) {
+      await scroll(run.page, true);
+      lastScroll = Date.now();
+    }
     if (Math.floor((Date.now() - start) / 250) % 4 === 0) await assertNoChallenge(run.page);
     await delay(250, undefined, { signal });
   }
@@ -438,7 +458,10 @@ async function collectPage(run: ReadRun, signal?: AbortSignal) {
       throw new Error('平台要求登录后才能继续，请在连接设置打开登录');
     if (/没有找到|暂无相关|没有相关|暂无评论|暂时没有更多/.test(text)) {
       run.more = false;
-    } else throw new Error('未收到平台数据响应；页面已保留供检查，未使用演示数据替代');
+    } else {
+      configSet('browserReadDiagnostics:' + run.platform, JSON.stringify({ kind: run.kind, more: run.more, responses: run.responses, seen: run.seen.size, evidence: run.diagnostic }));
+      throw new Error('未收到平台数据响应；页面已保留供检查，未使用演示数据替代');
+    }
   }
   const currentTitle = await run.page.title().catch(() => '');
   const currentText = await run.page
@@ -464,12 +487,7 @@ async function collectPage(run: ReadRun, signal?: AbortSignal) {
     );
   }
   const items = run.queue.splice(0);
-  const hasReplies =
-    run.kind === 'comments' &&
-    (await run.page
-      .getByText(/展开\s*\d+\s*条回复|展开更多回复|查看更多回复/)
-      .and(run.page.locator(':visible'))
-      .count()) > 0;
+  const hasReplies = run.kind === 'comments' && Boolean(await pendingReply(run));
   const done = run.more === false && !hasReplies;
   run.pageNumber = (run.pageNumber || 0) + 1;
   return {
@@ -639,7 +657,25 @@ export async function applyFilters(
   } else if (input.sort !== 'general')
     throw new Error('平台筛选控件未加载，请先用综合排序或检查浏览器');
 }
-async function scroll(page: Page) {
+async function scroll(page: Page, comments = false) {
+  if (comments) {
+    // Both official desktop layouts place the comment pane on the right.
+    // Scrolling the largest page containers moves the work instead of its list.
+    const viewport = page.viewportSize() || { width: 1280, height: 860 };
+    const x = viewport.width * 0.85, y = viewport.height * 0.65;
+    await page.evaluate(({x,y}) => {
+      for (let element = document.elementFromPoint(x,y); element; element = element.parentElement) {
+        const style = getComputedStyle(element);
+        if (/(auto|scroll)/.test(style.overflowY) && element.scrollHeight > element.clientHeight + 50) {
+          element.scrollTop += element.clientHeight * 0.8;
+          break;
+        }
+      }
+    }, {x,y});
+    await page.mouse.move(x,y);
+    await page.mouse.wheel(0,650);
+    return;
+  }
   await page.evaluate(() => {
     const all = [
       document.scrollingElement,
@@ -662,12 +698,13 @@ export async function browserComments(
   if (input.cursor) {
     run = runs.get(input.cursor.split(':')[0])!;
     if (!run || run.noteId !== input.note.id) throw new Error('评论游标已失效，请重新采集');
-    const expand = run.page
-      .getByText(/展开\s*\d+\s*条回复|展开更多回复|查看更多回复/)
-      .and(run.page.locator(':visible'))
-      .first();
-    if (await expand.isVisible().catch(() => false)) await expand.click();
-    else await scroll(run.page);
+    // Read remaining top-level comments first; repeatedly expanding the first
+    // already-captured reply can otherwise prevent reaching fresh discussions.
+    const expand = run.more === false ? await pendingReply(run) : null;
+    if (expand) {
+      (run.expandedReplies ||= new Set()).add(expand.key);
+      await expand.control.click();
+    } else if (run.more !== false) await scroll(run.page, true);
   } else {
     const s = await requireSession(platform);
     const page = await s.context.newPage();
@@ -689,7 +726,13 @@ export async function browserComments(
     await page.bringToFront();
     if (platform === 'douyin') {
       const button = page.locator('[data-e2e="comment-icon"], [data-e2e="comment-count"]').first();
-      if (await button.isVisible().catch(() => false)) await button.click();
+      // Image posts may open the recommendations tab beside the work, while
+      // video layouts expose an icon. Wait for hydration and select comments.
+      const commentTab = page.getByText(/^评论\s*[（(]\s*\d+/).and(page.locator(':visible')).first();
+      await button.or(commentTab).first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+      if (await commentTab.isVisible().catch(() => false)) await commentTab.click();
+      else if (await button.isVisible().catch(() => false)) await button.click();
+      else if (!run.responses) throw new Error('抖音评论入口尚未加载，请检查平台页面后继续');
     }
   }
   return collectPage(run, signal);

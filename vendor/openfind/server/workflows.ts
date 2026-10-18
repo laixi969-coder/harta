@@ -1,3 +1,4 @@
+import { demandTime, topicRelevant } from '../../../js/demand-rules.js';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
@@ -67,7 +68,7 @@ const unique = (ids: string[]) => [...new Set(ids)];
 function scopedNotes(w: AcquisitionWorkflow, ids: string[]) {
   return unique(ids).filter((id) => {
     const note = get<Note>('notes', id);
-    return note?.platform === w.input.platform && note.source === w.input.mode;
+    return note?.platform === w.input.platform && note.source === w.input.mode && (!w.input.noteType || w.input.noteType === 'all' || note.type === w.input.noteType);
   });
 }
 function rankedNotes(w: AcquisitionWorkflow) {
@@ -75,6 +76,7 @@ function rankedNotes(w: AcquisitionWorkflow) {
   return w.noteIds
     .map((id) => get<Note>('notes', id))
     .filter((n): n is Note => !!n && n.platform === w.input.platform && n.source === w.input.mode)
+    .filter((note) => topicRelevant([note.title, note.body, ...note.tags].join('\n'), w.input.keyword))
     .map((note) => ({ note, priority: acquisitionPriority(note, comments) }))
     .filter((x) => x.priority.tier > 0)
     .sort(
@@ -94,7 +96,7 @@ function qualify(w: AcquisitionWorkflow) {
     .filter(({ note }) => note?.platform === w.input.platform)
     .map(({ c, note }) => ({ c, note, assessment: assessComment(c, note) }))
     .filter(
-      (x) => x.assessment.recommended && x.assessment.ageDays !== null && x.assessment.ageDays <= 7,
+      (x) => x.assessment.recommended && demandTime(x.c.createdAt).recent,
     )
     .sort(
       (a, b) =>
@@ -154,7 +156,7 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor) 
           ? Math.min(10, w.input.searchLimit)
           : w.input.searchLimit,
       sort,
-      noteType: 'all' as const,
+      noteType: w.input.noteType || 'all',
       mode: w.input.mode,
       platform: w.input.platform,
       interval: 250,

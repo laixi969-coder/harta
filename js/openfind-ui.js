@@ -1,3 +1,4 @@
+import { demandKeywords } from './demand-rules.js';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names = {douyin:'抖音',xiaohongshu:'小红书'};
 const statuses = {disconnected:'未连接',opening:'正在打开',awaiting_login:'等待扫码',ready:'已验证登录',challenge:'需要本人验证',error:'连接失败',running:'进行中',paused:'已暂停',completed:'已完成',stopped:'已停止',failed:'失败'};
@@ -22,13 +23,14 @@ async function refresh(customerId){
   catch(error){states.set(customerId,{...(states.get(customerId)||{}),error:error.message});}
   finally{loading.delete(customerId);}
 }
-export function openFindPanel(customerId){
+export function openFindPanel(customerId,business={}){
   if(!states.has(customerId)&&!loading.has(customerId))queueMicrotask(()=>refresh(customerId));
   const s=states.get(customerId)||{}, running=s.jobs?.some(j=>j.status==='running')||s.workflows?.some(w=>w.status==='running'),frame=frames.get(customerId);
   return `<section class="cm-panel of-panel" aria-label="实时获客"><h2>实时搜索与自动获客</h2><p>登录平台后，在这里搜索作品或自动采集评论；结果持续同步到下方作品和客户核实流程。</p>
     ${s.error?`<p class="cm-error" role="alert">${esc(s.error)}</p>`:''}
     <div class="of-connections">${Object.entries(names).map(([platform,name])=>{const c=s.connections?.find(c=>c.platform===platform);return `<article><strong>${name} · ${esc(statuses[c?.status]||'未连接')}</strong><p class="meta">${esc(c?.accountName||c?.message||'首次使用需扫码登录')}</p><div class="acts">${button('login','连接 / 打开登录',platform)}${button('status','检查登录',platform)}${button(c?.network==='direct'?'system-network':'repair-network',c?.network==='direct'?'恢复系统网络':'修复页面加载',platform)}${s.enabled?button('frame','查看平台画面',platform):''}${s.protection?.[platform]?.paused?button('resume-platform','验证后恢复采集',platform):''}</div></article>`;}).join('')}</div>
     ${frame?`<div class="of-frame"><p>${names[frame.platform]}官方页面：扫码登录，可点击画面或拖动完成平台验证。</p><div class="acts">${button('frame','刷新画面',frame.platform)}${button('hide-frame','收起画面')}</div><img src="data:image/png;base64,${frame.image}" alt="${names[frame.platform]}登录与验证画面" data-of-frame="${frame.platform}" draggable="false" tabindex="0"><p class="meta">画面点击只作用于当前业务的平台窗口；账号验证由本人完成。</p></div>`:''}
+    <div class="of-keywords"><p class="meta">先用具体服务与求推荐、费用、预约等表达缩小范围；评论日期单独核对。</p><div class="acts">${demandKeywords(business).map(keyword=>button('keyword',keyword,keyword)).join('')}</div></div>
     <form class="cm-form of-search" data-of-form="search">${inputs(customerId,'search')}<label>每次作品数<input type="number" name="limit" min="1" max="100" value="${esc(drafts.get(`${customerId}:search`)?.limit||20)}" required></label><label>排序<select name="sort">${options([['latest','最新发布'],['popular','高互动'],['general','相关作品']],drafts.get(`${customerId}:search`)?.sort||'latest')}</select></label><label>形式<select name="noteType">${options([['all','不限'],['image','图文'],['video','视频']],drafts.get(`${customerId}:search`)?.noteType||'all')}</select></label><div class="acts"><button class="btn" type="submit" name="operation" value="search" ${running?'disabled':''}>实时搜索</button><button class="btn" type="submit" name="operation" value="workflow" ${running?'disabled':''}>一键搜索并采集评论</button></div><p class="meta">一键流程最多搜索 40 条作品、选取 3 条采集各 20 条评论；遇到验证会暂停并保留进度。</p><p class="cm-error" role="alert"></p></form>
     <details class="of-schedule" data-cm-detail="${customerId}:of-schedule"><summary>定时采集${s.schedule?.enabled?' · 已启用':''}</summary><form class="cm-form" data-of-form="schedule">${inputs(customerId,'schedule')}<label>间隔（分钟）<input name="minutes" type="number" min="15" max="1440" value="${esc(drafts.get(`${customerId}:schedule`)?.minutes||s.schedule?.minutes||60)}" required></label><button class="btn" type="submit">开启定时采集</button><p class="cm-error" role="alert"></p></form>${s.schedule?.enabled?`<p>当前：${esc(s.schedule.keyword)} · 每 ${s.schedule.minutes} 分钟；下次 ${esc(new Date(s.schedule.nextAt).toLocaleString('zh-CN'))}</p>${button('disable-schedule','停止定时采集')}`:''}<p class="meta">Harta 服务运行时执行；暂停流程或平台验证期间不会自动另开任务。</p></details>
     <div class="acts">${button('sync','立即同步结果')}${s.enabled?button('disconnect','关闭当前业务引擎'):''}</div>
@@ -51,6 +53,7 @@ export function initOpenFindUI(context){
   });
   document.body.addEventListener('click',async event=>{
     const b=event.target.closest('[data-of]');if(!b)return;const customerId=ctx.getBusiness(),action=b.dataset.of,id=b.dataset.id;
+    if(action==='keyword'){drafts.set(`${customerId}:search`,{...(drafts.get(`${customerId}:search`)||{}),keyword:id});ctx.render();return;}
     if(action==='hide-frame'){frames.delete(customerId);ctx.render();return;}
     if(loading.has(customerId))return;loading.add(customerId);b.disabled=true;
     try{

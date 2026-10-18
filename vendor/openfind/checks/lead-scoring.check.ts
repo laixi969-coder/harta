@@ -62,3 +62,9 @@ test('Real comment phrasing for link requests and short price questions has expl
   for (const text of ['不要链接了', '不用给我链接', '不问价'])
     assert.equal(intentScore(text, new Date().toISOString()).recommended, false, text);
 });
+
+test('Provider selection questions qualify with exact recent dates and expired seven-day boundaries stay out', () => {
+  assert.equal(intentScore('急急急！狗狗尿血看哪个好啊！！', when(1), '重庆宠物医院推荐', now).recommended, true);
+  assert.equal(intentScore('想找医院，已找到医院了', when(1), '', now).recommended, false);
+  assert.equal(intentScore('怎么预约', when(-0.001), '', now).ageDays, null);
+});

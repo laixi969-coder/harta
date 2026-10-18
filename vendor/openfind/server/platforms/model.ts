@@ -147,6 +147,7 @@ export function douyinNotes(payload: unknown): Note[] {
         videoUrl: image(n.video?.play_addr) || undefined,
         likes: count(info.digg_count),
         comments: count(info.comment_count),
+        commentCountKnown: info.comment_count != null && Number.isFinite(Number(info.comment_count)),
         saves: count(info.collect_count),
         publishedAt: date(n.create_time),
         tags: (n.text_extra || []).map((t: R) => String(t.hashtag_name || '')).filter(Boolean),

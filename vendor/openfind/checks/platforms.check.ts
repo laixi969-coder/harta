@@ -206,3 +206,11 @@ test('XHS v2 active filter overrides the stale top-level general sort', () => {
   );
   assert.equal(xhsRequestSort(null), null);
 });
+
+test('Absent Douyin comment counts remain unknown instead of proving no discussion', () => {
+  const unknown=douyinNotes({aweme_list:[{aweme_id:'123',desc:'宠物医院推荐'}]})[0];
+  assert.equal(unknown.commentCountKnown,false);
+  const zero=douyinNotes({aweme_list:[{aweme_id:'124',statistics:{comment_count:0}}]})[0];
+  assert.equal(zero.commentCountKnown,true);
+  assert.equal(zero.comments,0);
+});

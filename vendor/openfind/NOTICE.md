@@ -11,6 +11,8 @@ Harta adaptations:
 - Login opens the visible official login control when needed; headless Douyin uses Playwright default launch arguments.
 - loginPointer targets the same official page as the screenshot, allowing QR/login/challenge interaction inside Harta.
 - Douyin search verifies the hydrated keyword before trusting the filter shell; empty exhausted searches reset response tracking before retrying.
+- Shared Harta demand expressions and exact seven-day eligibility; workflow work-format selection and topic-aware sampling.
+- Comment hydration supports the Douyin comments tab; pagination targets the comment pane and tracks expanded reply controls. Unknown Douyin comment counts remain unknown.
 - Harta only exposes allowlisted acquisition commands. Publishing, account credentials, provider configuration, and message sending are not proxied.
 
 Each business runs in a separate child process with a separate SQLite database and Chrome profile. Native screenshots and login state stay scoped to the signed-in Harta user and selected business. Do not commit the runtime data directories.

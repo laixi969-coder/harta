@@ -261,3 +261,30 @@ test('Exhausted network quota still permits eligible local cache without extendi
   assert.equal(protectionStatus('douyin').counts.search, 100);
   assert.equal(get<any>('jobs', w.searchJobIds[0]).dataFetchedAt, timestamp);
 });
+
+test('Selected work format reaches every workflow search and keeps other formats out of sampling', async () => {
+  const w=createWorkflow({...input,keyword:'格式筛选验收',noteType:'video',maxNotes:1,supplement:false});
+  const selected={...note('format-video'),type:'video' as const};
+  const other={...note('format-image'),type:'image' as const};
+  await runWorkflow(w,async(j,q)=>{
+    assert.equal(q.noteType,'video');
+    if(j.type==='search'){put('notes',selected);put('notes',other);j.resultIds=[other.id,selected.id];}
+    else{assert.equal(j.noteId,selected.id);j.resultIds=[];}
+    j.status='completed';put('jobs',j);
+  });
+  assert.deepEqual(w.selectedNoteIds,[selected.id]);
+  assert.equal(w.status,'completed');
+});
+
+test('Sampling excludes already-neutered adoption posts and qualification uses the exact seven-day comment window', async () => {
+  const w=createWorkflow({...input,keyword:'重庆猫咪绝育',maxNotes:1,supplement:false});
+  const service={...note('relevant-service'),title:'母猫绝育医院推荐',body:'重庆宠物医院',publishedAt:new Date().toISOString()};
+  const adoption={...note('unrelated-adoption'),title:'已绝育蓝猫无偿领养',body:'重庆领养',comments:99999,publishedAt:new Date().toISOString()};
+  await runWorkflow(w,async(j)=>{
+    if(j.type==='search'){put('notes',service);put('notes',adoption);j.resultIds=[adoption.id,service.id];}
+    else{const c={...comment(service,'expired-seven-days','多少钱，怎么预约'),createdAt:new Date(Date.now()-7.5*86400000).toISOString()};put('comments',c);j.resultIds=[c.id];}
+    j.status='completed';put('jobs',j);
+  });
+  assert.deepEqual(w.selectedNoteIds,[service.id]);
+  assert.deepEqual(w.leadIds,[]);
+});

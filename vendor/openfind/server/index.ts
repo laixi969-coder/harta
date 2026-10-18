@@ -355,6 +355,7 @@ app.get('/api/state', (_req, res) =>
   }),
 );
 const acquisitionSchema = z.object({
+  noteType: z.enum(['all', 'image', 'video']).default('all'),
   keyword: z.string().trim().min(1).max(100),
   platform: z.enum(['xiaohongshu', 'douyin']),
   mode: z.enum(['demo', 'live']),

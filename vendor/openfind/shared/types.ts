@@ -166,6 +166,7 @@ export interface Snapshot {
   settings: Settings;
 }
 export interface AcquisitionInput {
+  noteType?: SearchInput['noteType'];
   keyword: string;
   platform: Platform;
   mode: Mode;

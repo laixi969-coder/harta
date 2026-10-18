@@ -1,11 +1,11 @@
+import { demandLanguage, demandTime } from './demand-rules.js';
 // Shared presentation rules: counts describe saved evidence, never conversion probability.
 export function demandEvidence(signal, now = Date.now()) {
   const text = String(signal.text || '');
-  const time = Date.parse(signal.publishedAt);
-  const ageDays = Number.isFinite(time) && time <= now ? Math.floor((now - time) / 86400000) : null;
-  const excluded = signal.isAuthorReply || signal.status === 'excluded' || /已经买|已买|已解决|不用了|不需要了|不想买|不打算买|不买了|已找到|买好了|问题解决|加我|私我|厂家直销|专业承接/.test(text);
-  const match = text.match(/求推荐|求报价|多少钱|怎么收费|想买|想找|准备装修|求链接|哪里买|怎么买|怎么预约|怎么联系|有没有|需要/);
-  const recent = !excluded && Boolean(match) && ageDays !== null && time >= now - 7 * 86400000;
+  const { ageDays, recent: inWindow } = demandTime(signal.publishedAt, now);
+  const { demand: match, resolved, seller } = demandLanguage(text);
+  const excluded = signal.isAuthorReply || signal.status === 'excluded' || resolved || seller;
+  const recent = !excluded && Boolean(match) && inWindow;
   return { ageDays, recent, excerpt: excluded ? '' : match?.[0] || '', reason: excluded ? '作者回复、已排除或已解决／推广表达' : !match ? '未识别明确需求表达' : ageDays === null ? '有需求表达，时间待核实' : !recent ? '有需求表达，已超过近 7 天' : `近 7 天原文包含「${match[0]}」，业务适配待核实` };
 }
 
