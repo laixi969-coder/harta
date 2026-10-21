@@ -3692,6 +3692,28 @@ document.getElementById('import-keywords')?.addEventListener('click', async even
   } catch (error) { status.textContent = error.message; toast(error.message); }
   finally { button.disabled = false; keywordImportBusy = false; }
 });
+document.getElementById('expand-keywords')?.addEventListener('click', async event => {
+  const customer = keywordCustomer(); if (!customer) return;
+  const status = document.getElementById('keyword-expand-status');
+  const seeds = document.getElementById('keyword-seeds').value.split(/[,，、\n]/).map(s => s.trim()).filter(Boolean);
+  if (!seeds.length) { status.textContent = '先填一个种子词，比如你的产品名或客户会搜的说法。'; return; }
+  if (seeds.length > 5) { status.textContent = '一次最多 5 个种子词。'; return; }
+  const scopeSelect = document.getElementById('keyword-scope-name');
+  const scopeName = (scopeSelect.value === '__new__' ? document.getElementById('keyword-scope-new').value : scopeSelect.value).trim();
+  const button = event.currentTarget; button.disabled = true;
+  status.textContent = '正在取下拉词，并把扩展词和你自己的评论对一遍…';
+  try {
+    const response = await fetch('/api/keywords/expand', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ customerId: customer.id, seeds, scopeType: document.getElementById('keyword-scope-type').value, scopeName: scopeName || customer.hunt }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '扩展失败');
+    state.workspace = data.workspace; renderToday();
+    const batch = data.batch;
+    const hit = (batch.items || []).filter(row => row.corpusHit > 0).length;
+    status.textContent = `已扩展 ${batch.items.length} 个词并入词库${hit ? `，其中 ${hit} 个在你自己的评论或对标正文里出现过` : '，暂时没有真实语料可比对'}。${(batch.warnings || []).join(' ')}`;
+    toast('下拉词已归入词库');
+  } catch (error) { status.textContent = error.message; toast(error.message); }
+  finally { button.disabled = false; }
+});
 document.getElementById('keyword-library-list')?.addEventListener('click', async event => {
   const button = event.target.closest('button'); const customer = keywordCustomer(); if (!button || !customer) return;
   const batch = (customer.keywordLibraries || []).find(b => b.id === button.dataset.removeKeywords); if (!batch) return;

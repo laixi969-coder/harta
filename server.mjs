@@ -12,6 +12,7 @@ import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, vali
 import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, saveAccount, preparePublication, confirmPublication, recordInquiry, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
 import { agentWorkspace, createAgent, saveAgent, agentAction, startAgentTrial } from './lib/business-agents.mjs';
 import { proposeFactCards, saveGrowthSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
+import { expandKeywordsForCustomer, aggregatePains, teardownForCustomer, teardownAccountForCustomer, rebuildPlaybook, topicPoolFor, decideTopic, refreshPlaybookAfterFeedback, calibrateHuntFor } from './lib/research-tools.mjs';
 import { rewriteOrganicPost } from './lib/generate.mjs';
 import { receiveKeywordBatch, prepareKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
 import { saveKeywordLibrary, removeKeywordLibrary } from './lib/workspace.mjs';
@@ -100,7 +101,7 @@ function rateLimit(req, key, max, windowMs, identity) {
   req.rateRetryAfter = result.retryAfter;
   return result.allowed;
 }
-const EXPENSIVE_ROUTES = new Set(['/api/materials/analyze', '/api/keywords/import', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
+const EXPENSIVE_ROUTES = new Set(['/api/materials/analyze', '/api/keywords/import', '/api/keywords/expand', '/api/pain-clusters', '/api/benchmark/teardown', '/api/writing-playbook', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
 const JOB_ROUTES = new Set(['/api/customers', '/api/repack', '/api/refill', '/api/today']);
 EXPENSIVE_ROUTES.add('/api/acquisition/suggestion');
 JOB_ROUTES.add('/api/acquisition/search');
@@ -474,6 +475,26 @@ async function handleApi(req, res, url) {
     return result.error ? json(res, 400, result) : json(res, 200, publicWorkspace(result.workspace));
   }
 
+  if (req.method === "POST" && ["/api/keywords/expand", "/api/pain-clusters", "/api/benchmark/teardown", "/api/benchmark/account", "/api/writing-playbook", "/api/topic-pool", "/api/topic-decide", "/api/hunt-calibration"].includes(url.pathname)) {
+    const user = requireUser(req, res);
+    if (!user) return;
+    try {
+      const body = await readBody(req);
+      const actions = {
+        "/api/keywords/expand": () => expandKeywordsForCustomer(user.email, body),
+        "/api/pain-clusters": () => aggregatePains(user.email, body),
+        "/api/benchmark/teardown": () => teardownForCustomer(user.email, body),
+        "/api/benchmark/account": () => teardownAccountForCustomer(user.email, body),
+        "/api/writing-playbook": () => rebuildPlaybook(user.email, body),
+        "/api/topic-pool": () => topicPoolFor(user.email, body),
+        "/api/topic-decide": () => decideTopic(user.email, body),
+        "/api/hunt-calibration": () => calibrateHuntFor(user.email, body),
+      };
+      const result = await actions[url.pathname]();
+      return json(res, 200, { ...result, workspace: publicWorkspace(result.workspace) });
+    } catch (error) { return json(res, error.statusCode || 400, { error: error.message || "操作失败" }); }
+  }
+
   if (req.method === "POST" && url.pathname === "/api/materials/analyze") {
     const user = requireUser(req, res);
     if (!user) return;
@@ -801,7 +822,10 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const body = await readBody(req);
-    return json(res, 200, publicWorkspace(setFeedback(user.email, body.key, body.value)));
+    const workspace = setFeedback(user.email, body.key, body.value);
+    // 有回音 / 没反应是底稿唯一的进化依据，标完立刻重算。
+    refreshPlaybookAfterFeedback(user.email, workspace, body.key);
+    return json(res, 200, publicWorkspace(workspace));
   }
 
   if (req.method === "POST" && url.pathname === "/api/content-state") {

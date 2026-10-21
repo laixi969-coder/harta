@@ -143,6 +143,12 @@
           <div class="acts"><button class="btn" type="button" id="import-keywords">导入并自动梳理</button><a class="btn ghost" href="/api/keywords/template" download>下载表格模板</a></div>
           <p id="keyword-import-status" class="meta" role="status" aria-live="polite"></p>
           </details>
+          <details class="keyword-intake" id="keyword-expand-panel"><summary>没有词表？从一个词开始扩展</summary>
+          <label for="keyword-seeds">种子词，最多 5 个，用逗号或换行分隔</label><textarea id="keyword-seeds" rows="2" maxlength="300" placeholder="例如：隔音窗，卧室隔音"></textarea>
+          <p class="meta">抓搜索引擎里真实出现过的下拉建议，不需要 5118 密钥，也不含搜索量。会同时标出这些词在你自己的评论和对标正文里出现过几次。</p>
+          <div class="acts"><button class="btn ghost" type="button" id="expand-keywords">扩展并归入词库</button></div>
+          <p id="keyword-expand-status" class="meta" role="status" aria-live="polite"></p>
+          </details>
           <div class="keyword-results">
           <h2>关键词资料库</h2>
           <label for="keyword-filter">查找已导入的词</label><input id="keyword-filter" type="search" placeholder="搜索关键词、归属、品类或品牌">

@@ -14,7 +14,7 @@ const button = (action,label,data='',ghost=true) => `<button type="button" class
 const badge = value => `<span class="acq-badge">${esc(labels[value]||value)}</span>`;
 const empty = (title,note) => `<div class="acq-empty"><h3>${title}</h3><p>${note}</p></div>`;
 const link = (value,label='打开原文') => {try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)?`<a class="btn ghost" href="${esc(u.href)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`:'';}catch{return '';}};
-let ctx, selected='', taskId='', tab='active', leadId='', status='pending', origin='all', stage='all', page=0, leadPage=0, capabilities=null, timer, refreshing=false;
+let ctx, selected='', taskId='', tab='active', leadId='', workId='', accountKey='', status='pending', origin='all', stage='all', page=0, leadPage=0, capabilities=null, timer, refreshing=false;
 const formDrafts = new Map();
 const workspace = () => ctx.getWorkspace();
 const data = () => workspace().acquisition || {tasks:[],signals:[],leads:[],publications:[],accounts:[]};
@@ -95,8 +95,120 @@ function leadsView() {
 function accountsView() {
   return `<h2>平台账号与连接</h2><button class="btn" data-cm="go-connections">连接抖音／小红书浏览器账号</button><p>账号登记仅用于记录，不代表平台授权。</p>${customerPicker()}${form(`account-${selected}`,'account',`<div class="acq-fields">${select('platform','平台',platforms)}${input('name','账号名称或标识 *',{required:true,max:200})}</div>${submit('登记账号')}`)}${scoped('accounts').map(a=>`<div class="acq-task"><header><strong>${esc(a.platform)} · ${esc(a.name)}</strong>${badge('未连接 · 人工处理')}</header><p class="meta">官方接口未授权；浏览器连接状态见「平台账号」。</p></div>`).join('')}<details data-persist="capabilities"><summary>逐平台能力与待接通条件</summary>${(capabilities?.platforms||platforms.map(platform=>({platform}))).map(p=>`<div class="acq-task"><strong>${esc(p.platform)}</strong><p class="meta">浏览器读取需登录；官方发布和消息接口尚未授权。</p></div>`).join('')}</details>`;
 }
-function preview() {
-  const f=document.querySelector('[data-acq-form="prepare-publication"]');if(!f)return;
+function painResult(data) {
+  return `<p class="meta">归集于 ${when(data.generatedAt)} · ${esc(data.method)} · 覆盖 ${data.coverage.covered}/${data.coverage.total} 条真实评论</p>
+    ${data.clusters.length ? `<div class="acq-pain-list">${data.clusters.map(c => `<article class="acq-task"><header><strong>${esc(c.topic)}</strong><span class="meta">${c.count} 条 · ${Math.round((c.share || 0) * 100)}%</span></header><p>${esc(c.anxiety)}</p><p class="meta">卡在哪：${esc(c.blocker)}</p><p>${esc(c.angle)}</p><details><summary>看原话与出处 · ${c.quotes.length}</summary>${c.quotes.map(q => `<p class="acq-quote">${esc(q.text)}</p>`).join('')}<p class="meta">${esc(c.method)}；频次是评论条数，不代表平台整体。</p></details></article>`).join('')}</div>` : '<p class="meta">没有归出主题。</p>'}
+    ${(data.warnings || []).map(w => `<p class="meta">${esc(w)}</p>`).join('')}`;
+}
+function painPanel() {
+  const data4 = business()?.painClusters;
+  return `<section class="acq-panel"><div class="acq-section-head"><div><h2>评论区痛点归集</h2><p class="meta">只看当前业务的真实评论，按「这个人卡在哪」归堆。归集不是线索评分：它回答该写什么，不回答该找谁。</p></div>${button('pains-run', data4 ? '重新归集' : '开始归集', '', false)}</div>${data4 ? painResult(data4) : '<p class="meta">还没有归集结果。先把作品评论采进来，再回这里归集。</p>'}<p class="meta">归集会调用模型做语义分堆；次数与出处始终来自真实评论。</p></section>`;
+}
+function radarSvg(radar) {
+  const axes = radar?.axes || [];
+  if (!axes.length) return '';
+  const n = axes.length, cx = 100, cy = 78, R = 50;
+  const at = (i, r) => { const a = -Math.PI / 2 + (i * 2 * Math.PI) / n; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
+  const ring = (k) => `<polygon points="${axes.map((_, i) => at(i, R * k).map((v) => v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="var(--border)" stroke-width="0.6"/>`;
+  const spokes = axes.map((_, i) => { const [x, y] = at(i, R); return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.6"/>`; }).join('');
+  const points = axes.map((axis, i) => at(i, (R * Math.max(0, Math.min(100, axis.score ?? 0))) / 100));
+  const labels = axes.map((axis, i) => {
+    const [x, y] = at(i, R + 16);
+    const anchor = Math.abs(x - cx) < 4 ? 'middle' : x > cx ? 'start' : 'end';
+    return `<text x="${x.toFixed(1)}" y="${(y + 2).toFixed(1)}" text-anchor="${anchor}" font-size="7.5" fill="var(--ink-3)">${esc(axis.label)}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 200 158" width="200" height="158" role="img" aria-label="数据雷达：${esc(axes.map((a) => `${a.label}${a.score == null ? '缺数据' : `第${a.score}分位`}`).join('，'))}">${[0.25, 0.5, 0.75, 1].map(ring).join('')}${spokes}<polygon points="${points.map((p) => p.map((v) => v.toFixed(1)).join(',')).join(' ')}" fill="var(--accent)" fill-opacity="0.16" stroke="var(--accent)" stroke-width="1.4"/>${points.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.8" fill="var(--accent)"/>`).join('')}${labels}</svg>`;
+}
+function radarBlock(radar) {
+  if (!radar) return '';
+  const nums = (radar.axes || []).map((axis) => {
+    const value = axis.value == null ? '缺' : (axis.key.endsWith('Rate') ? axis.value.toFixed(2) : axis.value);
+    return `<span>${esc(axis.label)} <b>${esc(value)}</b>${axis.score == null ? '' : ` · 第${axis.score}分位`}</span>`;
+  }).join(' ');
+  return `<details><summary>数据雷达${radar.comparable ? '' : '（缺可比样本）'}</summary><div class="acq-radar">${radarSvg(radar)}</div><p class="meta">${esc(radar.basis)}</p><p class="meta">${nums}</p></details>`;
+}
+function accountBlock(account) {
+  const p = account.profile || {};
+  return `<header class="acq-section-head"><div><h2>${esc(account.authorName)}</h2><p class="meta">${esc(account.platform)} · ${esc(account.method)} · ${p.works} 条作品${p.spanDays != null ? ` · 跨度 ${p.spanDays} 天` : ''}</p></div></header>
+    <div class="acq-task-facts"><div><strong>${p.medianLikes ?? '—'}</strong><span>赞中位数</span></div><div><strong>${p.medianGapDays ?? '—'}</strong><span>发帖间隔（天）</span></div><div><strong>${p.numberedShare ?? '—'}${p.numberedShare == null ? '' : '%'}</strong><span>用分点的比例</span></div></div>
+    ${account.playbook ? `<p>${esc(account.playbook)}</p>` : ''}
+    ${p.hits?.length ? `<details open><summary>这个账号的爆款（本账号中位数 2 倍以上）· ${p.hits.length}</summary>${p.hits.map((hit) => `<p>${esc(hit.title)} <span class="meta">赞 ${hit.likes ?? '—'}</span></p>`).join('')}</details>` : ''}
+    ${p.titlePatterns?.length ? `<details><summary>标题反复用的写法</summary><p>${p.titlePatterns.map((row) => `${esc(row.label)} ${row.count} 条`).join(' · ')}</p></details>` : ''}
+    ${p.topTags?.length ? `<details><summary>高频标签</summary><p>${p.topTags.map((tag) => `${esc(tag.name)} ${tag.count}`).join(' · ')}</p></details>` : ''}
+    ${p.feedback?.length ? `<details><summary>评论区反复出现的卡点</summary>${p.feedback.map((row) => `<p><b>${esc(row.point)}</b> · ${row.count} 条${row.quote ? `<br><span class="acq-quote">${esc(row.quote)}</span>` : ''}</p>`).join('')}</details>` : ''}
+    ${(account.strengths || []).length ? `<details><summary>它做对了什么</summary>${account.strengths.map((x) => `<p>${esc(x)}</p>`).join('')}</details>` : ''}
+    ${(account.risks || []).length ? `<details><summary>照搬到你会踩的坑</summary>${account.risks.map((x) => `<p>${esc(x)}</p>`).join('')}</details>` : ''}
+    ${(account.transferable || []).length ? `<details><summary>可以学的手法</summary>${account.transferable.map((x) => `<p>${esc(x)}</p>`).join('')}</details>` : ''}
+    ${(account.notTransferable || []).length ? `<details><summary>不能搬的东西</summary>${account.notTransferable.map((x) => `<p>${esc(x)}</p>`).join('')}</details>` : ''}
+    ${(account.warnings || []).map((w) => `<p class="meta">${esc(w)}</p>`).join('')}`;
+}
+function teardownResult(t) {
+  return `<header class="acq-section-head"><div><h2>${esc(t.title || '未命名作品')}</h2><p class="meta">${esc(t.platform)} · ${esc(t.author || '作者未知')} · ${t.method}</p></div>${link(t.url, '打开原作品')}</header>
+    <div class="acq-task-facts"><div><strong>${esc((t.metrics || {}).likes ?? '—')}</strong><span>赞</span></div><div><strong>${esc((t.metrics || {}).comments ?? '—')}</strong><span>评</span></div><div><strong>${esc((t.metrics || {}).saves ?? '—')}</strong><span>藏</span></div></div>
+    ${radarBlock(t.radar)}
+    <p><b>钩子</b> ${esc(t.hook)}</p><p class="meta">${(t.hookKinds || []).map(esc).join(' + ')}</p>
+    <p><b>切入角度</b> ${esc(t.angle)}</p>
+    <p><b>证据</b> ${(t.proofTypes || []).map(esc).join('、')} · <b>行动入口</b> ${esc(t.action)}</p>
+    <details open><summary>结构拆解</summary>${(t.structure || []).map(s => `<p><b>${esc(s.part)}</b> · ${esc(s.role)}${s.note ? `<br><span class="meta">${esc(s.note)}</span>` : ''}</p>`).join('')}</details>
+    ${(t.commentFeedback || []).length ? `<details><summary>评论区反馈 · ${t.commentFeedback.length}</summary>${t.commentFeedback.map(c => `<p><b>${esc(c.point)}</b> · ${c.count} 条${c.quote ? `<br><span class="acq-quote">${esc(c.quote)}</span>` : ''}</p>`).join('')}</details>` : ''}
+    ${(t.transferable || []).length ? `<details><summary>可以学的做法</summary>${t.transferable.map(x => `<p>${esc(x)}</p>`).join('')}</details>` : ''}
+    ${(t.notTransferable || []).length ? `<details><summary>不能搬的东西</summary>${t.notTransferable.map(x => `<p>${esc(x)}</p>`).join('')}</details>` : ''}
+    ${(t.topics || []).length ? `<h3>给这个业务的选题</h3>${t.topics.map(x => `<div class="acq-task"><strong>${esc(x.angle)}</strong><p>${esc(x.why)}</p><p class="meta">${(x.keywords || []).map(esc).join(' · ')}</p></div>`).join('')}` : '<p class="meta">还没出选题：需要模型可用，且这条作品有正文。</p>'}
+    ${(t.warnings || []).map(w => `<p class="meta">${esc(w)}</p>`).join('')}`;
+}
+function teardownPanel() {
+  const works = (data().works || []).filter(w => w.customerId === selected).slice(0, 12);
+  const teardowns = business()?.benchmarkTeardowns || [];
+  const shown = teardowns.find(t => t.workId === workId) || teardowns[0];
+  const authors = new Map();
+  for (const w of (data().works || []).filter(w => w.customerId === selected)) {
+    const key = w.authorId || w.authorName || '未知';
+    const row = authors.get(key) || { key, authorId: w.authorId || '', authorName: w.authorName || '作者待核实', count: 0 };
+    row.count += 1; authors.set(key, row);
+  }
+  const authorRows = [...authors.values()].sort((a, b) => b.count - a.count).slice(0, 6);
+  const accounts = business()?.accountTeardowns || [];
+  const shownAccount = accounts.find(a => (a.authorId || a.authorName) === accountKey) || accounts[0];
+  return `<section class="acq-panel"><h2>对标拆解</h2><p class="meta">拆结构、拆钩子、拆证据，然后换成自己业务能做的选题。不搬原文、图片、案例和作者身份。</p>
+    ${works.length ? works.map(w => `<div class="acq-task"><header><strong>${esc(w.title || '未命名作品')}</strong><span class="meta">${esc(w.platform)} · 赞 ${esc((w.metrics || {}).likes ?? '—')} · 评 ${esc((w.metrics || {}).comments ?? '—')}</span></header>${teardowns.some(t => t.workId === w.id) ? `<p class="meta">已拆解 ${when(teardowns.find(t => t.workId === w.id).generatedAt)}</p>` : ''}<div class="acts">${button('teardown-run', teardowns.some(t => t.workId === w.id) ? '重新拆解' : '拆解这条', `data-id="${w.id}"`)}</div></div>`).join('') : '<p class="meta">当前业务还没有采集到作品。先在内容工作室搜索并采集对标作品。</p>'}
+    ${shown ? `<h3>最近一次拆解</h3>${teardownResult(shown)}` : ''}
+    ${authorRows.length ? `<h3>按博主看</h3><p class="meta">单篇看的是这一篇怎么写的；博主看的是这个人一直怎么写。</p>${authorRows.map(a => `<div class="acq-task"><header><strong>${esc(a.authorName)}</strong><span class="meta">已采 ${a.count} 条作品</span></header><div class="acts">${button('account-teardown', accounts.some(t => (t.authorId || t.authorName) === a.key) ? '重新拆博主' : '拆这个博主', `data-author="${esc(a.key)}" data-id="${esc(a.authorId)}" data-name="${esc(a.authorName)}"`)}</div></div>`).join('')}` : ''}
+    ${shownAccount ? `<h3>最近一次博主拆解</h3>${accountBlock(shownAccount)}` : ''}</section>`;
+}
+let poolCache = null, poolLoading = false;
+function topicPanel() {
+  const pool = poolCache;
+  if (!pool && !poolLoading) {
+    poolLoading = true;
+    researchApi('topic-pool', { customerId: selected })
+      .then((result) => { poolCache = result.pool; poolLoading = false; renderAcquisitionUI(); })
+      .catch(() => { poolLoading = false; });
+  }
+  const rows = (pool?.topics || []).slice(0, 12);
+  return `<section class="acq-panel"><div class="acq-section-head"><div><h2>选题池</h2><p class="meta">${pool ? esc(pool.note) : '正在汇总痛点、对标、关键词和研究机会…'}</p></div>${button('create-content', '去生成', '', false)}</div>
+    ${pool ? `<p class="meta">痛点 ${pool.sources.痛点} · 对标 ${pool.sources.对标} · 研究 ${pool.sources.研究} · 关键词 ${pool.sources.关键词}；候选 ${pool.counts.候选} 个，已用 ${pool.counts.已用} 个</p>` : ''}
+    ${rows.length ? rows.map(t => `<div class="acq-task"><header><strong>${esc(t.angle)}</strong><span class="meta">${esc(t.source)}${t.alsoFrom.length ? ` ＋${t.alsoFrom.map(esc).join('、')}` : ''}${t.status !== '候选' ? ` · ${esc(t.status)}` : ''}</span></header>${t.why ? `<p>${esc(t.why)}</p>` : ''}${t.keywords.length ? `<p class="meta">搜索词：${t.keywords.map(esc).join('、')}</p>` : ''}${t.source === '痛点' && t.evidence.count ? `<p class="meta">来自 ${t.evidence.count} 条真实评论${t.evidence.quote ? `：「${esc(t.evidence.quote)}」` : ''}</p>` : ''}${t.source === '对标' && t.evidence.workTitle ? `<p class="meta">来自对标「${esc(t.evidence.workTitle)}」的拆解</p>` : ''}<div class="acts">${t.status === '候选' ? button('topic-use', '用这个选题', `data-key="${esc(t.key)}"`, false) + button('topic-skip', '不用', `data-key="${esc(t.key)}"`) : button('topic-reset', '恢复候选', `data-key="${esc(t.key)}"`)}</div></div>`).join('') : (pool ? '<p class="meta">还没有选题来源：先归集评论、拆解对标，或导入关键词。</p>' : '')}
+    <p class="meta">「用这个选题」会写进当前业务保存的方向，下一批生成直接采用，不覆盖你原来手写的内容。</p></section>`;
+}
+function calibrationPanel() {
+  const c = business(), cal = c?.huntCalibration;
+  return `<section class="acq-panel"><div class="acq-section-head"><div><h2>行业包校准</h2><p class="meta">用真实跑出来的证据决定这个行业包能不能从 D 顶到 C／B。不改包文件，只记结论和缺口。</p></div>${button('calibrate-hunt', cal ? '重新校准' : '校准这个行业', '', false)}</div>
+    ${cal ? `<p>${esc(c.hunt || '未填行业')} · 当前 <b>${esc(cal.grade)}</b> 级${cal.baseGrade && cal.baseGrade !== cal.grade ? `（原 ${esc(cal.baseGrade)} 级）` : ''} · ${when(cal.checkedAt)}</p>
+      ${cal.gaps.length ? `<details><summary>还差什么 · ${cal.gaps.length} 项</summary>${cal.gaps.map(g => `<p>${esc(g.label)}：已有 ${g.have}，需要 ${g.need}（差 ${g.missing}）</p>`).join('')}<p class="meta">差额按真实数据算：评论条数、归集主题、有回音篇目、拆解作品与博主。</p></details>` : '<p class="meta">这一级的条件已经满足。</p>'}
+      <p class="meta">校准结论会作为「已验证补充」注入生成提示词；包文件本身不动，策展包也不因单账号证据改等级。</p>` : '<p class="meta">还没校准过。先采评论、归集痛点、拆一条对标，再来校准。</p>'}</section>`;
+}
+function playbookPanel() {
+  const p = business()?.playbook;
+  return `<section class="acq-panel"><div class="acq-section-head"><div><h2>写作底稿</h2><p class="meta">从你有回音的内容和改稿记录里长出来。改写时自动带上，不再用通用规则。</p></div>${button('playbook-run', p ? '刷新底稿' : '生成底稿', '', false)}</div>
+    ${p ? `<p class="meta">更新于 ${when(p.updatedAt)} · 有回音 ${p.coverage.replied} 篇 · 改稿记录 ${p.coverage.edits} 处 · 覆盖 ${p.coverage.packs} 个批次</p>
+      ${p.evolution ? `<p class="meta">最近一轮变化：新增 ${p.evolution.added.length} 个有效角度${p.evolution.dropped.length ? `，淡出 ${p.evolution.dropped.length} 个` : ''}${p.evolution.retired.length ? `，淘汰 ${p.evolution.retired.length} 个没回音的角度` : ''}</p>` : ''}
+      ${p.retired.length ? `<details><summary>已淘汰的角度 · ${p.retired.length}</summary>${p.retired.map(r => `<p>${esc(r.angle)} <span class="meta">${r.misses} 次没反应</span></p>`).join('')}<p class="meta">这些角度跑过两次以上都没回音，不再写进下一篇。</p></details>` : ''}
+      ${p.cards.length ? p.cards.map((c, i) => `<div class="acq-task"><header><strong>${i + 1}. ${esc(c.kind)}</strong><span class="meta">${esc(c.angle || '角度未记录')}</span></header><p>开头：${esc(c.opener || '未记录')}</p>${c.proof ? `<p class="meta">证据：${esc(c.proof)}</p>` : ''}${c.action ? `<p class="meta">行动：${esc(c.action)}</p>` : ''}</div>`).join('') : '<p class="meta">还没有有回音的内容，底稿里只有改稿偏好。</p>'}
+      ${p.editRules.length ? `<h3>反复改掉的写法</h3>${p.editRules.map(r => `<p>「${esc(r.was)}」→「${esc(r.now)}」 <span class="meta">${r.count} 次</span></p>`).join('')}` : ''}
+      ${p.tone.length ? `<h3>语气样本</h3>${p.tone.map(t => `<p class="acq-quote">${esc(t)}</p>`).join('')}` : ''}
+      ${(p.warnings || []).map(w => `<p class="meta">${esc(w)}</p>`).join('')}` : '<p class="meta">还没有底稿。发出去的内容被标了「有回音」、或你改过稿之后，这里才会长出真实依据。</p>'}</section>`;
+}
+function preview() {  const f=document.querySelector('[data-acq-form="prepare-publication"]');if(!f)return;
   const post=postOptions().find(p=>p.key===f.elements.post.value);
   f.querySelector('[data-post-preview]').innerHTML=post?`<p class="meta">最终文字预览</p><p class="acq-quote">${esc(Object.values(post.content).filter(v=>typeof v==='string').join('\n\n'))}</p>`:'';
 }
@@ -121,7 +233,7 @@ export function renderAcquisitionUI() {
   document.getElementById('acq-results').innerHTML=resultsView();
   const noBusiness=empty('先建立业务档案','可以复用已有客户资料；创建后，两条获客路径共用同一份业务信息。')+'<button class="btn" data-customer-entry="cooperating">录入业务</button>';
   document.getElementById('acq-task-title').textContent=tab==='active'?'主动获客 / 查找与核实':'内容获客 / 登记发布';
-  document.getElementById('acq-workspace').innerHTML=selected?`<div class="acts"><button type="button" class="btn ghost" data-cm="go-${tab==='active'?'prospecting':'content-home'}">返回${tab==='active'?'主动':'内容'}获客</button><button type="button" class="btn ghost" data-cm="go-conversations">继续客户跟进</button></div>${taskId?taskDetail():tab==='active'?activeView():contentView()}`:noBusiness;
+  document.getElementById('acq-workspace').innerHTML=selected?`<div class="acts"><button type="button" class="btn ghost" data-cm="go-${tab==='active'?'prospecting':'content-home'}">返回${tab==='active'?'主动':'内容'}获客</button><button type="button" class="btn ghost" data-cm="go-conversations">继续客户跟进</button></div>${taskId?taskDetail():tab==='active'?activeView():contentView()}${taskId?'':tab==='active'?painPanel()+teardownPanel():topicPanel()+playbookPanel()+calibrationPanel()}`:noBusiness;
   document.getElementById('acq-leads').innerHTML=selected?customerPicker()+leadsView():noBusiness;
   document.getElementById('acq-accounts').innerHTML=selected?accountsView():noBusiness;
   restore();for(const d of document.querySelectorAll('[data-persist]'))if(opened.includes(d.dataset.persist))d.open=true;
@@ -139,6 +251,13 @@ async function api(action,payload={}) {
   if(result.workspace)ctx.setWorkspace(result.workspace);if(result.capabilities)capabilities=result.capabilities;
   return result;
 }
+/** 研究类动作走独立接口：关键词扩展、痛点归集、对标拆解、写作底稿。 */
+async function researchApi(path,payload={}) {
+  const response=await fetch(`/api/${path}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+  const result=await response.json();if(!response.ok)throw new Error(result.error||'操作失败，请重试');
+  if(result.workspace)ctx.setWorkspace(result.workspace);
+  return result;
+}
 export async function refreshAcquisition() {
   if(refreshing)return;refreshing=true;
   try{await api('');renderAcquisitionUI();}
@@ -147,12 +266,12 @@ export async function refreshAcquisition() {
   clearTimeout(timer);
   if((data().tasks||[]).some(t=>t.status==='running')||(data().agentRuns||[]).some(t=>t.status==='running'))timer=setTimeout(refreshAcquisition,2500);
 }
-function openPath(which) { taskId='';tab=which;ctx.nav('acquisition');renderAcquisitionUI(); }
+function openPath(which) { taskId='';tab=which;poolCache=null;accountKey='';ctx.nav('acquisition');renderAcquisitionUI(); }
 export function installAcquisitionUI(context) {
   ctx=context;
   installAgentUI({...ctx,getSelected:()=>selected,picker:customerPicker,api,refresh:refreshAcquisition,render:renderAcquisitionUI,accounts:()=>{ctx.nav('acquisition');document.getElementById('acq-connection-panel').open=true;document.getElementById('acq-accounts').scrollIntoView({block:'start'});}});
   document.body.addEventListener('change',e=>{
-    if(e.target.matches('[data-acq-business]')){stash();selected=e.target.value;ctx.setBusiness?.(selected);leadId=taskId='';status='pending';origin=stage='all';page=leadPage=0;renderAcquisitionUI();}
+    if(e.target.matches('[data-acq-business]')){stash();selected=e.target.value;ctx.setBusiness?.(selected);leadId=taskId='';status='pending';origin=stage='all';page=leadPage=0;poolCache=null;renderAcquisitionUI();}
     if(e.target.matches('[data-acq-status]')){status=e.target.value;page=0;renderAcquisitionUI();}
     if(e.target.matches('[data-acq-origin]')){origin=e.target.value;leadPage=0;renderAcquisitionUI();}
     if(e.target.matches('[data-acq-stage]')){stage=e.target.value;leadPage=0;renderAcquisitionUI();}
@@ -234,6 +353,37 @@ export function installAcquisitionUI(context) {
       }
       if(action==='cancel-publication')await api('publication',{publicationId:b.dataset.id,action:'cancel'});
       if(action==='takeover')await api('lead',{leadId:b.dataset.id,action:'takeover'});
+      if(action==='pains-run'){
+        const result=await researchApi('pain-clusters',{customerId:selected});
+        poolCache=null;
+        ctx.toast(result.clusters?.clusters?.length?`已归出 ${result.clusters.clusters.length} 个痛点主题`:'没有可归集的评论');
+      }
+      if(action==='teardown-run'){
+        workId=b.dataset.id;
+        const result=await researchApi('benchmark/teardown',{customerId:selected,workId});
+        poolCache=null;
+        ctx.toast(result.teardown?.warning||'拆解完成，可看结构与选题');
+      }
+      if(action==='account-teardown'){
+        accountKey=b.dataset.author;
+        const result=await researchApi('benchmark/account',{customerId:selected,authorId:b.dataset.id,authorName:b.dataset.name});
+        poolCache=null;
+        ctx.toast(result.account?.warnings?.[0]||'博主拆解完成，可看打法与不可搬的东西');
+      }
+      if(action==='calibrate-hunt'){
+        const result=await researchApi('hunt-calibration',{customerId:selected});
+        const cal=result.calibration;
+        ctx.toast(cal.grade===cal.baseGrade?`仍是 ${cal.grade} 级，还差 ${cal.gaps.length} 项`:`已升到 ${cal.grade} 级${cal.gaps.length?`，下一级还差 ${cal.gaps.length} 项`:''}`);
+      }
+      if(action==='topic-use'||action==='topic-skip'||action==='topic-reset'){
+        const result=await researchApi('topic-decide',{customerId:selected,key:b.dataset.key,action:action.replace('topic-','')});
+        poolCache=result.pool;
+        ctx.toast(action==='topic-use'?'已写进本批方向，去生成时自动采用':action==='topic-skip'?'已标记不用':'已恢复为候选');
+      }
+      if(action==='playbook-run'){
+        const result=await researchApi('writing-playbook',{customerId:selected});
+        ctx.toast(result.playbook?.coverage?.replied?`底稿已更新，来自 ${result.playbook.coverage.replied} 篇有回音的内容`:'还没有有回音的内容，底稿只保留了改稿偏好');
+      }
       renderAcquisitionUI();ctx.render();
     } catch(error){ctx.toast(error.message);}finally{b.disabled=false;b.textContent=originalLabel;}
   });

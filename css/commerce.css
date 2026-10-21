@@ -234,3 +234,7 @@ section[data-view="openfind"]:not(.hidden){display:flex;flex:1;min-height:0;widt
  .cm-acquisition-flow{padding:4px 8px;gap:0}
  .cm-acquisition-flow .btn{padding:8px 10px;font-size:13px}
 }
+
+/* 数据雷达：只用采集到的字段，缺数据的轴留空，不画假基准 */
+.acq-radar{display:flex;justify-content:center;padding:6px 0 2px}
+.acq-radar svg{max-width:100%;height:auto}
