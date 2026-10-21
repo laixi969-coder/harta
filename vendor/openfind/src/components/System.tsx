@@ -1,3 +1,5 @@
+import { DouyinDataSettings } from './DouyinDataSettings';
+import { XhsDataSettings } from './XhsDataSettings';
 import { LlmSettingsPanel } from './LlmSettings';
 import { useState } from 'react';
 import {
@@ -100,6 +102,8 @@ export function SettingsPage() {
       <PageHeading
         title="连接设置"
       />
+      <XhsDataSettings />
+      <DouyinDataSettings />
       <PlatformConnections />
       <LlmSettingsPanel />
       <div className="settings-layout">
@@ -129,23 +133,13 @@ export function SettingsPage() {
                 <Globe size={17} />
                 真实模式
               </span>
-              <p>使用已登录的平台浏览器或授权数据服务</p>
+              <p>小红书使用 API，抖音使用独立选择的数据源</p>
               {form.mode === 'live' && <Check size={15} />}
             </button>
           </div>
-          <label className="field-label" htmlFor="connection-type">
-            连接方式
-          </label>
-          <select
-            id="connection-type"
-            value={form.connectionType || 'browser'}
-            onChange={(e) =>
-              setForm({ ...form, connectionType: e.target.value as 'browser' | 'http' })
-            }
-          >
-            <option value="browser">内置官方浏览器（直接连接）</option>
-            <option value="http">外部 HTTP 服务（高级）</option>
-          </select>
+          <p className="field-hint">
+            抖音采集方式请在上方「抖音数据源」选择；以下地址与令牌仅用于原有高级 HTTP 适配器。
+          </p>
           <label className="field-label" htmlFor="provider-url">
             数据服务地址
           </label>
@@ -157,7 +151,7 @@ export function SettingsPage() {
             placeholder="http://127.0.0.1:9000"
           />
           <p className="field-hint">
-            服务需实现 采集适配器协议：/health、/search、/comments、/publish。
+            高级 HTTP 服务仅用于抖音采集：/health、/search、/comments；发送和发布由用户自行完成。
           </p>
           <label className="field-label" htmlFor="provider-token">
             服务访问令牌<span>{form.hasToken ? '已加密保存' : '可选'}</span>
@@ -378,7 +372,9 @@ export function SettingsPage() {
             <Server size={21} />
             <h3>接入真实数据</h3>
             <p>
-              真实模式可使用内置平台浏览器：扫码登录后，从官方页面获取数据并发布。平台要求验证时，需要由本人完成。也可接入自己的授权数据服务。
+              小红书使用 TikHub / RedFox API，无需扫码或
+              Cookie；抖音可独立选择浏览器、TikHub、RedFox 或原有高级 HTTP
+              适配器。发送与发布由用户自行完成。
             </p>
             <p className="field-hint">适配器完整字段及调用示例已随项目提供：docs/ADAPTER.md</p>
             <button
@@ -605,7 +601,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
           <li>在卡片上选择「参考创作」，编辑图片、文案和话题，保存草稿。</li>
           <li>选择「一键采集客户」，查看一级评论和楼中楼回复。</li>
           <li>把高意向评论保存为客户线索，记录跟进并准备沟通话术。</li>
-          <li>在「连接设置」打开对应平台并扫码登录后，可进行真实搜索、评论采集与发布。</li>
+          <li>在「连接设置」打开对应平台并扫码登录后，可进行真实搜索与评论采集；发布请自行前往官方平台。</li>
         </ol>
         <p className="guide-footnote">
           任务助手使用本地规则解析；意向评分使用可解释的关键词规则。完整逐页分析、架构与接口说明位于项目

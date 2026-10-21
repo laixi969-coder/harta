@@ -1,3 +1,4 @@
+import { CollectedWorkPicker } from './CollectedWorkPicker';
 import { WorkSource } from './WorkSource';
 import { commentJob, scopedComments, withinCommentWindow, type CommentScope } from '../comment-scope';
 import { hartaHandoff } from '../api';
@@ -160,16 +161,7 @@ export function Comments() {
             <MessageSquareText size={17} />
             <h2>采集设置</h2>
           </div>
-          <label className="field-label" htmlFor="comment-note">
-            目标作品
-          </label>
-          <select id="comment-note" value={noteId} onChange={(e) => chooseNote(e.target.value)}>
-            {data.notes.map((n) => (
-              <option value={n.id} key={n.id}>
-                {n.title}
-              </option>
-            ))}
-          </select>
+          <CollectedWorkPicker value={noteId} onChange={chooseNote} />
           <details className="workflow-details"><summary>作品 ID</summary>
           <label className="field-label" htmlFor="comment-note-id">
             笔记 ID

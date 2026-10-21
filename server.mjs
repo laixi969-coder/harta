@@ -287,7 +287,7 @@ async function handleApi(req, res, url) {
     const user=requireUser(req,res);if(!user)return;
     try{const action=url.pathname.slice('/api/delivery/'.length);if(action==='asset')return json(res,200,{asset:await uploadDeliveryAsset(user.email,req)});
       const body=await readBody(req);const handler={identity:bindDeliveryIdentity,queue:queueDelivery,cancel:cancelDelivery,rule:saveReplyRule}[action];if(!handler)return json(res,404,{error:'没有这个执行操作'});return json(res,200,{result:handler(user.email,body)});
-    }catch(error){return json(res,400,{error:error.message});}
+    }catch(error){return json(res,error.statusCode||400,{error:error.message});}
   }
   if(url.pathname==='/api/browser-connections'&&req.method==='GET'){
     const user=requireUser(req,res);if(!user)return;return json(res,200,{connections:connections(user.email),jobs:connectorJobs(user.email)});
@@ -319,7 +319,7 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res); if (!user) return;
     try {
       const match = url.pathname.match(/^\/api\/openfind\/workbench\/([^/]+)(\/.*)$/);
-      if (!match || !openFindRoute(req.method, match[2])) return json(res, 404, { error: '没有这个 OpenFind 操作' });
+      if (!match || !openFindRoute(req.method, match[2])) return json(res, 404, { error: '没有这个 Harta 操作' });
       const customerId = decodeURIComponent(match[1]);
       const customer = readWorkspace(user.email).customers.find(c => c.id === customerId);
       if (!customer) return json(res, 404, { error: '找不到当前业务' });
@@ -329,7 +329,7 @@ async function handleApi(req, res, url) {
       if (req.method === 'POST' && (/^\/workflows\/[^/]+\/pause$/.test(match[2]) || /^\/jobs\/[^/]+\/stop$/.test(match[2]))) openFind.suspendSchedule(user.email, customerId);
       const endpoint = await openFind.endpoint(user.email, customerId, { activate: req.method !== 'GET' });
       return await proxyOpenFind(req, res, endpoint, match[2] + url.search, securityHeaders());
-    } catch (error) { return json(res, 400, { error: error.message || 'OpenFind 操作失败' }); }
+    } catch (error) { return json(res, 400, { error: error.message || 'Harta 操作失败' }); }
   }
   if (url.pathname === '/api/openfind' && ['GET', 'POST'].includes(req.method)) {
     const user = requireUser(req, res); if (!user) return;
@@ -1049,10 +1049,10 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/openfind' || url.pathname === '/openfind/') {
       const user = currentUser(req);
       if (!user) { res.writeHead(302, { location: '/login.html', ...securityHeaders() }); return res.end(); }
-      if (!readWorkspace(user.email).customers.some(c => c.id === url.searchParams.get('customerId'))) return json(res, 404, { error: '请从 Harta 选择业务后打开 OpenFind' });
+      if (!readWorkspace(user.email).customers.some(c => c.id === url.searchParams.get('customerId'))) return json(res, 404, { error: '请先在 Harta 中选择业务，再打开获客工作区' });
       await openFind.endpoint(user.email, url.searchParams.get('customerId'), { activate: true });
       const html = path.join(ROOT, 'js/openfind-app/index.html');
-      if (!fs.existsSync(html)) return json(res, 503, { error: '工作台尚未构建，请运行 bun run build:openfind' });
+      if (!fs.existsSync(html)) return json(res, 503, { error: 'Harta 获客工作区尚未构建，请完成构建后重启服务' });
       res.writeHead(200, securityHeaders({ 'content-type': 'text/html; charset=utf-8', 'x-frame-options': 'SAMEORIGIN', 'content-security-policy': "base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'self'" }));
       return res.end(fs.readFileSync(html));
     }

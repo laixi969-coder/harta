@@ -36,7 +36,7 @@ export function demoNotes(keyword = '家居', count = 24): Note[] {
           : i === 2
             ? `关于${topic}，一篇说清楚`
             : `${topic}｜${titles[i % titles.length]}`,
-    body: `最近收到了很多关于${topic}的问题，今天把我的整理分享出来。\n\n01 先想清楚自己的实际需求，适合自己的才是好选择。\n02 多看真实反馈，提前了解流程和预算。\n03 做好记录，慢慢找到自己的节奏。\n\n这是一条 OpenFind 本地演示笔记，所有互动数据均为生成的样例，不是真实平台内容。`,
+    body: `最近收到了很多关于${topic}的问题，今天把我的整理分享出来。\n\n01 先想清楚自己的实际需求，适合自己的才是好选择。\n02 多看真实反馈，提前了解流程和预算。\n03 做好记录，慢慢找到自己的节奏。\n\n这是一条 Harta 本地演示笔记，所有互动数据均为生成的样例，不是真实平台内容。`,
     author: names[i % names.length],
     authorId: `demo-user-${i % names.length}`,
     platform: 'xiaohongshu',

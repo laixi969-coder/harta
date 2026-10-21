@@ -1,3 +1,4 @@
+import { acquisitionLimits } from '../../shared/collection-limits';
 import { parseWorkLinks } from '../../shared/work-links';
 import { QualificationComparison } from './QualificationComparison';
 import { AssessmentDetails } from './AssessmentDetails';
@@ -157,7 +158,7 @@ export function Acquisition() {
                 aria-label="每次搜索作品数"
                 type="number"
                 min={1}
-                max={40}
+                max={acquisitionLimits.search}
                 required
                 value={searchLimit}
                 onChange={(e) => setSearchLimit(Number(e.target.value))}
@@ -169,7 +170,7 @@ export function Acquisition() {
                 aria-label="最多采样作品数"
                 type="number"
                 min={1}
-                max={5}
+                max={acquisitionLimits.notes}
                 required
                 value={maxNotes}
                 onChange={(e) => setMaxNotes(Number(e.target.value))}
@@ -178,12 +179,12 @@ export function Acquisition() {
             </>}
             {inputKind==='links' && <label className="acquisition-links">作品链接<textarea aria-label="作品链接" rows={5} maxLength={30000} value={linksText} required onChange={e=>setLinksText(e.target.value)} placeholder="粘贴作品链接或分享文案，每行一条"/><span className="field-hint">同平台最多10条；支持完整链接及分享短链，重复作品自动去重。</span>{linkInfo && <span role="status">已识别 {linkInfo.links.length} 条{linkInfo.platform==='douyin'?'抖音':'小红书'}链接{linkInfo.duplicates?`，合并 ${linkInfo.duplicates} 条重复链接`:''}</span>}</label>}
             <label>
-              每篇评论上限<span className="field-hint">1–50条，含楼中楼回复</span>
+              每篇评论上限<span className="field-hint">1–100条，含楼中楼回复</span>
               <input
                 aria-label="每篇评论上限"
                 type="number"
                 min={1}
-                max={50}
+                max={acquisitionLimits.comments}
                 required
                 value={commentLimit}
                 onChange={(e) => setCommentLimit(Number(e.target.value))}
@@ -206,7 +207,7 @@ export function Acquisition() {
           </div>
         </form>
         <p className="field-hint">
-          仅保存近7天需求候选；核实业务与地点后再联系。
+          搜索数、采样作品数、每篇评论数均可输入1–100；实际数量取决于平台返回、去重及请求预算。仅保存近7天需求候选；核实业务与地点后再自行联系。
         </p>
       </section>
       <section className="acquisition-results" aria-label="流程结果">

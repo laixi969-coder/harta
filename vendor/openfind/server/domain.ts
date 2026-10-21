@@ -265,7 +265,7 @@ export function assessComment(c: Comment, note?: Note, now = Date.now(), comment
     c.body,
     c.createdAt,
     [
-      note ? [note.title, note.body, ...note.tags].join('\n') : '',
+      note ? [note.title, note.body, ...(note.tags || [])].join('\n') : '',
       root.id !== c.id ? root.body : '',
       ...authorReplies.map((x) => x.body),
     ].join('\n'),
@@ -339,7 +339,7 @@ export function assessComment(c: Comment, note?: Note, now = Date.now(), comment
 }
 /** Sampling priority, not a lead score or an estimate of conversion. */
 export function acquisitionPriority(note: Note, comments: Comment[], now = Date.now()) {
-  const context = [note.title, note.body, ...note.tags].join('\n');
+  const context = [note.title, note.body, ...(note.tags || [])].join('\n');
   if (intentScore('', '', context, now).stage === 'restricted')
     return { tier: -1, weight: 0, reason: '敏感主题：仅作内容研究，不建立个人营销画像' };
   const sample = comments.filter((c) => c.noteId === note.id && c.source === note.source);

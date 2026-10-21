@@ -35,7 +35,7 @@ try {
   await page.screenshot({path:path.join(output,'workbench-desktop.png'),fullPage:true});
 
   await page.locator('[data-nav=prospecting]').click();
-  await page.getByText('导入 OpenFind 作品与评论',{exact:true}).click();
+  await page.getByText('导入作品与评论',{exact:true}).click();
   const intake=page.locator('[data-cm-form=openfind-import]');
   const fixture={notes:[{id:'dy:123',nativeId:'123',platform:'douyin',source:'live',url:'https://www.douyin.com/video/123',title:'厨房翻新需要先问什么',body:'先明确自己的需求与使用场景',author:'公开作者',authorId:'MS4author',type:'video',likes:100,comments:8,saves:20,publishedAt:new Date(Date.now()-86400000).toISOString()}],comments:[{id:'dy:c1',noteId:'dy:123',platform:'douyin',source:'live',author:'装修咨询者',authorId:'MS4buyer',body:'想找杭州厨房翻新，怎么收费？',createdAt:new Date(Date.now()-3600000).toISOString(),parentId:null,region:'浙江'},{id:'dy:c2',noteId:'dy:123',platform:'douyin',source:'live',author:'公开作者',authorId:'MS4author',body:'先确认你的需求',createdAt:new Date(Date.now()-1800000).toISOString(),parentId:'dy:c1'}]};
   await intake.locator('[name=kind]').selectOption('snapshot');

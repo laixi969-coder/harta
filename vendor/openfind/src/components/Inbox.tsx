@@ -4,7 +4,7 @@ import { useWorkspace } from '../context';
 import type { Platform } from '../../shared/types';
 import type { InboxThread, ReplyDraft } from '../../shared/messages';
 import { platformNames } from './PlatformConnections';
-import { Modal, Busy, Empty } from './ui';
+import { Busy, Empty } from './ui';
 export function Inbox() {
   const { notify, data, navigate } = useWorkspace();
   const [threads, setThreads] = useState<InboxThread[]>([]),
@@ -12,8 +12,7 @@ export function Inbox() {
     [selected, setSelected] = useState(''),
     [platform, setPlatform] = useState<Platform>('xiaohongshu'),
     [busy, setBusy] = useState(false),
-    [text, setText] = useState(''),
-    [approval, setApproval] = useState<ReplyDraft | null>(null);
+    [text, setText] = useState('');
   const t = threads.find((t) => t.id === selected);
   const platformThreads = threads.filter((t) => t.platform === platform);
   const fetchSequence = useRef(0);
@@ -44,8 +43,6 @@ export function Inbox() {
   async function select(thread: InboxThread) {
     setSelected(thread.id);
     setText('');
-    setApproval(null);
-    await action(() => api(`/inbox/${thread.platform}/sync`, { threadId: thread.id }));
   }
   async function configure(patch: Partial<InboxThread>) {
     if (!t) return;
@@ -54,8 +51,8 @@ export function Inbox() {
         `/inbox/threads/${t.id}`,
         {
           revision: t.revision,
-          watching: t.watching,
-          autoSuggest: t.autoSuggest,
+          watching: false,
+          autoSuggest: false,
           stopped: t.stopped,
           leadId: t.leadId,
           ...patch,
@@ -77,7 +74,7 @@ export function Inbox() {
           <p className="eyebrow">CONVERSATIONS</p>
           <h1>私信工作台</h1>
           <p className="muted">
-            普通账号通过本机官方网页版连接。只读同步与草稿生成不发送消息，每条消息须人工确认。
+            手动同步会话、生成回复草稿，复制后由你在官方平台发送。后台托管与平台发送已取消。
           </p>
         </div>
       </div>
@@ -91,7 +88,6 @@ export function Inbox() {
             onChange={(e) => {
               setPlatform(e.target.value as Platform);
               setSelected('');
-              setApproval(null);
             }}
           >
             <option value="xiaohongshu">小红书</option>
@@ -100,14 +96,14 @@ export function Inbox() {
         </label>{' '}
         <button
           className="btn primary"
-          disabled={busy}
+          disabled={busy || platform === 'xiaohongshu'}
           onClick={() => void action(() => api(`/inbox/${platform}/sync`, {}))}
         >
           连接并同步官方会话
         </button>
         {busy && <Busy text="正在处理" />}
         <p className="field-hint">
-          需要登录时前往连接设置显示扫码页。两平台均使用当前登录的普通账号。平台验证码和限流会暂停操作；任何发送异常都不会自动重试。
+          小红书会话读取已停用，历史记录和草稿仍保留。抖音仅在你点击同步时读取，所有消息由你自行发送。
         </p>
       </div>
       <div className={`inbox-layout ${!platformThreads.length ? 'inbox-empty' : ''}`}>
@@ -133,13 +129,13 @@ export function Inbox() {
         <section className="panel inbox-detail" aria-label="会话详情">
           {!t ? (
             <Empty title={platformThreads.length ? '选择一个会话' : '还没有会话'}
-              sub={platformThreads.length ? '从会话列表查看消息和回复草稿。' : '点击上方「连接并同步官方会话」开始读取。'}
+              sub={platformThreads.length ? '从会话列表查看消息和回复草稿。' : (platform === 'xiaohongshu' ? '小红书会话读取已停用。请在官方平台查看和发送消息。' : '点击上方「连接并同步官方会话」开始读取。')}
               action={!platformThreads.length && <button className="btn" onClick={() => navigate('settings')}>管理平台连接</button>}/>
           ) : (
             <>
               <h2>{t.name}</h2>
               <p className="field-hint">
-                {platformNames[t.platform]} · 当前发送账号：{t.accountName} · 会话标识：{t.nativeId}
+                {platformNames[t.platform]} · 会话所属账号：{t.accountName} · 会话标识：{t.nativeId}
               </p>
               <p className="field-hint">
                 最近同步：{t.syncedAt ? new Date(t.syncedAt).toLocaleString() : '尚未同步'}
@@ -152,6 +148,7 @@ export function Inbox() {
               <fieldset disabled={busy} style={{ border: 0, padding: 0 }}>
                 <button
                   className="btn small"
+                  disabled={t.platform === 'xiaohongshu'}
                   onClick={() =>
                     void action(() => api(`/inbox/${t.platform}/sync`, { threadId: t.id }))
                   }
@@ -161,31 +158,10 @@ export function Inbox() {
                 <label className="field-hint">
                   <input
                     type="checkbox"
-                    checked={t.watching}
-                    onChange={(e) => void configure({ watching: e.target.checked })}
-                  />
-                  每60秒自动同步本会话（本地服务运行期间）
-                </label>
-                <label className="field-hint">
-                  <input
-                    type="checkbox"
-                    checked={t.autoSuggest}
-                    onChange={(e) =>
-                      void configure({
-                        autoSuggest: e.target.checked,
-                        ...(e.target.checked ? { watching: true } : {}),
-                      })
-                    }
-                  />
-                  新来信自动生成待审建议：将脱敏上下文发往设置中的模型服务
-                </label>
-                <label className="field-hint">
-                  <input
-                    type="checkbox"
                     checked={t.stopped}
                     onChange={(e) => void configure({ stopped: e.target.checked })}
                   />
-                  停止联系（停止生成与发送）
+                  停止联系（停止生成建议）
                 </label>
                 <label>
                   关联原评论{' '}
@@ -290,9 +266,14 @@ export function Inbox() {
                       <button
                         className="btn primary"
                         disabled={busy || t.stopped || d.status !== 'pending'}
-                        onClick={() => setApproval(d)}
+                        onClick={() =>
+                          void navigator.clipboard.writeText(d.text).then(
+                            () => notify('草稿已复制，请到官方平台手动发送'),
+                            () => notify('复制失败，请手动选择文本复制', true),
+                          )
+                        }
                       >
-                        核对并确认发送
+                        复制回复草稿
                       </button>
                       {d.status === 'unknown' && (
                         <button
@@ -312,39 +293,6 @@ export function Inbox() {
           )}
         </section>
       </div>
-      {approval && t && (
-        <Modal
-          title="确认发送这条私信"
-          sub={`平台：${platformNames[t.platform]} · 发送账号：${t.accountName} · 收件人：${t.name}`}
-          onClose={() => {
-            if (!busy) setApproval(null);
-          }}
-        >
-          <p className="field-hint">收件会话标识：{t.nativeId}</p>
-          <blockquote style={{ whiteSpace: 'pre-wrap' }}>{approval.text}</blockquote>
-          <p>发送后对方将实际收到这条消息。新来信、切换账号或草稿变化会使原确认失效。</p>
-          <button
-            className="btn primary"
-            disabled={busy || drafts.find((d) => d.id === approval.id)?.status !== 'pending'}
-            onClick={() =>
-              void action(async () => {
-                try {
-                  await api(`/inbox/drafts/${approval.id}/send`, {
-                    confirmed: true,
-                    text: approval.text,
-                    contextHash: approval.contextHash,
-                  });
-                } finally {
-                  setApproval(null);
-                }
-                notify('已取得平台发送回执');
-              })
-            }
-          >
-            {busy ? '正在提交' : '确认发送给 ' + t.name}
-          </button>
-        </Modal>
-      )}
     </div>
   );
 }

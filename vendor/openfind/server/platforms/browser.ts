@@ -1,3 +1,5 @@
+import { browserLaunchOptions } from './launch-options.ts';
+import { hasVisibleChallenge } from './challenge.ts';
 import { chromium, type BrowserContext, type Page, type Response } from 'playwright-core';
 import { directProxy, closeNetwork, allowNetworkRequest } from './network.ts';
 import { randomUUID } from 'node:crypto';
@@ -72,7 +74,7 @@ export function connection(platform: Platform): PlatformConnection {
   );
 }
 function verified(s: Session, id: string, name: string) {
-  if (!id) return;
+  if (!id || s.state.status === 'challenge') return;
   s.state = {
     ...s.state,
     status: 'ready',
@@ -110,6 +112,7 @@ async function observeIdentity(s: Session, response: Response) {
   } catch {}
 }
 export async function openLogin(platform: Platform): Promise<Session> {
+  if (platform === 'xiaohongshu') throw new Error('小红书模拟浏览已关闭，请在设置配置 TikHub / RedFox API');
   const existing = sessions.get(platform);
   if (existing && !existing.page.isClosed()) {
     if (existing.page.url().startsWith('chrome-error:'))
@@ -126,29 +129,7 @@ export async function openLogin(platform: Platform): Promise<Session> {
     chmodSync(profile, 0o700);
     const direct = configGet('browserNetwork:' + platform) === 'direct';
     const proxy = direct ? await directProxy() : undefined;
-    const context = await chromium.launchPersistentContext(profile, {
-      ...(process.env.HARTA_BROWSER_EXECUTABLE ? { executablePath: process.env.HARTA_BROWSER_EXECUTABLE } : { channel: 'chrome' }),
-      headless: process.env.HARTA_OPENFIND_HEADLESS === '1',
-      ...(platform === 'douyin' && process.env.HARTA_OPENFIND_HEADLESS !== '1' ? { ignoreDefaultArgs: true } : {}),
-      viewport: { width: 1280, height: 860 },
-      locale: 'zh-CN',
-      acceptDownloads: true,
-      proxy,
-      args:
-        platform === 'douyin' && process.env.HARTA_OPENFIND_HEADLESS !== '1'
-          ? [
-              '--user-data-dir=' + profile,
-              '--remote-debugging-pipe',
-              '--enable-automation',
-              '--no-first-run',
-              '--no-default-browser-check',
-              '--password-store=basic',
-              '--use-mock-keychain',
-              ...(proxy ? ['--proxy-server=' + proxy.server] : []),
-              'about:blank',
-            ]
-          : ['--no-first-run', '--no-default-browser-check'],
-    });
+    const context = await chromium.launchPersistentContext(profile, browserLaunchOptions(proxy)).catch((error: unknown) => { throw new Error('平台浏览器启动失败；已保留任务。诊断：' + (error instanceof Error ? error.message : String(error))); });
     installDiagnostics(context, platform);
     networkEvents[platform] = [];
     if (direct) context.on('request', (request) => allowNetworkRequest(request.url()));
@@ -213,6 +194,18 @@ export async function checkLogin(platform: Platform) {
   if (!s || s.page.isClosed()) return connection(platform);
   try {
     const p = s.page;
+    // A verified identity does not imply the platform currently permits access.
+    if (await hasVisibleChallenge(p)) {
+      s.state = {
+        ...s.state,
+        status: 'challenge',
+        message: '平台要求本人完成安全验证，已暂停自动读取',
+        url: p.url(),
+        checkedAt: new Date().toISOString(),
+      };
+      return s.state;
+    }
+    if (s.state.status === 'challenge') s.state = { ...s.state, status: 'awaiting_login' };
     // Only inspect user identity already exposed to the logged-in page. Cookie existence is not proof.
     const identity = await p.evaluate((which) => {
       if (which === 'xiaohongshu') {
@@ -247,24 +240,24 @@ export async function checkLogin(platform: Platform) {
       return s.state;
     }
     if (s.state.status !== 'ready') {
-      const captcha = await p
-        .locator(
-          'iframe[src*="captcha"], [id*="captcha"][style*="block"], .captcha_verify_container',
-        )
-        .first()
-        .isVisible()
-        .catch(() => false);
       // Identity may be verified by a response while the DOM check is awaiting.
       if (connection(platform).status === 'ready') return connection(platform);
       s.state = {
         ...s.state,
-        status: captcha ? 'challenge' : 'awaiting_login',
-        message: captcha ? '平台要求本人完成安全验证，请在浏览器中处理' : '等待你完成扫码登录',
+        status: 'awaiting_login',
+        message: '等待你完成扫码登录',
         url: p.url(),
         checkedAt: new Date().toISOString(),
       };
     }
-  } catch {}
+  } catch {
+    s.state = {
+      ...s.state,
+      status: 'error',
+      message: '无法核实当前平台状态，已暂停自动读取；请检查平台窗口后再继续',
+      checkedAt: new Date().toISOString(),
+    };
+  }
   return s.state;
 }
 function loginPage(platform: Platform) {
@@ -291,7 +284,7 @@ export async function requireSession(platform: Platform) {
       : openLogin(platform)));
   for (let i = 0; i < 60; i++) {
     await checkLogin(platform);
-    if (s.state.status === 'ready' || !configGet('browserAccount:' + platform)) break;
+    if (['ready', 'challenge', 'error'].includes(s.state.status) || !configGet('browserAccount:' + platform)) break;
     await delay(500);
   }
   if (s.state.status !== 'ready')

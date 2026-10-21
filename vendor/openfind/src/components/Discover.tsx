@@ -1,3 +1,4 @@
+import { collectionTopics } from '../../shared/collection-groups';
 import { MediaImage, MediaGallery } from './Media';
 import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import {
@@ -68,6 +69,7 @@ export function Discover() {
     [query, setQuery] = useState(''),
     [view, setView] = useState<'cards' | 'logs'>('cards'),
     [scope, setScope] = useState<'job' | 'library'>(params.get('note') ? 'library' : 'job'),
+    [topic, setTopic] = useState(''),
     [filter, setFilter] = useState('all'),
     [resultSort, setResultSort] = useState(
       data.settings.mode === 'live' ? 'acquisition' : 'default',
@@ -80,6 +82,7 @@ export function Discover() {
     [zipBusy, setZipBusy] = useState(false),
     [jobId, setJobId] = useState(params.get('job') || ''),
     [planText, setPlanText] = useState('');
+  const topics = useMemo(() => collectionTopics(data.notes, data.jobs, data.workflows), [data.notes, data.jobs, data.workflows]);
   const searches = data.jobs.filter(
     (j) => j.type === 'search' && (j.platform || 'xiaohongshu') === platform,
   );
@@ -99,6 +102,7 @@ export function Discover() {
   const shown = useMemo(() => {
     let n = notes.filter(
       (n) =>
+        (!topic || topics.get(n.id)?.has(topic)) &&
         (!query ||
           [n.title, n.author, n.id, ...n.tags]
             .join(' ')
@@ -123,7 +127,7 @@ export function Discover() {
         );
       });
     return n;
-  }, [notes, query, filter, resultSort, selected, priorities]);
+  }, [notes, query, filter, resultSort, selected, priorities, topic, topics]);
   async function openDetail(note: Note, force = false) {
     setDetail(note);
     if (detailBusy || note.source !== 'live' || (!force && note.detailState === 'complete')) return;
@@ -405,6 +409,7 @@ export function Discover() {
               value={platform}
               onChange={(e) => {
                 setPlatform(e.target.value as Platform);
+                setTopic('');
                 setSelected([]);
                 setJobId('');
               }}
@@ -668,7 +673,7 @@ export function Discover() {
                 </button>
               </div>
             </div>
-            <label className="field-hint">作品范围 <select aria-label="作品范围" value={scope} onChange={e => {setScope(e.target.value as 'job' | 'library');setSelected([]);}}><option value="job">当前搜索任务</option><option value="library">当前平台全部已保存作品</option></select></label>
+            <label className="field-hint">作品范围 <select aria-label="作品范围" value={scope} onChange={e => {setScope(e.target.value as 'job' | 'library');setTopic('');setSelected([]);}}><option value="job">当前搜索任务</option><option value="library">当前平台全部已保存作品</option></select></label>
             <div className="results-toolbar">
               <div className="filter-tabs">
                 {[
@@ -703,6 +708,7 @@ export function Discover() {
                 </button>
               </div>
             </div>
+            <label>采集主题 <select aria-label="采集主题" value={topic} onChange={e=>{setTopic(e.target.value);setSelected([]);}}><option value="">全部主题</option>{[...new Set(notes.flatMap(n=>[...topics.get(n.id)!]))].sort((a,b)=>a.localeCompare(b,'zh-CN')).map(t=><option key={t} value={t}>{t}</option>)}</select></label>
             <div className="result-filters">
               <div className="input-with-icon">
                 <Search size={14} />

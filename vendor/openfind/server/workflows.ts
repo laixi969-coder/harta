@@ -1,3 +1,5 @@
+import { douyinUsesApi, requireDouyinComments } from './douyin-data.ts';
+import { workflowErrorMessage } from './workflow-errors.ts';
 import { topicRelevant } from '../../../js/demand-rules.js';
 import { reviewSemantics, semanticFor, llmSettings } from './llm.ts';
 import { compareQualifications } from './qualification-comparison.ts';
@@ -90,7 +92,7 @@ function rankedNotes(w: AcquisitionWorkflow) {
   return w.noteIds
     .map((id) => get<Note>('notes', id))
     .filter((n): n is Note => !!n && n.platform === w.input.platform && n.source === w.input.mode)
-    .filter((note) => topicRelevant([note.title, note.body, ...note.tags].join('\n'), w.input.keyword))
+    .filter((note) => topicRelevant([note.title, note.body, ...(note.tags || [])].join('\n'), w.input.keyword))
     .map((note) => ({ note, priority: acquisitionPriority(note, comments) }))
     .filter((x) => x.priority.tier > 0)
     .sort(
@@ -222,7 +224,7 @@ async function waitForPlatform(
   action: 'search' | 'comments',
   signal: AbortSignal,
 ) {
-  if (w.input.mode === 'demo') return;
+  if (w.input.mode === 'demo' || w.input.platform === 'xiaohongshu' || douyinUsesApi()) return;
   const state = protectionStatus(w.input.platform);
   // Evaluate non-timing guards first. Waiting never clears a platform pause or a quota.
   const error = evaluateBudget({ ...state, lastReadAt: undefined }, action);
@@ -246,11 +248,7 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, 
     abort.signal.throwIfAborted();
     const query = {
       keyword: note?.title || w.input.keyword,
-      limit: note
-        ? w.input.commentLimit
-        : sort === 'popular'
-          ? Math.min(10, w.input.searchLimit)
-          : w.input.searchLimit,
+      limit: note ? w.input.commentLimit : w.input.searchLimit,
       sort,
       noteType: w.input.noteType || 'all',
       mode: w.input.mode,
@@ -307,6 +305,7 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, 
     saveWorkflow(w);
   }
   try {
+    requireDouyinComments(w.input.platform, w.input.mode);
     if (w.stage === 'search' && w.input.links?.length) {
       if(!readLink) throw new Error('链接读取暂不可用');
       while(w.searchIndex < w.input.links.length) {
@@ -326,7 +325,10 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, 
         abort.signal.throwIfAborted();
         if (w.searchIndex > 0) {
           if (!w.input.supplement || rankedNotes(w).length >= w.input.maxNotes) break;
-          const guard = w.input.mode === 'live' ? protectionStatus(w.input.platform) : null;
+          const guard =
+            w.input.mode === 'live' && w.input.platform !== 'xiaohongshu' && !douyinUsesApi()
+              ? protectionStatus(w.input.platform)
+              : null;
           if (guard) {
             const blocked = evaluateBudget({ ...guard, lastReadAt: undefined }, 'search');
             if (blocked) {
@@ -399,11 +401,7 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, 
       w,
       abort.signal.aborted
         ? '已暂停，保留全部结果与检查点；点击继续流程从当前步骤重试'
-        : e instanceof Error
-          ? /locator\.|Timeout .*exceeded/.test(e.message)
-            ? '平台页面控件未及时响应，已保留任务；请检查平台窗口后继续，详细诊断见任务记录'
-            : e.message
-          : '流程暂停，请检查连接',
+        : workflowErrorMessage(e),
     );
   } finally {
     workflowRuns.delete(w.id);

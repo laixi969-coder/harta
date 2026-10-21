@@ -133,7 +133,7 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(400).json({ error: err instanceof Error ? err.message : '连接失败' }),
 );
 app.listen(Number(process.env.OPENFIND_BROWSER_PORT || 8792), '127.0.0.1', () =>
-  console.log('OpenFind 内置平台浏览器服务已启动'),
+  console.log('Harta 内置平台浏览器服务已启动'),
 );
 
 process.on('SIGTERM', () => {
