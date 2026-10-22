@@ -3,7 +3,7 @@ import { parseWorkLinks } from '../../shared/work-links';
 import { QualificationComparison } from './QualificationComparison';
 import { AssessmentDetails } from './AssessmentDetails';
 import { CollectionBudget } from './CollectionBudget';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Play, Pause, ArrowRight, Download, Workflow, CheckCircle2, Clock } from 'lucide-react';
 import type { AcquisitionWorkflow, Platform } from '../../shared/types';
 import { acquisitionPriority, assessComment } from '../../server/domain';
@@ -21,17 +21,21 @@ export function Acquisition() {
   const [platform, setPlatform] = useState<Platform>(
     initial?.input.platform || data.settings.platform || 'xiaohongshu',
   );
-  const [inputKind,setInputKind] = useState<'links'|'keyword'>('links');
+  const [inputKind,setInputKind] = useState<'links'|'keyword'>('keyword');
   const [linksText,setLinksText] = useState(initial?.input.links?.join('\n') || '');
   let linkInfo:ReturnType<typeof parseWorkLinks>|undefined;
   try { if(linksText.trim()) linkInfo=parseWorkLinks(linksText); } catch {}
-  const [keyword, setKeyword] = useState(initial?.input.keyword || '家居');
-  const [searchLimit, setSearchLimit] = useState(20);
+  const [keyword, setKeyword] = useState(initial?.input.keyword || '');
+  const [suggestions,setSuggestions]=useState<string[]>([]);
+  useEffect(()=>{let alive=true;api<{suggestedKeywords:string[]}>('/harta/context').then(c=>{if(alive){setSuggestions(c.suggestedKeywords);setKeyword(value=>value||c.suggestedKeywords[0]||'');}}).catch(()=>{});return()=>{alive=false;};},[]);
+  const [searchLimit, setSearchLimit] = useState(10);
   const [noteType, setNoteType] = useState<'all'|'image'|'video'>(initial?.input.noteType || 'all');
   const [maxNotes, setMaxNotes] = useState(3);
   const [commentLimit, setCommentLimit] = useState(20);
   const [supplement, setSupplement] = useState(true);
+  const [previewFirst, setPreviewFirst] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [fit,setFit]=useState({serviceArea:initial?.input.serviceArea||'',needTerms:initial?.input.needTerms||'',excludeTerms:initial?.input.excludeTerms||''});
   const [reviewFilter, setReviewFilter] = useState('all');
   const flow = flows.find((w) => w.id === flowId);
   const active =
@@ -62,6 +66,8 @@ export function Acquisition() {
         maxNotes,
         commentLimit,
         supplement,
+        previewFirst,
+        ...fit,
         noteType,
       });
       select(w.id);
@@ -112,6 +118,7 @@ export function Acquisition() {
         title="批量获客"
       />
       <div className="filter-tabs" aria-label="批量获客方式">{([['links','粘贴链接'],['keyword','关键词搜索']] as const).map(([id,label])=><button type="button" aria-pressed={inputKind===id} className={inputKind===id?'active':''} key={id} onClick={()=>setInputKind(id)}>{label}</button>)}</div>
+      <label><input type="checkbox" checked={previewFirst} onChange={e=>setPreviewFirst(e.target.checked)}/> 先查看作品样本，确认后再读取评论</label>
       <details className="collection-budget-options"><summary>今日额度与间隔</summary><CollectionBudget platform={linkInfo?.platform||platform} /></details>
       <section className="acquisition-setup" aria-label="一键获客设置">
         <div className="acquisition-intro">
@@ -127,6 +134,8 @@ export function Acquisition() {
             void start();
           }}
         >
+          {inputKind==='keyword' && suggestions.length>0 && <div className="filter-tabs">{suggestions.map(s=><button type="button" key={s} onClick={()=>setKeyword(s)}>找 {s} 的需求</button>)}</div>}
+          <details><summary>业务匹配与排除条件（选填）</summary>{([['serviceArea','服务范围'],['needTerms','需求词（逗号分隔，命中任一）'],['excludeTerms','排除词（逗号分隔）']] as const).map(([key,label])=><label key={key}>{label}<input maxLength={key==='serviceArea'?100:300} value={fit[key]} onChange={e=>setFit({...fit,[key]:e.target.value})}/></label>)}<p>只按评论原文筛选。服务地点未确认时保持待核实，不把 IP 属地当作居住地。</p></details>
           <div className="acquisition-fields">
             <label>
               获客平台

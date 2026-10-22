@@ -172,5 +172,22 @@ test('TikHub comments keep attached replies and reject repeating cursors', async
   const r = await c.comments(note, 20, null);
   assert.equal(r.items.length, 2);
   assert.equal(r.items[1].parentId, 'xhs:c');
-  await assert.rejects(c.comments(note, 20, r.nextCursor), /游标无效/);
+  const stopped = await c.comments(note,20,r.nextCursor);
+  assert.match(stopped.paginationError || '', /游标无效/);
+  assert.equal(stopped.items.length,2);
+  assert.equal(stopped.nextCursor,null);
+});
+test('RedFox local rejection does not create an uncertain paid task', async () => {
+  saveXhsSettings({provider:'redfox',apiKey:'',maxRequests:5});
+  const before=all('xhs-api-tasks').length;
+  const transport=mock(()=>assert.fail('preflight must not contact provider'));
+  await assert.rejects(xhsClient(undefined,transport).comments({...note,nativeId:'no-key'},20,null), /API Key/);
+  saveXhsSettings({provider:'redfox',apiKey:'red-secret',maxRequests:5});
+  await assert.rejects(xhsClient(AbortSignal.abort(),transport).comments({...note,nativeId:'aborted'},20,null));
+  assert.equal(all('xhs-api-tasks').length,before);
+});
+test('RedFox reuse retains original result freshness with zero requests',async()=>{
+  const c=xhsClient(undefined,mock(()=>assert.fail('completed result must be local')));
+  const first=await c.comments(note,20,null),second=await c.comments(note,20,null);
+  assert.ok(first.fetchedAt);assert.equal(first.fetchedAt,second.fetchedAt);assert.equal(c.requests,0);
 });

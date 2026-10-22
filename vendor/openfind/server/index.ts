@@ -1,3 +1,6 @@
+import dataAcceptanceRouter from './data-acceptance.ts';
+import libraryRouter, { decorateNote } from './library.ts';
+import { withRequestScope, budgetStatus, saveBudget } from './request-budget.ts';
 import { paginationGuard } from './pagination-guard.ts';
 import { douyinClient, douyinProvider, douyinUsesApi, douyinSettings, saveDouyinSettings, douyinFingerprint, redfoxCommentNotice } from './douyin-data.ts';
 import { xhsClient, xhsSettings, saveXhsSettings, XhsPendingError } from './xhs-data.ts';
@@ -108,10 +111,11 @@ if (!all('accounts').length)
 for (const j of all<Job>('jobs'))
   if (j.status === 'running') {
     j.status = 'stopped';
+    j.stopReason = 'interrupted';
     j.logs.push({
       at: new Date().toISOString(),
       level: 'WARN',
-      message: '服务重启，任务已中止，可重新发起',
+      message: '服务重启，任务已中止并保留结果；所属流程可从检查点继续',
     });
     put('jobs', j);
   }
@@ -177,12 +181,15 @@ function currentLead(lead: Lead, comments = all<Comment>('comments')): Lead {
   return {
     ...lead,
     score: assessment.score,
-    reason: assessment.reason,
+    reason: assessment.reason + (lead.businessFit ? '；' + lead.businessFit.reason : ''),
     assessment,
     commentCreatedAt: c?.createdAt || lead.commentCreatedAt || '',
   };
 }
-async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSignal?: AbortSignal) {
+export async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSignal?: AbortSignal) {
+  return withRequestScope(job.id, () => runJobSteps(job, input, parentSignal));
+}
+async function runJobSteps(job: Job, input: z.infer<typeof searchSchema>, parentSignal?: AbortSignal) {
   const abort = new AbortController();
   const cancel = () => abort.abort();
   parentSignal?.addEventListener('abort', cancel, { once: true });
@@ -190,10 +197,12 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
   running.set(job.id, abort);
   const started = Date.now();
   let collector: ReturnType<typeof xhsClient> | ReturnType<typeof douyinClient> | null = null;
-  let cursor: string | null = null;
+  let cursor: string | null = job.cursor || null;
   let readId: string | null = null;
-  const seen = new Set<string>();
+  const seen = new Set<string>(job.resultIds);
   const checkCursor = paginationGuard();
+  for (const c of job.visitedCursors || []) checkCursor(c);
+  job.received ||= 0; job.duplicates ||= 0; job.overLimit ||= 0;
   try {
     collector =
       job.source !== 'live'
@@ -203,14 +212,21 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
           : douyinUsesApi()
             ? douyinClient(abort.signal)
             : null;
-    if (job.source === 'live') job.dataProvider = collector?.fingerprint || douyinFingerprint();
+    if (job.source === 'live') {
+      const fingerprint = collector?.fingerprint || douyinFingerprint();
+      if (job.dataProvider && job.dataProvider !== fingerprint) throw new Error('数据源已变更，请创建新流程，避免混用分页与来源');
+      job.dataProvider = fingerprint;
+      if (collector && job.pages && job.cursor === null && job.stopReason === 'error') throw new Error('分页已异常结束，请新建任务；已取得数据保留');
+      if (!collector && job.pages) throw new Error('浏览器或 HTTP 会话无法跨中断恢复分页，请创建新任务；已有结果保留');
+    }
+    job.status = 'running'; job.error = undefined;
     abort.signal.throwIfAborted();
     log(
       job,
       'INFO',
       `${job.source === 'demo' ? '演示任务' : '真实任务'}开始：${job.type === 'search' ? input.keyword : job.noteId}`,
     );
-    if (job.source === 'live' && !input.forceRefresh) {
+    if (job.source === 'live' && !input.forceRefresh && !job.pages) {
       const cached = cachedJob(job, input);
       if (cached) {
         job.resultIds = cached.resultIds.slice(0, input.limit);
@@ -218,6 +234,7 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
         job.dataFetchedAt = cached.dataFetchedAt || cached.finishedAt;
         job.searchEvidence = cached.searchEvidence;
         job.status = 'completed';
+        job.stopReason = 'cached';
         log(
           job,
           'SUCCESS',
@@ -251,6 +268,7 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
     for (let page = 0; page < 200; page++) {
       abort.signal.throwIfAborted();
       let items: (Note | Comment)[] = [];
+      let paginationError: Error | undefined;
       if (job.source === 'demo') {
         await delay(420, undefined, { signal: abort.signal });
         items = sample.slice(page * 12, (page + 1) * 12);
@@ -272,6 +290,8 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
           items: (Omit<Note, 'source'> | Omit<Comment, 'source'>)[];
           nextCursor: string | null;
           readId?: string;
+          paginationError?: string;
+          fetchedAt?: string;
           evidence?: { path: string; filterSelected: string | null; sortType: string | null };
         } = collector
           ? job.type === 'search'
@@ -318,21 +338,27 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
         if (!collector) recordPlatformSuccess(input.platform);
         items = result.items.map((x) => ({ ...x, source: 'live' })) as (Note | Comment)[];
         const next: string | null = result.nextCursor;
-        if (next && next === cursor)
-          throw new Error('数据服务返回重复分页游标，任务已停止以防无限请求');
-        checkCursor(next);
-        cursor = next;
+        if (result.fetchedAt) job.dataFetchedAt = result.fetchedAt;
+        try {
+          if (result.paginationError) throw new Error(result.paginationError);
+          if (next && next === cursor) throw new Error('数据服务返回重复分页游标，已保存本页并停止');
+          checkCursor(next);
+        } catch (error) { paginationError = error as Error; }
+        cursor = paginationError ? null : next;
       }
       abort.signal.throwIfAborted();
+      job.received += items.length;
       for (const item of items) {
-        if (seen.has(item.id)) continue;
-        if (input.limit && job.count >= input.limit) break;
+        if (seen.has(item.id)) { job.duplicates++; continue; }
         seen.add(item.id);
+        if (input.limit && job.count >= input.limit) { job.overLimit++; continue; }
         put(job.type === 'search' ? 'notes' : 'comments', item);
         job.resultIds.push(item.id);
         job.count++;
       }
       job.pages++;
+      job.cursor = cursor;
+      job.visitedCursors = [...new Set([...(job.visitedCursors || []), ...(cursor ? [cursor] : [])])];
       if (job.type === 'search' && input.sort === 'latest')
         job.resultIds.sort((a, b) =>
           (get<Note>('notes', b)?.publishedAt || '').localeCompare(
@@ -345,7 +371,11 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
         'SUCCESS',
         `${job.type === 'search' ? '作品' : '评论'}第 ${job.pages} 页完成，累计 ${job.count} 条（已去重）`,
       );
-      if (!cursor || (input.limit > 0 && job.count >= input.limit)) break;
+      if (paginationError) throw paginationError;
+      if (!cursor || (input.limit > 0 && job.count >= input.limit)) {
+        job.stopReason = input.limit > 0 && job.count >= input.limit ? 'target_reached' : 'source_exhausted';
+        break;
+      }
       if (page === 199)
         throw new Error('达到本地分页保护上限 200 页，已保存当前结果；请缩小范围后重试');
     }
@@ -358,15 +388,18 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
   } catch (e) {
     if (abort.signal.aborted) {
       job.status = 'stopped';
+      job.stopReason = 'interrupted';
       log(job, 'WARN', '任务已停止，已采集结果保留');
     } else {
       job.status = e instanceof XhsPendingError ? 'stopped' : 'failed';
       job.error = e instanceof Error ? e.message : '任务失败';
+      job.stopReason = 'error';
       if (job.source === 'live' && !collector && !(e instanceof ProtectionError))
         recordPlatformFailure(input.platform, job.error);
       log(job, e instanceof XhsPendingError ? 'WARN' : 'ERROR', job.error);
     }
   } finally {
+    if (collector) job.requests = (job.requests || 0) + collector.requests;
     if (collector)
       log(
         job,
@@ -384,10 +417,18 @@ async function runJob(job: Job, input: z.infer<typeof searchSchema>, parentSigna
     parentSignal?.removeEventListener('abort', cancel);
   }
 }
-app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'openfind' }));
+app.use('/api', libraryRouter);
+app.use('/api', dataAcceptanceRouter);
+app.get('/api/operational-health', (_req,res) => {
+ const jobs=all<Job>('jobs'),flows=all<AcquisitionWorkflow>('workflows');
+ res.json({database:true,runningJobs:jobs.filter(j=>j.status==='running').length,pausedFlows:flows.filter(w=>w.status==='paused').length,failedJobs:jobs.filter(j=>j.status==='failed').length,lastError:jobs.find(j=>j.error)?.error||'',manualOnly:true,configured:{xiaohongshu:Object.values(xhsSettings().hasKeys).some(Boolean),douyin:Object.values(douyinSettings().hasKeys).some(Boolean)}});
+});
+app.get('/api/request-budget', (_req, res) => res.json(budgetStatus()));
+app.put('/api/request-budget', (req, res) => res.json(saveBudget(req.body)));
+app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'harta' }));
 app.get('/api/state', (_req, res) => {
   const comments = all<Comment>('comments');
-  const notes = all<Note>('notes');
+  const notes = all<Note>('notes').map(decorateNote);
   res.json({
     accounts: accounts(),
     notes,
@@ -426,6 +467,9 @@ async function readLinkedWork(url:string, signal:AbortSignal):Promise<Note> {
   } catch(error) { if(!signal.aborted) recordPlatformFailure(link.platform,(error as Error).message);throw error; }
 }
 const acquisitionSchema = z.object({
+  serviceArea: z.string().trim().max(100).optional(),
+  needTerms: z.string().trim().max(300).optional(),
+  excludeTerms: z.string().trim().max(300).optional(),
   links:z.array(z.string().max(2000)).min(1).max(10).optional(),
   noteType: z.enum(['all', 'image', 'video']).default('all'),
   keyword: z.string().trim().min(1).max(100),
@@ -435,6 +479,7 @@ const acquisitionSchema = z.object({
   maxNotes: z.number().int().min(1).max(acquisitionLimits.notes).default(3),
   commentLimit: z.number().int().min(1).max(acquisitionLimits.comments).default(20),
   supplement: z.boolean().default(true),
+  previewFirst: z.boolean().default(false),
 });
 app.post('/api/workflows', (req, res) => {
   const input = acquisitionSchema.parse(req.body);
@@ -865,6 +910,22 @@ app.post('/api/xhs-data/test', async (req, res) => {
 app.get('/api/xhs-data/tasks', (_req, res) =>
   res.json(all<Record<string, unknown>>('xhs-api-tasks').map(({ result, ...task }) => task)),
 );
+app.post('/api/xhs-data/new-batch', (req, res) => {
+  if (active()) return res.status(409).json({error:'请先停止当前任务'});
+  const {id} = z.object({id:z.string().max(300)}).strict().parse(req.body);
+  const task = get<{id:string;state:string}>('xhs-api-tasks', id);
+  if (!task || task.state !== 'completed') return res.status(409).json({error:'只能为已完成任务准备新批次；不确定任务请核对原编号'});
+  put('xhs-api-task-history', {...task, id: task.id + ':' + Date.now()});
+  remove('xhs-api-tasks', id);
+  for (const job of all<Job>('jobs')) {
+    if (job.type !== 'comments' || job.platform !== 'xiaohongshu' || !job.noteId) continue;
+    const note = get<Note>('notes', job.noteId);
+    const native = note?.nativeId || job.noteId.replace(/^xhs:/, '');
+    if (id === job.dataProvider + ':' + native + ':' + job.query?.limit)
+      put('jobs', {...job, cacheInvalidatedAt: new Date().toISOString()});
+  }
+  res.json({ok:true});
+});
 app.put('/api/xhs-data/tasks', (req, res) => {
   if (active()) {
     res.status(409).json({ error: '请先停止当前任务' });

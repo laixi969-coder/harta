@@ -20,7 +20,8 @@ try {
  server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'browser-only-fixture-password',HARTA_PUBLIC_ORIGIN:'',HARTA_TRUST_PROXY:''},stdio:['ignore','pipe','pipe']});
  await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw new Error('Server exited');})]);
  const origin=`http://127.0.0.1:${port}`;
- browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+ const chrome=process.env.HARTA_BROWSER_EXECUTABLE||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+ browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});
  const context=await browser.newContext({viewport:{width:1440,height:1000}});
  assert.equal((await context.request.post(origin+'/api/login',{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}})).status(),200);
  assert.equal((await context.request.post(origin+'/api/openfind',{data:{customerId:'c1',action:'sync'}})).status(),200);
@@ -36,12 +37,23 @@ try {
  await page.goto(origin+'/openfind?customerId=c1#settings');
  await view.getByRole('heading',{name:'小红书 API 数据源'}).waitFor();
  await view.getByRole('heading',{name:'抖音数据源',exact:true}).waitFor();
+ await view.getByRole('heading',{name:'业务请求预算',exact:true}).waitFor();
+ const budget=view.getByRole('region',{name:'业务请求预算'});
+ await budget.getByRole('spinbutton',{name:'每流程数据源请求上限',exact:true}).fill('25');
+ await budget.getByRole('button',{name:'保存预算',exact:true}).click();
+ await budget.getByText('预算已保存，已用请求不会清零',{exact:true}).waitFor();
  assert.equal(await view.getByRole('button',{name:'打开小红书'}).count(),0);
  await page.goto(origin+'/openfind?customerId=c1#acquisition');
  await view.getByRole('button',{name:'关键词搜索',exact:true}).click();
  for(const label of ['每次搜索作品数','最多采样作品数','每篇评论上限']){
   const input=view.getByRole('spinbutton',{name:label,exact:true});await input.fill('100');assert.equal(await input.getAttribute('max'),'100');assert.equal(await input.evaluate(el=>el.checkValidity()),true);
  }
+ const base=origin+'/api/openfind/workbench/c1';
+ const changed=await context.request.put(base+'/library/organize',{data:{items:[{id:'xiaohongshu:a',revision:0}],change:{category:'询价',archived:true}}});assert.equal(changed.status(),200);const undoId=(await changed.json()).undoId;
+ assert.equal((await context.request.post(base+'/library/undo',{data:{id:undoId}})).status(),200);
+ assert.equal((await context.request.post(origin+'/api/openfind',{data:{customerId:'c2',action:'sync'}})).status(),200);
+ assert.equal((await context.request.get(origin+'/api/openfind/workbench/c2/request-budget')).status(),200);
+ assert.equal((await(await context.request.get(origin+'/api/openfind/workbench/c2/request-budget')).json()).policy.flowLimit,60);
  await page.goto(origin+'/openfind?customerId=c1#comments');
  const picker=view.locator('.collected-work-picker');await picker.getByLabel('采集主题').selectOption('家具');
  assert.equal(await picker.locator('#comment-note optgroup option').count(),1);
@@ -74,6 +86,6 @@ try {
   assert.doesNotMatch(await view.locator('body').evaluate(el=>[...el.querySelectorAll('[title],[aria-label],[placeholder],img')].map(e=>[e.title,e.getAttribute('aria-label'),e.getAttribute('placeholder'),e.getAttribute('alt')].join(' ')).join('\n')),/openfind/i,`Accessible text: ${route}`);
  }
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'passed',checks:['API settings','1–100 inputs','platform/topic grouping','business isolation','375/1440px layout'],platformRequests:0,output},null,2));
+ console.log(JSON.stringify({result:'passed',checks:['API settings','1–100 inputs','platform/topic grouping','archive undo','business budget isolation','business isolation','375/1440px layout'],platformRequests:0,output},null,2));
 } catch(error) { if(page)await page.screenshot({path:path.join(output,'failure.png'),fullPage:true});throw error; }
 finally { await browser?.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }

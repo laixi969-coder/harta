@@ -121,7 +121,10 @@ test('TikHub comment count is fixed at vendor default, paginates, retains replie
   );
   const r = await client.comments(note, 100, null);
   assert.equal(r.items[1].parentId, 'dy:c');
-  await assert.rejects(client.comments(note, 100, r.nextCursor), /重复分页/);
+  const stopped = await client.comments(note,100,r.nextCursor);
+  assert.match(stopped.paginationError || '', /重复分页/);
+  assert.equal(stopped.items.length, r.items.length);
+  assert.equal(stopped.nextCursor,null);
 });
 test('RedFox search and detail field mapping; comments rejected without any request', async () => {
   saveDouyinSettings({ provider: 'redfox', maxRequests: 5 });

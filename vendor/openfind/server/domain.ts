@@ -259,7 +259,7 @@ export function toLead(c: Comment, note?: Note, comments: Comment[] = []): Lead 
 export function assessComment(c: Comment, note?: Note, now = Date.now(), comments: Comment[] = []) {
   const { root, replies } = commentThread(c, comments);
   const authorReplies = replies.filter(
-    (x) => x.authorId === note?.authorId && Date.parse(x.createdAt) >= Date.parse(c.createdAt),
+    (x) => !!x.authorId && !!note?.authorId && x.authorId === note.authorId && Date.parse(x.createdAt) >= Date.parse(c.createdAt),
   );
   const result = intentScore(
     c.body,
@@ -311,6 +311,7 @@ export function assessComment(c: Comment, note?: Note, now = Date.now(), comment
   }
   if (
     result.intentType === 'service' &&
+    !!c.authorId &&
     authorReplies.length &&
     replies.some(
       (x) =>

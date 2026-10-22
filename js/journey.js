@@ -1,9 +1,12 @@
+import { businessActions } from './business-results.js';
 // One actionable recommendation, scoped to the selected business. No inferred results.
 export const journeySteps = {
   content: ['选择推广内容', '生成与修改', '复制到平台发布', '承接咨询'],
   active: ['发现需求', '核实原文', '联系客户', '持续跟进'],
 };
 export function nextAction(customer, acquisition = {}) {
+  const urgent=businessActions(acquisition,customer?.id).find(a=>a.rank<=1);
+  if(urgent)return {...urgent,title:urgent.label+'：'+urgent.title,label:'继续处理'};
   const scoped = key => (acquisition[key] || []).filter(row => row.customerId === customer?.id);
   const leads = scoped('leads').filter(l => !l.doNotContact);
   const reply = leads.find(l => l.needsReply);

@@ -1,3 +1,5 @@
+import { reserveRequest } from './request-budget.ts';
+import { randomUUID } from 'node:crypto';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { Comment, Note, SearchInput } from '../shared/types.ts';
@@ -123,6 +125,7 @@ interface RedTask {
   state: string;
   createdAt: string;
   result?: Comment[];
+  fetchedAt?: string;
 }
 export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch) {
   const provider = xhsProvider();
@@ -130,12 +133,15 @@ export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch)
   const key = decrypt(configGet('xhs.key.' + provider));
   const budget = xhsSettings().maxRequests;
   let requests = 0;
-  async function call(path: string, params: Row, query = false): Promise<Row> {
+  const requestScope = randomUUID();
+  async function call(path: string, params: Row, query = false, beforeSend?: () => void): Promise<Row> {
     if (!key) throw new Error('请先在设置中填写 ' + provider + ' API Key');
     signal?.throwIfAborted();
     if (requests >= budget)
-      throw new Error(`已达到本任务 API 请求上限 ${budget}，已保存现有结果；可在设置调整`);
+      throw new Error(`已达到本步骤 API 请求上限 ${budget}，已保存现有结果；可在设置调整`);
+    reserveRequest('xhs-data:' + provider, 'api', requestScope);
     requests++;
+    beforeSend?.();
     const url = new URL(
       path,
       provider === 'tikhub' ? 'https://api.tikhub.io' : 'https://redfox.hk',
@@ -220,8 +226,8 @@ export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch)
         if (!task) {
           // Persist before sending: a lost response must never cause an automatic second paid submission.
           task = { id, state: 'submitting', createdAt: new Date().toISOString() };
-          put('xhs-api-tasks', task);
-          const d = await call('/story/api/xhs/commentSubmit', { opusId: native, dataNum: limit });
+          const submitting = task;
+          const d = await call('/story/api/xhs/commentSubmit', { opusId: native, dataNum: limit }, false, () => put('xhs-api-tasks', submitting));
           if (!d.taskId) throw new Error('RedFox 未返回任务编号，请在供应商后台核对，避免重复计费');
           task = {
             ...task,
@@ -234,7 +240,7 @@ export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch)
             `RedFox 评论任务已提交（${task.taskId}），预计 ${task.visibleAfterTime || '24 小时后'} 可查询。稍后继续流程或重新采集同一作品、相同条数，将复用任务而不会重复提交。`,
           );
         }
-        if (task.result) return { items: task.result, nextCursor: null };
+        if (task.result) return { items: task.result, nextCursor: null, fetchedAt: task.fetchedAt || task.createdAt };
         if (!task.taskId)
           throw new XhsPendingError(
             'RedFox 提交结果不确定，已阻止重复扣费。请在设置中填入供应商后台任务编号后继续。记录：' +
@@ -263,8 +269,9 @@ export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch)
             platform: 'xiaohongshu',
           };
         });
-        put('xhs-api-tasks', { ...task, state: 'completed', result: items });
-        return { items, nextCursor: null };
+        const fetchedAt = new Date().toISOString();
+        put('xhs-api-tasks', { ...task, state: 'completed', result: items, fetchedAt });
+        return { items, nextCursor: null, fetchedAt };
       }
       const state = cursor ? JSON.parse(cursor) : { cursor: '', index: 0, pageArea: 'UNFOLDED' };
       const d = await tik('get_note_comments', {
@@ -277,7 +284,7 @@ export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch)
       list(d, 'comments');
       const items = platformComments('xiaohongshu', { data: d }, note.id);
       if (more(d) && (!d.cursor || d.cursor === state.cursor))
-        throw new Error('TikHub 评论分页游标无效，已停止请求');
+        return { items, nextCursor: null, paginationError: 'TikHub 评论分页游标无效，已保存本页并停止请求' };
       return {
         items,
         nextCursor: more(d)

@@ -9,7 +9,7 @@ import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { readWorkspace, writeWorkspace } from '../lib/workspace.mjs';
-const { chromium } = await import(process.env.HARTA_PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = await import(process.env.HARTA_PLAYWRIGHT_MODULE || 'playwright-core');
 const root=fileURLToPath(new URL('..',import.meta.url));
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'harta-commerce-browser-'));
 const output=process.env.HARTA_UI_OUTPUT || path.join(os.tmpdir(),'harta-commerce-previews');fs.mkdirSync(output,{recursive:true});
@@ -24,7 +24,7 @@ try {
   const origin=`http://127.0.0.1:${port}`;
   server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'browser-only-fixture-password',HARTA_PUBLIC_ORIGIN:'',HARTA_TRUST_PROXY:'',HARTA_BRAVE_API_KEY:'',HARTA_SEARXNG_URL:''},stdio:['ignore','pipe','pipe']});
   await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw new Error('Server exited');})]);
-  const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const chrome=process.env.HARTA_BROWSER_EXECUTABLE||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});
   const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce'});
   const page=await context.newPage(),errors=[];currentPage=page;page.on('response',async response=>{if(response.url().includes('/api/acquisition')&&response.status()>=400)console.log('Acquisition error',await response.text());});page.on('pageerror',error=>{errors.push(error.message);console.log('PAGE ERROR',error.stack);});
@@ -34,6 +34,8 @@ try {
   assert.equal(await page.locator('[data-view=workbench]').isVisible(),true);
   await page.screenshot({path:path.join(output,'workbench-desktop.png'),fullPage:true});
   await page.locator('[data-nav=content-home]').click();await page.getByRole('heading',{name:'内容获客',exact:true}).waitFor();
+  await page.getByRole('button',{name:'查看 / 更新需求选题',exact:true}).click();
+  await page.getByRole('heading',{name:'从真实需求选题',exact:true}).waitFor();
   await page.screenshot({path:path.join(output,'content-home-desktop.png'),fullPage:true});
   await page.locator('[data-nav=products]').click();
   await page.screenshot({path:path.join(output,'products-empty-desktop.png'),fullPage:true});
@@ -42,7 +44,7 @@ try {
   await page.locator('[data-cm=select-product]').getByText('阅读灯',{exact:true}).waitFor();
   await product.locator('[name=name]').fill('壁灯');await product.locator('[name=facts]').fill('需要固定安装');await product.locator('[name=source]').fill('壁灯说明书');await product.locator('[type=submit]').click();
   await page.getByRole('button',{name:'壁灯',exact:true}).waitFor();
-  const first=page.locator('.cm-product').first();await first.locator('summary').click();await first.getByRole('button',{name:'添加规格',exact:true}).click();
+  const first=page.locator('.cm-product').first();await first.locator('summary').first().click();await first.getByRole('button',{name:'添加规格',exact:true}).click();
   const sku=page.locator('#cm-products [data-cm-form=sku]');await sku.locator('[name=name]').fill('白色款');await sku.locator('summary').click();await sku.locator('[name=priceTerms]').fill('门店确认 199 元/台');await sku.locator('[name=source]').fill('报价单');await sku.locator('[type=submit]').click();
   let result=await (await context.request.get(`${origin}/api/acquisition`)).json();assert.equal(result.workspace.acquisition.skus.length,1);assert.equal(result.workspace.acquisition.products.length,2);
   const p=result.workspace.acquisition.products[0];
@@ -57,7 +59,7 @@ try {
   await page.locator('#cm-products [data-cm-business]').selectOption('c2');assert.equal(await product.locator('[name=name]').inputValue(),'');
   await page.locator('#cm-products [data-cm-business]').selectOption('c1');assert.equal(await product.locator('[name=name]').inputValue(),'仅业务一的未保存草稿');
   await page.screenshot({path:path.join(output,'products-desktop.png'),fullPage:true});
-  await page.locator('[data-nav=prospecting]').click();await page.getByText('添加目标账号',{exact:true}).click();
+  await page.locator('[data-nav=prospecting]').click();await page.locator('.cm-acquisition-more summary').click();await page.getByRole('button',{name:'历史资料与目标账号',exact:true}).click();await page.getByText('添加目标账号',{exact:true}).click();
   const target=page.locator('[data-cm-form=target]');await target.locator('[name=name]').fill('其他账号小林');await target.locator('[name=url]').fill('https://www.douyin.com/user/source1');await target.locator('[name=recordId]').fill('source1');await target.locator('[type=submit]').click();
   await page.getByText('添加这个账号的视频',{exact:true}).click();const work=page.locator('[data-cm-form=work]');await work.locator('[name=title]').fill('书桌照明怎么选');await work.locator('[name=url]').fill('https://www.douyin.com/video/123');await work.locator('[name=recordId]').fill('123');await work.locator('[type=submit]').click();
   await page.getByRole('button',{name:'查看评论',exact:true}).click();await page.getByText('导入真实评论',{exact:true}).click();
@@ -78,11 +80,23 @@ try {
   await page.reload();await page.locator('#cm-workbench h1').waitFor();await page.locator('[data-nav=conversations]').click();
   const outreach=page.locator('[data-cm-form=outreach]');await outreach.locator('[name=agentId]').selectOption(agent.id);await outreach.locator('[name=accountId]').selectOption(acc.id);await outreach.locator('[name=signalId]').selectOption(lead.signalIds[0]);await outreach.locator('[type=submit]').click();
   await page.getByRole('button',{name:'复制草稿',exact:true}).waitFor();assert.ok((await page.locator('.cm-run').innerText()).includes('澄清模板'));
-  assert.equal(await page.getByRole('button',{name:'配置自动回复',exact:true}).isEnabled(),true);
+  assert.equal(await page.getByRole('button',{name:'配置自动回复',exact:true}).count(),0);
+  await page.getByRole('button',{name:'复制草稿',exact:true}).click();
+  const afterCopy=await (await context.request.get(`${origin}/api/acquisition`)).json();
+  assert.ok(afterCopy.workspace.acquisition.leads.every(l=>(l.messages||[]).every(m=>!['sent_manual','sent_platform'].includes(m.status))));
   await page.locator('.cm-sales-plan summary').click();assert.ok((await page.locator('.cm-sales-plan').innerText()).includes('阅读灯安装 FAQ'));await page.screenshot({path:path.join(output,'sales-strategy-desktop.png'),fullPage:true});
   await page.locator('[data-nav=workbench]').click();await page.getByRole('button',{name:'继续跟进',exact:true}).click();
   await page.getByRole('heading',{name:/书桌照明/}).waitFor();
 
+  await page.getByText('写回复或生成建议',{exact:true}).click();
+  const manual=page.locator('[data-cm-form=manual-draft]');
+  await manual.locator('[name=accountId]').selectOption(acc.id);
+  const draftResponse=page.waitForResponse(r=>r.url().endsWith('/api/acquisition/suggestion'));
+  await manual.getByRole('button',{name:'帮我起草回复',exact:true}).click();
+  assert.equal((await draftResponse).status(),200);
+  await page.waitForFunction(()=>!!document.querySelector('[data-cm-form=manual-draft] [name=text]')?.value);
+  const afterSuggestion=await (await context.request.get(`${origin}/api/acquisition`)).json();
+  assert.ok(afterSuggestion.workspace.acquisition.leads.every(l=>(l.messages||[]).every(m=>!['sent_manual','sent_platform'].includes(m.status))));
   // Actual recording is separate from copying; one message does not implicitly mark a sale.
   await page.getByText('登记实际发送',{exact:true}).click();const sent=page.locator('[data-cm-form=sent]');await sent.locator('[name=sentAt]').fill('2026-01-01T10:30');await sent.locator('[name=note]').fill('隔离测试中模拟平台记录');await sent.locator('[name=confirmed]').check();await sent.locator('[type=submit]').click();await page.locator('#cm-conversations').getByText(/已发送 · 人工登记/).waitFor();
   result=await (await context.request.get(`${origin}/api/acquisition`)).json();assert.equal(result.workspace.acquisition.opportunities[0].stage,'比较中');
@@ -123,5 +137,5 @@ try {
       await page.setViewportSize({width:1440,height:1100});
     }
   }
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['sales knowledge approval and retrieval','strategy evidence','followup queue','products and SKU','business draft isolation','other account videos','nested comments and XSS','independent purchasing needs','agent bound context','limited draft','manual send evidence','content scope','responsive light/dark'],previews:output},null,2));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['sales knowledge approval and retrieval','strategy evidence','followup queue','products and SKU','business draft isolation','other account videos','nested comments and XSS','independent purchasing needs','agent bound context','limited draft','manual suggestion without agent','manual send evidence','content scope','responsive light/dark'],previews:output},null,2));
 } catch(error) { if(currentPage){console.log('Visible errors',await currentPage.locator('.cm-error,.acq-error').allTextContents());await currentPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error; } finally { if(browser)await browser.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }

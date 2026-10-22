@@ -14,6 +14,7 @@ export function cachedJob(job: Job, input: SearchInput): Job | undefined {
       j.id !== job.id &&
       j.source === 'live' &&
       j.status === 'completed' &&
+      !j.cacheInvalidatedAt &&
       j.dataProvider ===
         (input.platform === 'xiaohongshu' ? xhsFingerprint() : douyinFingerprint()) &&
       j.type === job.type &&
@@ -34,7 +35,7 @@ export function cachedJob(job: Job, input: SearchInput): Job | undefined {
               ? 'popularity_descending'
               : 'general')
       ) &&
-      j.count >= input.limit &&
+      (j.count >= input.limit || j.stopReason === 'source_exhausted') &&
       Date.now() - Date.parse(j.dataFetchedAt || j.finishedAt || '') < 300000 &&
       j.resultIds.every((id) => get(job.type === 'search' ? 'notes' : 'comments', id)),
   );

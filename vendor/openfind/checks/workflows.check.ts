@@ -340,3 +340,15 @@ test('Restart marks interrupted manual model reviews as stopped without losing c
   assert.equal(restored.reviewProgress!.reviewed, 5);
   assert.deepEqual(restored.commentIds, ['kept-comment']);
 });
+test('sample preview pauses before comments and explicit continuation reuses its search',async()=>{
+  const w=createWorkflow({...input,keyword:'样本确认',supplement:false,previewFirst:true});
+  const n=note('preview-note'),calls:string[]=[];
+  const execute:Parameters<typeof runWorkflow>[1]=async j=>{
+    calls.push(j.type);
+    if(j.type==='search'){put('notes',n);j.resultIds=[n.id];}
+    else{const c=comment(n,'preview-comment');put('comments',c);j.resultIds=[c.id];}
+    j.status='completed';j.count=j.resultIds.length;put('jobs',j);
+  };
+  await runWorkflow(w,execute);assert.equal(w.status,'paused');assert.deepEqual(calls,['search']);
+  await runWorkflow(w,execute);assert.equal(w.status,'completed');assert.deepEqual(calls,['search','comments']);
+});

@@ -191,3 +191,12 @@ test('Explicit planned shopping is recognized without treating an old statement 
   ])
     assert.equal(intentScore(text, when(0), '插花', now).recommended, false, text);
 });
+test('missing identities cannot establish author replies or completed customer exchanges',async()=>{
+ const {assessComment}=await import('../server/domain.ts');const {demoNotes,demoComments}=await import('../server/demo.ts');
+ const note={...demoNotes('家居',1)[0],title:'软装搭配',body:'',tags:[],authorId:'creator'};
+ const root={...demoComments(note.id,1)[0],id:'unknown-root',authorId:'',body:'求改。',createdAt:when(1)};
+ const answer={...root,id:'unknown-answer',parentId:root.id,authorId:'creator',body:'可以把黑色的家具换成浅色',createdAt:when(0)};
+ const thanks={...root,id:'unknown-thanks',parentId:root.id,body:'好的，谢谢',createdAt:when(0)};
+ const reviewed=assessComment(root,note,now,[root,answer,thanks]);assert.notEqual(reviewed.stage,'resolved');assert.ok(!reviewed.threadEvidence?.some(r=>r.commentId===thanks.id));
+ const unknown=assessComment(root,{...note,authorId:''},now,[root,{...answer,authorId:''}]);assert.ok(!unknown.threadEvidence?.some(r=>r.commentId===answer.id));
+});

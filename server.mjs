@@ -1,3 +1,4 @@
+import { acquireDataLock } from './lib/data-lock.mjs';
 import { openFindContacts } from './lib/openfind-contacts.mjs';
 import { openFindRoute, proxyOpenFind } from './lib/openfind-proxy.mjs';
 import { openFind } from './lib/openfind-live.mjs';
@@ -324,8 +325,11 @@ async function handleApi(req, res, url) {
       const customerId = decodeURIComponent(match[1]);
       const customer = readWorkspace(user.email).customers.find(c => c.id === customerId);
       if (!customer) return json(res, 404, { error: '找不到当前业务' });
+      if (match[2] === '/harta/context') {
+        const space=readWorkspace(user.email);
+        return json(res,200,{customerId,name:customer.name,profile:{identity:String(customer.name||'').slice(0,2000),offering:String(customer.pitch||'').slice(0,2000),regions:String(customer.city||'').slice(0,2000),priceRange:'',value:'',proof:''},upstream:'8532f51ec89fefedb5a9eee53703097629f931ae',suggestedKeywords:(space.acquisition?.products||[]).filter(p=>p.customerId===customerId&&p.status==='active').slice(0,8).map(p=>p.name),pitch:customer.pitch||''});
+      }
       if (match[2] === '/harta/contacts') return json(res, 200, openFindContacts(readWorkspace(user.email), customerId));
-      if (match[2] === '/harta/context') return json(res, 200, { customerId, name: customer.name, profile: { identity: String(customer.name || '').slice(0,2000), offering: String(customer.pitch || '').slice(0,2000), regions: String(customer.city || '').slice(0,2000), priceRange: '', value: '', proof: '' }, upstream: '8532f51ec89fefedb5a9eee53703097629f931ae' });
       if (match[2] === '/harta/handoff') return json(res, 200, await openFind.handoff(user.email, customerId, await readBody(req)));
       if (req.method === 'POST' && (/^\/workflows\/[^/]+\/pause$/.test(match[2]) || /^\/jobs\/[^/]+\/stop$/.test(match[2]))) openFind.suspendSchedule(user.email, customerId);
       const endpoint = await openFind.endpoint(user.email, customerId, { activate: req.method !== 'GET' });
@@ -1006,6 +1010,8 @@ async function handleApi(req, res, url) {
   return json(res, 404, { error: "没有这个接口" });
 }
 
+const releaseDataLock = acquireDataLock(path.join(process.cwd(), 'data'), 'runtime');
+process.once('exit', releaseDataLock);
 const server = http.createServer(async (req, res) => {
   try {
     if (!validHost(req, { publicOrigin: PUBLIC_ORIGIN, port: PORT })) return json(res, 421, { error: "访问地址不正确" });

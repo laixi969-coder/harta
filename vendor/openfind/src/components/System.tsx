@@ -1,3 +1,6 @@
+import { OperationalHealth } from './OperationalHealth';
+import { DataAcceptance } from './DataAcceptance';
+import { RequestBudget } from './RequestBudget';
 import { DouyinDataSettings } from './DouyinDataSettings';
 import { XhsDataSettings } from './XhsDataSettings';
 import { LlmSettingsPanel } from './LlmSettings';
@@ -102,6 +105,9 @@ export function SettingsPage() {
       <PageHeading
         title="连接设置"
       />
+      <OperationalHealth />
+      <RequestBudget />
+      <DataAcceptance />
       <XhsDataSettings />
       <DouyinDataSettings />
       <PlatformConnections />

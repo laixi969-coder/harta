@@ -1,3 +1,4 @@
+import { LibraryTools, emptyLibraryFilter, libraryMatches } from './LibraryTools';
 import { collectionTopics } from '../../shared/collection-groups';
 import { MediaImage, MediaGallery } from './Media';
 import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
@@ -40,6 +41,7 @@ import { Empty, Busy, SourceTag, PageHeading, Modal, ExternalLink } from './ui';
 import { acquisitionPriority } from '../../server/domain';
 export function Discover() {
   const { data, notify, refresh, navigate, clone, collect, embedded } = useWorkspace();
+  const [libraryFilter,setLibraryFilter]=useState({...emptyLibraryFilter});
   const params = new URLSearchParams(location.search);
   const requestedNote = data.notes.find(n => n.id === params.get('note'));
   const requestedPlatform = params.get('platform') || requestedNote?.platform;
@@ -102,9 +104,10 @@ export function Discover() {
   const shown = useMemo(() => {
     let n = notes.filter(
       (n) =>
+        libraryMatches(n,libraryFilter,data.jobs) &&
         (!topic || topics.get(n.id)?.has(topic)) &&
         (!query ||
-          [n.title, n.author, n.id, ...n.tags]
+          [n.title, n.author, n.id, ...(n.tags || [])]
             .join(' ')
             .toLowerCase()
             .includes(query.toLowerCase())) &&
@@ -127,7 +130,7 @@ export function Discover() {
         );
       });
     return n;
-  }, [notes, query, filter, resultSort, selected, priorities, topic, topics]);
+  }, [notes, query, filter, resultSort, selected, priorities, topic, topics, libraryFilter, data.jobs]);
   async function openDetail(note: Note, force = false) {
     setDetail(note);
     if (detailBusy || note.source !== 'live' || (!force && note.detailState === 'complete')) return;
@@ -674,6 +677,7 @@ export function Discover() {
               </div>
             </div>
             <label className="field-hint">作品范围 <select aria-label="作品范围" value={scope} onChange={e => {setScope(e.target.value as 'job' | 'library');setTopic('');setSelected([]);}}><option value="job">当前搜索任务</option><option value="library">当前平台全部已保存作品</option></select></label>
+            <LibraryTools filter={libraryFilter} setFilter={setLibraryFilter} selected={selected}/>
             <div className="results-toolbar">
               <div className="filter-tabs">
                 {[
@@ -1055,6 +1059,8 @@ export function NoteCard({
 export function JobLog({ job }: { job?: Job }) {
   return (
     <div className="job-log">
+      {job && <section className="panel" aria-label="采集数量说明"><p>目标 {job.query?.limit || '未限制'} 条 · 返回 {job.received ?? '历史未记录'} 条 · 本次重复 {job.duplicates ?? '历史未记录'} 条 · 超出目标 {job.overLimit ?? '历史未记录'} 条 · 保存 {job.count} 条 · 请求 {job.requests ?? '历史未记录'} 次</p><p>停止原因：{({target_reached:'已达到目标',source_exhausted:'数据源已无下一页',cached:'复用有效缓存',interrupted:'用户暂停或服务中断',error:'发生异常，已保留结果'} as Record<string,string>)[job.stopReason || ''] || (job.status === 'running' ? '运行中' : '历史任务未记录')}。{job.error || ''}</p>{job.dataFetchedAt && <p>数据取得时间：{new Date(job.dataFetchedAt).toLocaleString()}</p>}</section>}
+
       {job?.logs.length ? (
         job.logs.map((l, i) => (
           <div key={i} className={`log-row log-${l.level.toLowerCase()}`}>

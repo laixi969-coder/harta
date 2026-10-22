@@ -1,3 +1,5 @@
+import { reserveRequest } from './request-budget.ts';
+import { randomUUID } from 'node:crypto';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { Note, SearchInput } from '../shared/types.ts';
@@ -108,10 +110,12 @@ export function douyinClient(signal?: AbortSignal, transport: typeof fetch = fet
   const key = decrypt(configGet('douyin.key.' + provider));
   const budget = douyinSettings().maxRequests;
   let requests = 0;
+  const requestScope = randomUUID();
   async function call(path: string, params: Row, method: 'GET' | 'POST' = 'POST'): Promise<Row> {
     signal?.throwIfAborted();
     if (!key) throw new Error('请在设置 → 抖音数据源填写 ' + provider + ' API Key');
     if (requests >= budget) throw new Error(`已达到本步骤 API 请求上限 ${budget}；已保存已有结果`);
+    reserveRequest('douyin-data:' + provider, 'api', requestScope);
     requests++;
     const url = new URL(
       path,
@@ -192,7 +196,8 @@ export function douyinClient(signal?: AbortSignal, transport: typeof fetch = fet
       const data = rows(d, 'data', 'aweme_list');
       const items = douyinNotes({ data });
       if (data.length && !items.length) throw new Error('TikHub 抖音结果中没有可识别的作品');
-      const next = nextPage(d, state.cursor);
+      let next;
+      try { next = nextPage(d, state.cursor); } catch(error) { return { items, nextCursor: null, paginationError: (error as Error).message }; }
       return {
         items: items.filter((n) => input.noteType === 'all' || n.type === input.noteType),
         nextCursor:
@@ -216,7 +221,8 @@ export function douyinClient(signal?: AbortSignal, transport: typeof fetch = fet
       const comments = rows(d, 'comments');
       const items = platformComments('douyin', d, note.id);
       if (comments.length && !items.length) throw new Error('TikHub 抖音评论字段无法识别');
-      const next = nextPage(d, previous);
+      let next;
+      try { next = nextPage(d, previous); } catch(error) { return { items, nextCursor: null, paginationError: (error as Error).message }; }
       return { items, nextCursor: next == null ? null : JSON.stringify({ cursor: next }) };
     },
     async detail(noteOrUrl: Note | string): Promise<Note> {

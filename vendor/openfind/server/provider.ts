@@ -1,3 +1,4 @@
+import { reserveRequest } from './request-budget.ts';
 import { z } from 'zod';
 import { configGet, decrypt } from './store.ts';
 const noteSchema = z.object({
@@ -62,6 +63,8 @@ export async function providerCall<T>(
   const accountId =
     (body as { accountId?: string })?.accountId || configGet('accountId', 'demo-account');
   const cookie = getCookie(accountId);
+  signal?.throwIfAborted();
+  reserveRequest('http-provider');
   const response = await fetch(`${base.replace(/\/$/, '')}${path}`, {
     method: 'POST',
     headers: {

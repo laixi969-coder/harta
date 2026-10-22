@@ -214,17 +214,18 @@ export function XhsDataSettings() {
         </>
       )}
       {message && <p role="status">{message}</p>}
-      {tasks.filter((t) => t.state !== 'completed').length > 0 && (
+      {tasks.length > 0 && (
         <details>
-          <summary>RedFox 待完成任务</summary>
+          <summary>RedFox 任务与历史结果</summary>
           {tasks
-            .filter((t) => t.state !== 'completed')
+
             .map((t) => (
               <div key={t.id}>
                 <p>
                   {t.taskId || '提交结果不确定'} · {t.visibleAfterTime || t.state}
                 </p>
                 <p className="field-hint">{t.id}</p>
+                {t.state === 'completed' && <button className="btn" disabled={busy} onClick={async()=>{if(!confirm('准备新批次后，下次采集将重新提交收费任务。确认？'))return;setBusy(true);try{await api('/xhs-data/new-batch',{id:t.id});setTasks(await api<Task[]>('/xhs-data/tasks'));setMessage('已准备新批次并失效对应缓存，请主动重新采集；当前未发起收费请求');}catch(e){setMessage((e as Error).message);}finally{setBusy(false);}}}>准备新批次（下次采集可能收费）</button>}
                 {!t.taskId && (
                   <>
                     <input

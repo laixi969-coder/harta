@@ -1,3 +1,4 @@
+import { reserveRequest } from './request-budget.ts';
 import { fetch as modelFetch } from 'undici';
 import { modelDispatcher } from './model-transport.ts';
 import { createHash } from 'node:crypto';
@@ -130,6 +131,7 @@ async function modelRequest(path: string, body?: unknown, signal?: AbortSignal) 
   const settings = llmSettings();
   if (!settings.baseUrl) throw new Error('请先保存模型服务地址');
   const key = decrypt(configGet('llm:key'));
+  if (body !== undefined) { signal?.throwIfAborted(); reserveRequest('qualification-model', 'model'); }
   let response: Awaited<ReturnType<typeof modelFetch>>;
   try {
     response = await modelFetch(settings.baseUrl + path, {
@@ -194,7 +196,7 @@ async function completion(
     const deadline = AbortSignal.timeout(seconds * 1000);
     const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
     let content: string;
-    try { content = await managedModel.complete(messages, requestSignal); }
+    try { requestSignal?.throwIfAborted(); reserveRequest('harta-qualification-model', 'model'); content = await managedModel.complete(messages, requestSignal); }
     catch (error) {
       if (signal?.aborted) signal.throwIfAborted();
       if (deadline.aborted) throw new Error(`Harta 模型请求超过 ${seconds} 秒，保留本地规则，可重试`);

@@ -12,6 +12,7 @@ export interface PlatformConnection {
 }
 export type Mode = 'demo' | 'live';
 export interface Note {
+  organization?: {category:string;product:string;stage:string;archived:boolean;revision:number};
   id: string;
   title: string;
   body: string;
@@ -48,6 +49,7 @@ export interface Comment {
   source: Mode;
 }
 export interface Lead {
+  businessFit?: { workflowId:string; reason:string };
   assessment?: LeadAssessment;
   commentCreatedAt?: string;
   platform?: Platform;
@@ -108,6 +110,14 @@ export interface Log {
   message: string;
 }
 export interface Job {
+  cursor?: string | null;
+  visitedCursors?: string[];
+  received?: number;
+  overLimit?: number;
+  duplicates?: number;
+  requests?: number;
+  stopReason?: 'target_reached' | 'source_exhausted' | 'cached' | 'interrupted' | 'error';
+
   dataProvider?: string;
   searchEvidence?: {
     sort: SearchInput['sort'];
@@ -118,6 +128,7 @@ export interface Job {
   query?: SearchInput;
   finishedAt?: string;
   dataFetchedAt?: string;
+  cacheInvalidatedAt?: string;
   platform?: Platform;
   id: string;
   type: 'search' | 'comments';
@@ -175,6 +186,10 @@ export interface Snapshot {
   settings: Settings;
 }
 export interface AcquisitionInput {
+  serviceArea?: string;
+  needTerms?: string;
+  excludeTerms?: string;
+  previewFirst?: boolean;
   links?: string[];
   noteType?: SearchInput['noteType'];
   keyword: string;
@@ -245,6 +260,7 @@ export interface LlmSettings {
   maxComments: number;
 }
 export interface AcquisitionWorkflow {
+  previewAccepted?: boolean;
   qualificationReview?: QualificationReview;
   reviewProgress?: {
     status: 'running' | 'completed' | 'failed';

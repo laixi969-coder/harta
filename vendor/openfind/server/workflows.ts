@@ -1,3 +1,5 @@
+import { businessFit } from '../shared/business-fit.ts';
+import { withRequestScope } from './request-budget.ts';
 import { douyinUsesApi, requireDouyinComments } from './douyin-data.ts';
 import { workflowErrorMessage } from './workflow-errors.ts';
 import { topicRelevant } from '../../../js/demand-rules.js';
@@ -115,7 +117,7 @@ export function qualify(w: AcquisitionWorkflow) {
       note,
       assessment: assessComment(c, note, Date.now(), all<Comment>('comments')),
     }))
-    .filter((x) => x.assessment.recommended && x.assessment.withinSevenDays === true)
+    .filter((x) => x.assessment.recommended && x.assessment.withinSevenDays === true && businessFit(x.c.body,w.input).eligible)
     .sort(
       (a, b) =>
         b.assessment.score - a.assessment.score || b.c.createdAt.localeCompare(a.c.createdAt),
@@ -123,6 +125,8 @@ export function qualify(w: AcquisitionWorkflow) {
   const ids = new Set<string>();
   for (const { c, note } of candidates) {
     const lead = toLead(c, note, all<Comment>('comments'));
+    lead.businessFit = {workflowId:w.id, reason:businessFit(c.body,w.input).reason};
+    lead.reason += '；' + lead.businessFit.reason;
     if (ids.has(lead.id)) continue;
     ids.add(lead.id);
     const existing = get<Lead>('leads', lead.id);
@@ -239,6 +243,9 @@ async function waitForPlatform(
   }
 }
 export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, readLink?: (url:string, signal:AbortSignal)=>Promise<Note>) {
+  return withRequestScope(w.id, () => runWorkflowSteps(w, execute, readLink));
+}
+async function runWorkflowSteps(w: AcquisitionWorkflow, execute: JobExecutor, readLink?: (url:string, signal:AbortSignal)=>Promise<Note>) {
   if (workflowRuns.has(w.id)) return;
   const abort = new AbortController();
   workflowRuns.set(w.id, abort);
@@ -256,7 +263,8 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, 
       interval: 250,
       forceRefresh: false,
     };
-    const j: Job = {
+    const previous = w.currentJobId ? get<Job>('jobs', w.currentJobId) : undefined;
+    const j: Job = previous && previous.type === type && previous.noteId === note?.id && previous.query?.sort === sort ? previous : {
       id: randomUUID(),
       type,
       status: 'running',
@@ -275,7 +283,7 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, 
     if (!cachedJob(j, query)) await waitForPlatform(w, type, abort.signal);
     abort.signal.throwIfAborted();
     w.currentJobId = j.id;
-    if (type === 'search') w.searchJobIds.push(j.id);
+    if (type === 'search' && !w.searchJobIds.includes(j.id)) w.searchJobIds.push(j.id);
     put('jobs', j);
     saveWorkflow(
       w,
@@ -372,6 +380,12 @@ export async function runWorkflow(w: AcquisitionWorkflow, execute: JobExecutor, 
         w,
         `已选出 ${w.selectedNoteIds.length} 篇有评论信号的作品；优先近期明确需求，其次活跃讨论`,
       );
+    }
+    if (w.stage === 'comments' && w.input.previewFirst && !w.previewAccepted) {
+      w.previewAccepted = true;
+      w.status = 'paused';
+      saveWorkflow(w, `已完成小批验证：发现 ${w.noteIds.length} 篇，筛选 ${w.selectedNoteIds.length} 篇有相关评论信号的作品。请检查样本；点击继续后读取评论，或换关键词新建流程。`);
+      return;
     }
     if (w.stage === 'comments') {
       for (const id of w.selectedNoteIds) {

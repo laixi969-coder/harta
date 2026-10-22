@@ -18,7 +18,7 @@ export function discoveryWorks(works, signals, filters = {}, now = Date.now()) {
     const engagement = metrics && [metrics.likes, metrics.comments, metrics.saves].some(v => Number.isFinite(v))
       ? [metrics.likes, metrics.comments, metrics.saves].reduce((n,v) => n + (Number.isFinite(v) ? v : 0), 0) : null;
     return { ...work, savedComments: evidence.length, recentDemand: recent.length, engagement };
-  }).filter(w => (!query || `${w.title} ${w.description || ''} ${w.authorName || ''}`.toLowerCase().includes(query))
+  }).filter(w => (filters.archive==='all'||!!w.organization?.archived===(filters.archive==='archived')) && (!query || `${w.title} ${w.description || ''} ${w.authorName || ''}`.toLowerCase().includes(query))
     && (!filters.platform || w.platform === filters.platform)
     && (!filters.type || w.type === filters.type)
     && (filters.sort !== 'demand' || w.recentDemand > 0))

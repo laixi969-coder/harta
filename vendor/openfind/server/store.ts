@@ -5,6 +5,7 @@ import { randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
 export const dataDir = resolve(process.env.OPENFIND_DATA_DIR || 'data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
 const keyPath = join(dataDir, '.credential-key');
+if (!existsSync(keyPath) && existsSync(join(dataDir, 'openfind.sqlite'))) throw new Error('业务凭证密钥缺失，请从完整备份恢复，不会生成新密钥覆盖');
 try {
   writeFileSync(keyPath, randomBytes(32), { mode: 0o600, flag: 'wx' });
 } catch (error) {
@@ -12,6 +13,7 @@ try {
 }
 chmodSync(keyPath, 0o600);
 const key = readFileSync(keyPath);
+if (key.length !== 32) throw new Error('业务凭证密钥长度异常，请从完整备份恢复');
 export const db = new DatabaseSync(join(dataDir, 'openfind.sqlite'));
 db.exec(
   'PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS entities(kind TEXT NOT NULL,id TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(kind,id)); CREATE TABLE IF NOT EXISTS config(key TEXT PRIMARY KEY,value TEXT NOT NULL);',
