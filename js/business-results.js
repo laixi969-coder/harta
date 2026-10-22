@@ -1,3 +1,4 @@
+import { unansweredMessages } from './conversation-state.js';
 // Current saved evidence, scoped to one business. Copies and scores never imply contact or revenue.
 const sent = m => ['sent_manual','sent_platform'].includes(m.status);
 const real = r => !r.demo && r.source !== 'demo' && r.sourceType !== 'demo';
@@ -16,11 +17,16 @@ export function businessActions(acquisition = {}, customerId, now=Date.now()) {
  const rows=key=>(acquisition[key]||[]).filter(r=>r.customerId===customerId&&real(r));
  const leads=rows('leads').filter(l=>!l.doNotContact), list=[];
  for(const l of leads){
-  const messages=l.messages||[], unanswered=messages.filter(m=>m.direction==='inbound').some(m=>!messages.some(s=>sent(s)&&s.replyTo===m.id&&Date.parse(s.sentAt)>=Date.parse(m.receivedAt||m.createdAt)));
-  if(unanswered||l.needsReply)list.push({id:l.id,action:'open-contact',title:l.authorName||'客户',note:'查看客户原话并准备回复',label:'待回复',rank:0,time:0});
-  else if(!['已成交','暂不跟进'].includes(l.stage)&&Number.isFinite(Date.parse(l.nextAt))&&Date.parse(l.nextAt)<=now)list.push({id:l.id,action:'open-contact',title:l.authorName||'客户',note:l.nextStep||'已到跟进时间',label:'联系人跟进到期',rank:1,time:Date.parse(l.nextAt)});
+  const messages=l.messages||[], unanswered=unansweredMessages(messages);
+  for(const incoming of unanswered){
+   const op=rows('opportunities').find(o=>o.id===incoming.opportunityId&&o.leadId===l.id);
+   const action=op?'open-need':'open-contact-history', id=op?.id||l.id;
+   if(!list.some(item=>item.action===action&&item.id===id))list.push({id,action,title:(l.authorName||'客户')+(op?' · '+op.title:''),note:'查看客户原话并准备回复',label:'待回复',rank:0,time:0});
+  }
+  if(!messages.some(m=>m.direction==='inbound')&&l.needsReply)list.push({id:l.id,action:'open-contact',title:l.authorName||'客户',note:'查看客户原话并准备回复',label:'待回复',rank:0,time:0});
+  else if(!unanswered.length&&!['已成交','暂不跟进'].includes(l.stage)&&Number.isFinite(Date.parse(l.nextAt))&&Date.parse(l.nextAt)<=now)list.push({id:l.id,action:'open-contact',title:l.authorName||'客户',note:l.nextStep||'已到跟进时间',label:'联系人跟进到期',rank:1,time:Date.parse(l.nextAt)});
  }
- for(const o of rows('opportunities'))if(!['已成交','已结束'].includes(o.stage)&&leads.some(l=>l.id===o.leadId)&&Number.isFinite(Date.parse(o.nextAt))&&Date.parse(o.nextAt)<=now)list.push({id:o.id,action:'open-need',title:o.title,note:o.nextStep||'查看购买需求',label:'购买需求跟进到期',rank:1,time:Date.parse(o.nextAt)});
+ for(const o of rows('opportunities'))if(!['已成交','已结束'].includes(o.stage)&&!list.some(item=>item.action==='open-need'&&item.id===o.id)&&leads.some(l=>l.id===o.leadId)&&Number.isFinite(Date.parse(o.nextAt))&&Date.parse(o.nextAt)<=now)list.push({id:o.id,action:'open-need',title:o.title,note:o.nextStep||'查看购买需求',label:'购买需求跟进到期',rank:1,time:Date.parse(o.nextAt)});
  for(const o of rows('opportunities'))if(!['已成交','已结束'].includes(o.stage)&&!list.some(a=>a.action==='open-need'&&a.id===o.id)){
   const l=leads.find(l=>l.id===o.leadId);if(!l)continue;
   if(!(l.messages||[]).some(m=>m.opportunityId===o.id&&(sent(m)||m.direction==='inbound')))list.push({id:o.id,action:'open-need',title:o.title,note:o.nextStep||'根据原话准备联系草稿',label:'待开场',rank:2,time:0});

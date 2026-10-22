@@ -1,4 +1,5 @@
 import { businessResults, businessActions } from './business-results.js';
+import { manualDraftScope } from './draft-scope.js';
 import { initNativeWorkMedia, refreshNativeWorkPreview } from './work-media.js';
 import { mountOpenFindWorkbench, nativeWorkCover, nativeWorkGallery, installAcquisitionShell, openAcquisitionPage, canLeaveAcquisition } from './openfind-workbench.js';
 import { initOpenFindUI, openFindPanel, openFindWorkActions, refreshOpenFindWork } from './openfind-ui.js';
@@ -342,8 +343,8 @@ export function installCommerceUI(context){
     if(act.startsWith('delivery-')){try{if(act==='delivery-cancel')await deliveryApi('cancel',{jobId:id});if(act==='delivery-pause'){const rule=delivery.rules.find(r=>r.id===id);await deliveryApi('rule',{id,connectionId:rule.connectionId,action:'pause'});}await browserRefresh();}catch(e){ctx.toast(e.message);}return;}
     if(act.startsWith('browser-')){b.disabled=true;try{if(act==='browser-pair')pairing={...await browserApi('pair',{accountId:id}),customerId:businessId};else if(act==='browser-revoke')await browserApi('revoke',{connectionId:id});else if(act==='browser-cancel')await browserApi('cancel',{jobId:id});else if(['browser-contact','browser-message'].includes(act)){contactPreview={...await browserApi('contact',{leadId:act==='browser-contact'?id:contactId,messageId:act==='browser-message'?id:undefined,channel:'私信'}),customerId:businessId};}await browserRefresh();}catch(e){ctx.toast(e.message);}finally{b.disabled=false;}renderCommerceUI();return;}
     if(act==='suggest-manual'){
-      const f=b.closest('form'),field=f.querySelector('[name=text]'),before=field.value,cId=businessId,currentLead=contactId;
-      b.disabled=true;try{const r=await api('suggestion',{leadId:currentLead,opportunityId:id,accountId:f.querySelector('[name=accountId]').value||undefined,channel:f.querySelector('[name=channel]').value});if(businessId!==cId||!field.isConnected||field.value!==before){ctx.toast('草稿已生成，但当前输入已改变，请按最新内容重试');return;}field.value=r.text;stash();ctx.toast(r.basis);}catch(e){ctx.toast(e.message);}finally{b.disabled=false;}return;
+      const f=b.closest('form'),field=f.querySelector('[name=text]'),before=manualDraftScope(f),cId=businessId,currentLead=contactId;
+      b.disabled=true;try{const r=await api('suggestion',{leadId:currentLead,opportunityId:id,accountId:f.querySelector('[name=accountId]').value||undefined,channel:f.querySelector('[name=channel]').value});if(businessId!==cId||contactId!==currentLead||!field.isConnected||manualDraftScope(f)!==before){ctx.toast('草稿已生成，但当前输入已改变，请按最新内容重试');return;}field.value=r.text;stash();ctx.toast(r.basis);}catch(e){ctx.toast(e.message);}finally{b.disabled=false;}return;
     }
     if(act==='load-topics'||act==='use-topic'){
       const cId=businessId;b.disabled=true;
@@ -375,6 +376,7 @@ export function installCommerceUI(context){
     else if(act==='add-sku'){editProduct=id;editSku='new';}
     else if(act==='new-product')editProduct=editSku='';
     else if(act==='open-contact'){contactId=id;opId='';ctx.nav('conversations');}
+    else if(act==='open-contact-history'){contactId=id;ctx.openLegacyLead(businessId,id);}
     else if(act==='select-op')opId=id;
     else if(act==='open-need'){const o=rows('opportunities').find(o=>o.id===id);if(o){opId=o.id;contactId=o.leadId;ctx.nav('conversations');}}
     else if(['content','write-product','open-pack'].includes(act)){

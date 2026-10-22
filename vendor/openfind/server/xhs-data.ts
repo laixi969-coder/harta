@@ -281,8 +281,9 @@ export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch)
         pageArea: state.pageArea,
         sort_strategy: 'latest_v2',
       });
-      list(d, 'comments');
+      const comments = list(d, 'comments');
       const items = platformComments('xiaohongshu', { data: d }, note.id);
+      if (comments.length && !items.length) throw new Error('TikHub 小红书评论字段无法识别，已停止以避免误报采集成功');
       if (more(d) && (!d.cursor || d.cursor === state.cursor))
         return { items, nextCursor: null, paginationError: 'TikHub 评论分页游标无效，已保存本页并停止请求' };
       return {
@@ -301,7 +302,7 @@ export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch)
       const url = typeof noteOrUrl === 'string' ? noteOrUrl : noteOrUrl.url;
       if (provider === 'redfox') {
         const d = await call('/story/api/xhsUser/queryWorkDetail', { workLink: url });
-        return redfoxNotes([d])[0];
+        return { ...redfoxNotes([d])[0], detailState: 'complete' };
       }
       const d = await tik(
         note?.type === 'video' ? 'get_video_note_detail' : 'get_image_note_detail',
@@ -310,7 +311,7 @@ export function xhsClient(signal?: AbortSignal, transport: typeof fetch = fetch)
       const rows = Array.isArray(d) ? d : d.items || d.notes || [d.note || d];
       const result = tikNotes(rows)[0];
       if (!result) throw new Error('TikHub 未返回作品详情');
-      return result;
+      return { ...result, detailState: 'complete' };
     },
   };
 }

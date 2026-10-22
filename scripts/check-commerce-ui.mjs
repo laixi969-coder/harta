@@ -71,6 +71,7 @@ try {
   // Set up a real saved agent version and completed limited trial through authenticated APIs.
   const api=async(route,data)=>{const r=await context.request.post(`${origin}/api/acquisition/${route}`,{data});assert.ok(r.ok(),await r.text());return r.json();};
   result=await api('account',{customerId:'c1',platform:'抖音',name:'回复工作账号'});const acc=result.workspace.acquisition.accounts[0];
+  result=await api('account',{customerId:'c1',platform:'抖音',name:'第二回复账号'});const secondAccount=result.workspace.acquisition.accounts[1];
   result=await api('agent-create',{customerId:'c1'});let agent=result.workspace.acquisition.agents[0];
   result=await api('agent-save',{agentId:agent.id,baseVersion:1,config:{...agent.versions[0].config,criteria:'明确表达照明需求',bindings:[{accountId:acc.id,enabled:true}]}});
   const lead=result.workspace.acquisition.leads[0],op=result.workspace.acquisition.opportunities[0];
@@ -97,13 +98,50 @@ try {
   await page.waitForFunction(()=>!!document.querySelector('[data-cm-form=manual-draft] [name=text]')?.value);
   const afterSuggestion=await (await context.request.get(`${origin}/api/acquisition`)).json();
   assert.ok(afterSuggestion.workspace.acquisition.leads.every(l=>(l.messages||[]).every(m=>!['sent_manual','sent_platform'].includes(m.status))));
+  // A response from the old account/channel must not populate a changed form.
+  for(const fieldName of ['channel','accountId']){
+    await manual.locator('[name=text]').fill('');await manual.locator('[name=channel]').selectOption('评论');await manual.locator('[name=accountId]').selectOption(acc.id);
+    let arrived,release;const reached=new Promise(resolve=>arrived=resolve),held=new Promise(resolve=>release=resolve);
+    const handler=async route=>{const response=await route.fetch();arrived();await held;await route.fulfill({response});};
+    await page.route('**/api/acquisition/suggestion',handler);
+    await manual.getByRole('button',{name:'帮我起草回复',exact:true}).click();await reached;
+    await manual.locator(`[name=${fieldName}]`).selectOption(fieldName==='channel'?'私信':secondAccount.id);release();
+    await page.waitForFunction(()=>!document.querySelector('[data-cm=suggest-manual]')?.disabled);
+    assert.equal(await manual.locator('[name=text]').inputValue(),'','Changed '+fieldName+' discards old suggestion');
+    await page.unroute('**/api/acquisition/suggestion',handler);
+  }
   // Actual recording is separate from copying; one message does not implicitly mark a sale.
   await page.getByText('登记实际发送',{exact:true}).click();const sent=page.locator('[data-cm-form=sent]');await sent.locator('[name=sentAt]').fill('2026-01-01T10:30');await sent.locator('[name=note]').fill('隔离测试中模拟平台记录');await sent.locator('[name=confirmed]').check();await sent.locator('[type=submit]').click();await page.locator('#cm-conversations').getByText(/已发送 · 人工登记/).waitFor();
   result=await (await context.request.get(`${origin}/api/acquisition`)).json();assert.equal(result.workspace.acquisition.opportunities[0].stage,'比较中');
   await page.locator('#cm-conversations [data-cm-detail^="c1:new-op-"]').evaluate(el=>{el.open=true});const second=page.locator(`[data-cm-form=opportunity][data-id="${lead.id}"]`);await second.locator('[name=title]').fill('客厅吊灯');await second.locator('[name=stage]').selectOption('已成交');await second.locator('[name=note]').fill('历史成交记录');await second.locator('[type=submit]').click();
   await page.locator('.cm-op-tabs').getByText('客厅吊灯',{exact:true}).waitFor();
   assert.equal(await page.locator('.cm-op-tabs').getByText('比较中',{exact:true}).count(),1);assert.equal(await page.locator('.cm-op-tabs').getByText('已成交',{exact:true}).count(),1);
+  result=await (await context.request.get(`${origin}/api/acquisition`)).json();const secondNeed=result.workspace.acquisition.opportunities.find(o=>o.title==='客厅吊灯');
+  await api('inquiry',{customerId:'c1',leadId:lead.id,opportunityId:secondNeed.id,platform:'抖音',authorId:lead.authorId,authorName:lead.authorName,accountId:acc.id,channel:'私信',text:'补充咨询第二个需求',evidence:'隔离验收夹具',receivedAt:'2026-01-02T10:30:00Z'});
+  await page.reload();await page.locator('#cm-workbench h1').waitFor();
+  await page.locator(`#cm-workbench [data-cm=open-need][data-id="${secondNeed.id}"]`).first().click();
+  await page.locator('.cm-op-tabs .selected').getByText('客厅吊灯',{exact:true}).waitFor();
+  await page.locator('.cm-messages').getByText('补充咨询第二个需求',{exact:true}).waitFor();
   await page.screenshot({path:path.join(output,'conversation-desktop.png'),fullPage:true});
+  // Direct inquiries open the contact history; its suggestion must use the
+  // selected account/channel and respect edits made while the response waits.
+  await api('inquiry',{customerId:'c1',leadId:lead.id,platform:'抖音',authorId:lead.authorId,authorName:lead.authorName,accountId:acc.id,channel:'私信',text:'这是没有购买需求关联的直接咨询',evidence:'隔离验收夹具',receivedAt:'2026-01-03T10:30:00Z'});
+  await page.reload();await page.locator('#cm-workbench h1').waitFor();
+  await page.locator(`#cm-workbench [data-cm=open-contact-history][data-id="${lead.id}"]`).first().click();
+  const legacyDraft=page.locator(`[data-acq-form=draft][data-id="${lead.id}"]`);
+  await legacyDraft.waitFor();
+  for(const fieldName of ['accountId','channel','text']){
+    await legacyDraft.locator('[name=text]').fill('');await legacyDraft.locator('[name=accountId]').selectOption(acc.id);await legacyDraft.locator('[name=channel]').selectOption('私信');
+    let arrived,release;const reached=new Promise(resolve=>arrived=resolve),held=new Promise(resolve=>release=resolve);
+    const handler=async route=>{const payload=route.request().postDataJSON();assert.equal(payload.accountId,acc.id);assert.equal(payload.channel,'私信');const response=await route.fetch();arrived();await held;await route.fulfill({response});};
+    await page.route('**/api/acquisition/suggestion',handler);
+    await legacyDraft.locator('[data-acq-action=suggestion]').click();await reached;
+    if(fieldName==='text')await legacyDraft.locator('[name=text]').fill('等待期间手写的答复');
+    else await legacyDraft.locator(`[name=${fieldName}]`).selectOption(fieldName==='channel'?'评论':secondAccount.id);
+    release();await page.waitForFunction(()=>!document.querySelector('[data-acq-action=suggestion]')?.disabled);
+    assert.equal(await legacyDraft.locator('[name=text]').inputValue(),fieldName==='text'?'等待期间手写的答复':'','Legacy changed '+fieldName+' preserves current input');
+    await page.unroute('**/api/acquisition/suggestion',handler);
+  }
   await page.locator('[data-nav=products]').click();await page.locator(`[data-cm=write-product][data-id="${p.id}"]`).click();await page.locator('#cm-content-scope [name=productIds]').first().waitFor();assert.equal(await page.locator(`#cm-content-scope [name=productIds][value="${p.id}"]`).isChecked(),true);
   async function contrastCheck(label) {
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
@@ -137,5 +175,5 @@ try {
       await page.setViewportSize({width:1440,height:1100});
     }
   }
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['sales knowledge approval and retrieval','strategy evidence','followup queue','products and SKU','business draft isolation','other account videos','nested comments and XSS','independent purchasing needs','agent bound context','limited draft','manual suggestion without agent','manual send evidence','content scope','responsive light/dark'],previews:output},null,2));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['sales knowledge approval and retrieval','strategy evidence','followup queue targets actual need','products and SKU','business draft isolation','other account videos','nested comments and XSS','independent purchasing needs','agent bound context','limited draft','manual suggestion without agent','discard suggestion after account/channel changes','direct inquiry draft account/channel scope and concurrent edits','manual send evidence','content scope','responsive light/dark'],previews:output},null,2));
 } catch(error) { if(currentPage){console.log('Visible errors',await currentPage.locator('.cm-error,.acq-error').allTextContents());await currentPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error; } finally { if(browser)await browser.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }

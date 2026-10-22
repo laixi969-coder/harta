@@ -228,9 +228,9 @@ export function douyinClient(signal?: AbortSignal, transport: typeof fetch = fet
     async detail(noteOrUrl: Note | string): Promise<Note> {
       const url = typeof noteOrUrl === 'string' ? noteOrUrl : noteOrUrl.url;
       if (provider === 'redfox')
-        return normalizeRedfoxDouyin([
+        return { ...normalizeRedfoxDouyin([
           await call('/story/api/dyData/queryWork', { workUrl: url }),
-        ])[0];
+        ])[0], detailState: 'complete' };
       const d = await call(
         '/api/v1/douyin/app/v3/fetch_one_video_by_share_url',
         { share_url: url },

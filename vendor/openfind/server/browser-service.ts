@@ -76,7 +76,11 @@ app.post('/comments', async (req, res) => {
   });
   res.json(await browserComments(req.body, abort.signal));
 });
-app.post('/detail', async (req, res) => res.json(await readDetail(req.body.note as Note)));
+app.post('/detail', async (req, res) => {
+  const abort = new AbortController();
+  res.on('close', () => { if (!res.writableEnded) abort.abort(); });
+  res.json(await readDetail(req.body.note as Note, abort.signal, req.body.force === true));
+});
 app.post('/inspect', async (req, res) =>
   res.json(await inspectPlatform(platform.parse(req.body.platform))),
 );

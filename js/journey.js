@@ -9,8 +9,6 @@ export function nextAction(customer, acquisition = {}) {
   if(urgent)return {...urgent,title:urgent.label+'：'+urgent.title,label:'继续处理'};
   const scoped = key => (acquisition[key] || []).filter(row => row.customerId === customer?.id);
   const leads = scoped('leads').filter(l => !l.doNotContact);
-  const reply = leads.find(l => l.needsReply);
-  if (reply) return {title:`先回复 ${reply.authorName || '客户'} 的咨询`, note:'查看原话后回复。',action:'open-contact',id:reply.id,label:'查看咨询'};
   const due = scoped('opportunities').filter(o => !['已成交','已结束'].includes(o.stage) && o.nextAt && Date.parse(o.nextAt) <= Date.now() && leads.some(l => l.id === o.leadId)).sort((a,b)=>Date.parse(a.nextAt)-Date.parse(b.nextAt))[0];
   if (due) return {title:`继续跟进：${due.title}`,note:due.nextStep || '已到跟进时间，查看上次沟通。',action:'open-need',id:due.id,label:'继续跟进'};
   const changed = [...(customer?.drops || []), ...(customer?.packs || [])].find(p => p.productReview?.required);

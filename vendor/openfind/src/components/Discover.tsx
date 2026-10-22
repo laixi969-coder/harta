@@ -131,6 +131,10 @@ export function Discover() {
       });
     return n;
   }, [notes, query, filter, resultSort, selected, priorities, topic, topics, libraryFilter, data.jobs]);
+  useEffect(() => {
+    const visible = new Set(shown.map(n => n.id));
+    setSelected(current => current.every(id => visible.has(id)) ? current : current.filter(id => visible.has(id)));
+  }, [shown]);
   async function openDetail(note: Note, force = false) {
     setDetail(note);
     if (detailBusy || note.source !== 'live' || (!force && note.detailState === 'complete')) return;
@@ -838,6 +842,8 @@ export function Discover() {
                       onClick={() => {
                         setQuery('');
                         setFilter('all');
+                        setTopic('');
+                        setLibraryFilter({...emptyLibraryFilter});
                       }}
                     >
                       清除筛选
@@ -884,6 +890,9 @@ export function Discover() {
         </div>
       )}
       <div className="batch-tools">
+        <button onClick={() => setSelected(shown.slice(0,100).map(n => n.id))} disabled={!shown.length}>
+          <Check size={14}/>选择当前作品（最多 100 条）
+        </button>
         <button
           onClick={() => {
             const ids = shown.filter((n) => n.type === 'image' && n.images.length).map((n) => n.id);
@@ -990,23 +999,11 @@ export function NoteCard({
         <button className="note-cover-main" onClick={onDetail} aria-label={`查看 ${n.title}`}>
           <MediaImage url={n.cover} alt={n.title} />
         </button>
-        {n.type === 'image' && n.images.length > 0 ? (
-          <label className={`note-select ${selected ? 'checked' : ''}`}>
-            <input
-              type="checkbox"
-              aria-label={`选择 ${n.title}`}
-              checked={selected}
-              onChange={toggle}
-            />
-            {selected ? <Check size={12} /> : <ImageIcon size={12} />}
-            <span>{selected ? '已选择' : n.images.length + ' 图'}</span>
-          </label>
-        ) : (
-          <span className="video-badge">
-            <Play size={11} fill="currentColor" />
-            {n.type === 'video' ? '视频' : '图文 · 待读取详情'}
-          </span>
-        )}
+        <label className={`note-select ${selected ? 'checked' : ''}`}>
+          <input type="checkbox" aria-label={`选择 ${n.title}`} checked={selected} onChange={toggle}/>
+          {selected ? <Check size={12}/> : n.type === 'video' ? <Play size={12}/> : <ImageIcon size={12}/>}
+          <span>{selected ? '已选择' : n.type === 'video' ? '选择视频' : n.images.length ? `选择 · ${n.images.length} 图` : '选择图文'}</span>
+        </label>
         {n.likes >= 10000 && (
           <span className="hot-badge">
             <Flame size={10} />

@@ -1,4 +1,5 @@
 import dataAcceptanceRouter from './data-acceptance.ts';
+import { saveCollectedNote } from './collected-note.ts';
 import libraryRouter, { decorateNote } from './library.ts';
 import { withRequestScope, budgetStatus, saveBudget } from './request-budget.ts';
 import { paginationGuard } from './pagination-guard.ts';
@@ -352,7 +353,8 @@ async function runJobSteps(job: Job, input: z.infer<typeof searchSchema>, parent
         if (seen.has(item.id)) { job.duplicates++; continue; }
         seen.add(item.id);
         if (input.limit && job.count >= input.limit) { job.overLimit++; continue; }
-        put(job.type === 'search' ? 'notes' : 'comments', item);
+        if (job.type === 'search') saveCollectedNote(item as Note, 'search');
+        else put('comments', item);
         job.resultIds.push(item.id);
         job.count++;
       }
@@ -451,6 +453,7 @@ async function readLinkedWork(url:string, signal:AbortSignal):Promise<Note> {
   const platform = workLink(url).platform;
   if (platform === 'xiaohongshu') return xhsClient(signal).detail(url);
   if (douyinUsesApi()) return douyinClient(signal).detail(url);
+  if (douyinProvider() === 'http') throw new Error('当前 HTTP 数据源不支持按链接读取作品，请使用关键词搜索，或在设置中主动切换支持链接读取的数据源');
   const link=workLink(url);
   const existing=link.id ? get<Note>('notes',(link.platform==='douyin'?'dy:':'xhs:')+link.id) : undefined;
   if(existing?.source==='live'&&existing.detailState==='complete') return existing;
@@ -488,6 +491,7 @@ app.post('/api/workflows', (req, res) => {
     try { parsed=parseWorkLinks(input.links.join('\n')); } catch(error) { return res.status(400).json({error:(error as Error).message}); }
     if(parsed.platform!==input.platform || input.mode!=='live') return res.status(400).json({error:'链接采集仅支持同平台真实作品'});
     input.links=parsed.links;input.maxNotes=parsed.links.length;input.supplement=false;input.noteType='all';
+    if (input.platform === 'douyin' && douyinProvider() === 'http') return res.status(400).json({error:'当前 HTTP 数据源不支持按链接读取作品，请使用关键词搜索，或在设置中主动切换支持链接读取的数据源'});
   }
   if (active()) {
     res.status(409).json({ error: '已有任务运行，请先暂停或等待完成' });
@@ -1136,25 +1140,25 @@ app.post('/api/platforms/:platform/status', async (req, res) =>
   res.json(await browserCall('/status', { platform: platformEnum.parse(req.params.platform) })),
 );
 app.post('/api/notes/:id/detail', async (req, res) => {
+  const abort = new AbortController();
+  res.on('close', () => { if (!res.writableEnded) abort.abort(); });
   const n = get<Note>('notes', String(req.params.id));
   if (!n) {
     res.status(404).json({ error: '作品不存在' });
     return;
   }
   if (n.source === 'live' && (n.platform === 'xiaohongshu' || douyinUsesApi())) {
-    const detail = await (n.platform === 'xiaohongshu' ? xhsClient() : douyinClient()).detail(n);
-    put('notes', detail);
-    res.json(detail);
+    const detail = await (n.platform === 'xiaohongshu' ? xhsClient(abort.signal) : douyinClient(abort.signal)).detail(n);
+    res.json(saveCollectedNote(detail, 'detail'));
     return;
   }
   if (n.source === 'demo' || douyinProvider() === 'http') {
     res.json(n);
     return;
   }
-  const detail = await browserCall<Note>('/detail', { note: req.body?.force === true ? { ...n, detailState: 'summary' } : n });
+  const detail = await browserCall<Note>('/detail', { note: n, force: req.body?.force === true }, abort.signal);
   if (detail.detailState === 'complete') delete (detail as any).hartaSeed;
-  put('notes', detail);
-  res.json(detail);
+  res.json(saveCollectedNote(detail, 'detail'));
 });
 app.all('/api/export/:kind', (req, res) => {
   if (!['GET', 'POST'].includes(req.method)) {

@@ -1,4 +1,5 @@
 import { businessFit } from '../shared/business-fit.ts';
+import { saveCollectedNote } from './collected-note.ts';
 import { withRequestScope } from './request-budget.ts';
 import { douyinUsesApi, requireDouyinComments } from './douyin-data.ts';
 import { workflowErrorMessage } from './workflow-errors.ts';
@@ -322,7 +323,7 @@ async function runWorkflowSteps(w: AcquisitionWorkflow, execute: JobExecutor, re
         const note=await readLink(w.input.links[w.searchIndex],abort.signal);
         abort.signal.throwIfAborted();
         if(note.platform!==w.input.platform || note.source!=='live') throw new Error('链接返回的作品平台不一致');
-        put('notes',note);w.noteIds=unique([...w.noteIds,note.id]);w.searchIndex++;saveWorkflow(w);
+        saveCollectedNote(note, 'detail');w.noteIds=unique([...w.noteIds,note.id]);w.searchIndex++;saveWorkflow(w);
       }
       w.selectedNoteIds=scopedNotes(w,w.noteIds);w.stage='comments';
       saveWorkflow(w,`已读取 ${w.selectedNoteIds.length} 条指定作品，开始采集评论`);

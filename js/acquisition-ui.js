@@ -1,4 +1,5 @@
 import { businessResults } from './business-results.js';
+import { manualDraftScope } from './draft-scope.js';
 import { installAgentUI, renderAgentUI } from './agent-ui.js';
 import { packAsSent } from './pack-edits.js';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -164,17 +165,17 @@ function teardownPanel() {
   const shown = teardowns.find(t => t.workId === workId) || teardowns[0];
   const authors = new Map();
   for (const w of (data().works || []).filter(w => w.customerId === selected)) {
-    const key = w.authorId || w.authorName || '未知';
-    const row = authors.get(key) || { key, authorId: w.authorId || '', authorName: w.authorName || '作者待核实', count: 0 };
+    const key = JSON.stringify([w.platform, w.authorId || w.authorName || '未知']);
+    const row = authors.get(key) || { key, platform: w.platform, authorId: w.authorId || '', authorName: w.authorName || '作者待核实', count: 0 };
     row.count += 1; authors.set(key, row);
   }
   const authorRows = [...authors.values()].sort((a, b) => b.count - a.count).slice(0, 6);
   const accounts = business()?.accountTeardowns || [];
-  const shownAccount = accounts.find(a => (a.authorId || a.authorName) === accountKey) || accounts[0];
+  const shownAccount = accounts.find(a => JSON.stringify([a.platform, a.authorId || a.authorName]) === accountKey) || accounts[0];
   return `<section class="acq-panel"><h2>对标拆解</h2><p class="meta">拆结构、拆钩子、拆证据，然后换成自己业务能做的选题。不搬原文、图片、案例和作者身份。</p>
     ${works.length ? works.map(w => `<div class="acq-task"><header><strong>${esc(w.title || '未命名作品')}</strong><span class="meta">${esc(w.platform)} · 赞 ${esc((w.metrics || {}).likes ?? '—')} · 评 ${esc((w.metrics || {}).comments ?? '—')}</span></header>${teardowns.some(t => t.workId === w.id) ? `<p class="meta">已拆解 ${when(teardowns.find(t => t.workId === w.id).generatedAt)}</p>` : ''}<div class="acts">${button('teardown-run', teardowns.some(t => t.workId === w.id) ? '重新拆解' : '拆解这条', `data-id="${w.id}"`)}</div></div>`).join('') : '<p class="meta">当前业务还没有采集到作品。先在内容工作室搜索并采集对标作品。</p>'}
     ${shown ? `<h3>最近一次拆解</h3>${teardownResult(shown)}` : ''}
-    ${authorRows.length ? `<h3>按博主看</h3><p class="meta">单篇看的是这一篇怎么写的；博主看的是这个人一直怎么写。</p>${authorRows.map(a => `<div class="acq-task"><header><strong>${esc(a.authorName)}</strong><span class="meta">已采 ${a.count} 条作品</span></header><div class="acts">${button('account-teardown', accounts.some(t => (t.authorId || t.authorName) === a.key) ? '重新拆博主' : '拆这个博主', `data-author="${esc(a.key)}" data-id="${esc(a.authorId)}" data-name="${esc(a.authorName)}"`)}</div></div>`).join('')}` : ''}
+    ${authorRows.length ? `<h3>按博主看</h3><p class="meta">单篇看的是这一篇怎么写的；博主看的是这个人一直怎么写。</p>${authorRows.map(a => `<div class="acq-task"><header><strong>${esc(a.authorName)}</strong><span class="meta">${esc(a.platform)} · 已采 ${a.count} 条作品</span></header><div class="acts">${button('account-teardown', accounts.some(t => JSON.stringify([t.platform, t.authorId || t.authorName]) === a.key) ? '重新拆博主' : '拆这个博主', `data-author="${esc(a.key)}" data-platform="${esc(a.platform)}" data-id="${esc(a.authorId)}" data-name="${esc(a.authorName)}" ${a.authorId?'':'disabled title="缺少平台用户 ID，补齐身份后再拆解"'}`)}</div></div>`).join('')}` : ''}
     ${shownAccount ? `<h3>最近一次博主拆解</h3>${accountBlock(shownAccount)}` : ''}</section>`;
 }
 let poolCache = null, poolLoading = false;
@@ -340,7 +341,10 @@ export function installAcquisitionUI(context) {
     const originalLabel=b.textContent;b.disabled=true;b.textContent='正在处理…';
     try {
       if(action==='suggestion'){
-        const result=await api('suggestion',{leadId:b.dataset.id}),f=b.closest('form');f.elements.text.value=result.text;ctx.toast(result.basis);return;
+        const f=b.closest('form'),before=manualDraftScope(f),cId=selected,currentLead=b.dataset.id;
+        const result=await api('suggestion',{leadId:currentLead,accountId:f.elements.accountId.value||undefined,channel:f.elements.channel.value});
+        if(selected!==cId||leadId!==currentLead||!f.isConnected||manualDraftScope(f)!==before){ctx.toast('草稿已生成，但当前输入已改变，请按最新内容重试');return;}
+        f.elements.text.value=result.text;stash();ctx.toast(result.basis);return;
       }
       if(action==='copy-message'){
         const l=data().leads.find(l=>l.id===b.dataset.lead),m=l.messages.find(m=>m.id===b.dataset.id);
@@ -368,7 +372,7 @@ export function installAcquisitionUI(context) {
       }
       if(action==='account-teardown'){
         accountKey=b.dataset.author;
-        const result=await researchApi('benchmark/account',{customerId:selected,authorId:b.dataset.id,authorName:b.dataset.name});
+        const result=await researchApi('benchmark/account',{customerId:selected,authorId:b.dataset.id,authorName:b.dataset.name,platform:b.dataset.platform});
         poolCache=null;
         ctx.toast(result.account?.warnings?.[0]||'博主拆解完成，可看打法与不可搬的东西');
       }

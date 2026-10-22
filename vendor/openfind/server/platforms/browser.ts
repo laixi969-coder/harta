@@ -1,4 +1,5 @@
 import { browserLaunchOptions } from './launch-options.ts';
+import { protectionStatus, protectionView, readInterval, reservePlatformAction, recordPlatformSuccess, recordPlatformFailure } from '../protection.ts';
 import { hasVisibleChallenge } from './challenge.ts';
 import { chromium, type BrowserContext, type Page, type Response } from 'playwright-core';
 import { directProxy, closeNetwork, allowNetworkRequest } from './network.ts';
@@ -744,49 +745,30 @@ export async function closeRead(cursor: string) {
       await previous.close().catch(() => {});
   }
 }
-export async function readDetail(note: Note) {
-  if (note.platform === 'douyin' || note.detailState === 'complete') return note;
-  const s = await requireSession(note.platform);
-  const p = await s.context.newPage();
-  let detail: Note | undefined;
-  const capture = async (r: Response) => {
-    if (!/\/feed(?:\?|$)/.test(r.url())) return;
-    try {
-      const payload = await r.json();
-      const items = payload?.data?.items || [];
-      const original =
-        items.find((x: any) => String(x.id || x.note_card?.note_id) === (note.nativeId || note.id.slice(4)));
-      if (original) {
-        const mapped = xhsNotes({ data: { items: [original] } })[0];
-        if (mapped) detail = { ...note, ...mapped, url: note.url, detailState: 'complete' };
-      }
-    } catch {}
-  };
-  p.on('response', capture);
+export async function readDetail(note: Note, signal?: AbortSignal, force = false, readLink = readWorkLink): Promise<Note> {
+  signal?.throwIfAborted();
+  const cached = get<Note>('notes', note.id);
+  if (!force && note.detailState === 'complete') return note;
+  if (!force && cached?.source === note.source && cached.platform === note.platform && cached.detailState === 'complete') return cached;
+  const state = protectionStatus(note.platform);
+  if (protectionView(note.platform).paused || state.counts.search >= state.policy!.search.dailyLimit)
+    throw new Error('平台已暂停或今日读取额度不足，请处理后继续');
+  const wait = Math.max(0, readInterval(state, 'search') - (Date.now() - (state.lastReadAt || 0)));
+  if (wait) await delay(wait, undefined, { signal });
+  signal?.throwIfAborted();
+  reservePlatformAction(note.platform, 'search');
   try {
-    await p.goto(note.url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    for (let i = 0; i < 60 && !detail; i++) {
-      const raw = await p
-        .evaluate(
-          (id) => {
-            const map = (window as any).__INITIAL_STATE__?.note?.noteDetailMap;
-            return map?.[id]?.note || null;
-          },
-          note.nativeId || note.id.slice(4),
-        )
-        .catch(() => null);
-      if (raw) {
-        const mapped = xhsNotes({ data: { items: [{ id: note.nativeId, note_card: raw }] } })[0];
-        if (mapped) detail = { ...note, ...mapped, url: note.url, detailState: 'complete' };
-      }
-      if (!detail) await delay(250);
-    }
-    if (!detail) throw new Error('未获得作品完整正文与素材，请检查平台浏览器');
+    const detail = await readLink(note.url, signal, { force });
+    signal?.throwIfAborted();
+    if (detail.id !== note.id || detail.platform !== note.platform || detail.source !== 'live' || detail.detailState !== 'complete') throw new Error('未读取到当前作品的完整详情');
+    recordPlatformSuccess(note.platform);
     return detail;
-  } finally {
-    await p.close();
+  } catch (error) {
+    if (!signal?.aborted) recordPlatformFailure(note.platform, (error as Error).message);
+    throw error;
   }
 }
+
 setInterval(() => {
   for (const p of sessions.keys()) void checkLogin(p);
 }, 5000).unref();
@@ -951,9 +933,14 @@ export async function setNetwork(platform: Platform, mode: 'system' | 'direct') 
 }
 
 // Read only official work/share links in the existing business-scoped login session.
-export async function readWorkLink(url:string, signal?:AbortSignal):Promise<Note> {
+export async function readWorkLink(url:string, signal?:AbortSignal, options: {force?:boolean} = {}):Promise<Note> {
+  signal?.throwIfAborted();
   const {workLink}=await import('../../shared/work-links.ts');
-  const input=workLink(url),session=await requireSession(input.platform),page=await session.context.newPage();
+  const input=workLink(url);
+  const cached=input.id?get<Note>('notes',(input.platform==='douyin'?'dy:':'xhs:')+input.id):undefined;
+  if(!options.force&&cached?.source==='live'&&cached.detailState==='complete') return cached;
+  const session=await requireSession(input.platform);signal?.throwIfAborted();
+  const page=await session.context.newPage();
   let nativeId=input.id,detail:Note|undefined;
   const cancel=()=>{void page.close().catch(()=>{});};
   signal?.addEventListener('abort',cancel,{once:true});
@@ -982,7 +969,7 @@ export async function readWorkLink(url:string, signal?:AbortSignal):Promise<Note
     if(resolved.platform!==input.platform||!resolved.id) throw new Error('分享链接未解析到作品，请复制完整作品链接重试');
     nativeId=resolved.id;
     const existing=get<Note>('notes',(input.platform==='douyin'?'dy:':'xhs:')+nativeId);
-    if(existing?.source==='live'&&existing.detailState==='complete') return existing;
+    if(!options.force&&existing?.source==='live'&&existing.detailState==='complete') return existing;
     for(let i=0;i<60&&!detail;i++) {
       signal?.throwIfAborted();
       if(input.platform==='xiaohongshu') {

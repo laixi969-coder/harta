@@ -28,8 +28,8 @@ try {
  const scopeDir=path.join(dir,'data/openfind',fs.readdirSync(path.join(dir,'data/openfind'))[0]);
  const db=new DatabaseSync(path.join(scopeDir,'engine/openfind.sqlite'));
  const put=(kind,row)=>db.prepare('INSERT INTO entities(kind,id,value) VALUES(?,?,?) ON CONFLICT(kind,id) DO UPDATE SET value=excluded.value').run(kind,row.id,JSON.stringify(row));
- for(const [id,keyword,platform] of [['a','家具','xiaohongshu'],['b','装修','xiaohongshu'],['c','家具','douyin']]){
-  put('notes',{id:platform+':'+id,nativeId:id,platform,source:'live',title:keyword+'作品',body:'公开作品夹具',author:'测试作者',authorId:'fixture',type:'image',images:[],cover:'',likes:1,comments:1,saves:0,publishedAt:'',tags:[],url:'https://www.'+(platform==='douyin'?'douyin.com/video/':'xiaohongshu.com/explore/')+id});
+ for(const [id,keyword,platform] of [['a','家具','xiaohongshu'],['b','装修','xiaohongshu'],['123','家具','douyin']]){
+  put('notes',{id:platform+':'+id,nativeId:id,platform,source:'live',title:keyword+'作品',body:'公开作品夹具',author:'测试作者',authorId:'fixture',type:platform==='douyin'?'video':'image',images:[],cover:'',likes:1,comments:1,saves:0,publishedAt:'',tags:[],url:'https://www.'+(platform==='douyin'?'douyin.com/video/':'xiaohongshu.com/explore/')+id});
   put('jobs',{id:'job-'+id,type:'search',status:'completed',source:'live',platform,keyword,resultIds:[platform+':'+id],count:1,pages:1,logs:[],createdAt:new Date().toISOString()});
  }
  db.close();
@@ -55,6 +55,34 @@ try {
  const base=origin+'/api/openfind/workbench/c1';
  const changed=await context.request.put(base+'/library/organize',{data:{items:[{id:'xiaohongshu:a',revision:0}],change:{category:'询价',archived:true}}});assert.equal(changed.status(),200);const undoId=(await changed.json()).undoId;
  assert.equal((await context.request.post(base+'/library/undo',{data:{id:undoId}})).status(),200);
+ // Real classification UI: partial edits must not erase other labels, and hidden selections cannot be mutated.
+ await page.goto(origin+'/openfind?customerId=c1#discover');
+ await view.getByLabel('作品范围',{exact:true}).selectOption('library');
+ await view.getByText('分类、归档与常用筛选',{exact:true}).click();
+ const library=view.locator('details').filter({hasText:'分类、归档与常用筛选'});
+ const card=view.locator('.note-card').filter({hasText:'家具作品'});
+ await card.locator('input[type="checkbox"]').check();
+ const saveLabels=async()=>{const done=page.waitForResponse(r=>r.url().endsWith('/library/organize')&&r.request().method()==='PUT');await library.getByRole('button',{name:'保存选中分类',exact:true}).click();assert.equal((await done).status(),200);await library.getByRole('button',{name:'保存选中分类',exact:true}).waitFor({state:'visible'});};
+ await library.getByRole('textbox',{name:'产品标签',exact:true}).fill('保留产品');await saveLabels();
+ await library.getByRole('textbox',{name:'需求分类',exact:true}).fill('询价');await saveLabels();
+ let classified=await(await context.request.get(base+'/state')).json();
+ assert.equal(classified.notes.find(n=>n.id==='xiaohongshu:a').organization.product,'保留产品');
+ await view.getByRole('textbox',{name:'筛选作品',exact:true}).fill('装修');
+ await library.getByText('已选 0 条；每批最多 100 条。归档保留原文与线索。',{exact:true}).waitFor();
+ assert.equal(await library.getByRole('button',{name:'归档选中',exact:true}).isDisabled(),true);
+ await view.getByRole('textbox',{name:'筛选作品',exact:true}).fill('');await card.locator('input[type="checkbox"]').check();
+ const archiveDone=page.waitForResponse(r=>r.url().endsWith('/library/organize')&&r.request().method()==='PUT');await library.getByRole('button',{name:'归档选中',exact:true}).click();assert.equal((await archiveDone).status(),200);
+ await card.waitFor({state:'detached'});
+ const undoDone=page.waitForResponse(r=>r.url().endsWith('/library/undo'));await library.getByRole('button',{name:'撤销上次分类操作',exact:true}).click();assert.equal((await undoDone).status(),200);await card.waitFor();
+ await library.getByRole('combobox',{name:'归档范围',exact:true}).selectOption('archived');
+ await view.getByRole('button',{name:'清除筛选',exact:true}).click();await card.waitFor();
+ assert.equal(await library.getByRole('combobox',{name:'归档范围',exact:true}).inputValue(),'active');
+ await view.getByLabel('数据平台',{exact:true}).selectOption('douyin');
+ await view.getByRole('checkbox',{name:'选择 家具作品',exact:true}).check();
+ assert.equal(await library.getByRole('button',{name:'标记已核实',exact:true}).isEnabled(),true);
+ await view.getByLabel('数据平台',{exact:true}).selectOption('xiaohongshu');
+ const synced=await context.request.post(origin+'/api/openfind',{data:{customerId:'c1',action:'sync'}});assert.equal(synced.status(),200);const syncedBody=await synced.json();assert.equal(syncedBody.workspace.acquisition.works.find(w=>w.openfindIds?.includes('xiaohongshu:a')).organization.product,'保留产品');
+ classified=await(await context.request.get(base+'/state')).json();assert.equal(classified.notes.find(n=>n.id==='xiaohongshu:a').organization.archived,false);
  assert.equal((await context.request.post(origin+'/api/openfind',{data:{customerId:'c2',action:'sync'}})).status(),200);
  assert.equal((await context.request.get(origin+'/api/openfind/workbench/c2/request-budget')).status(),200);
  const otherBudget=await(await context.request.get(origin+'/api/openfind/workbench/c2/request-budget')).json();
@@ -91,6 +119,6 @@ try {
   assert.doesNotMatch(await view.locator('body').evaluate(el=>[...el.querySelectorAll('[title],[aria-label],[placeholder],img')].map(e=>[e.title,e.getAttribute('aria-label'),e.getAttribute('placeholder'),e.getAttribute('alt')].join(' ')).join('\n')),/openfind/i,`Accessible text: ${route}`);
  }
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({result:'passed',checks:['API settings','1–100 inputs','platform/topic grouping','archive undo','business budget isolation','business isolation','375/1440px layout'],platformRequests:0,output},null,2));
+ console.log(JSON.stringify({result:'passed',checks:['API settings','1–100 inputs','platform/topic grouping','partial classification edits','hidden selection clearing','archive undo','business budget isolation','business isolation','375/1440px layout'],platformRequests:0,output},null,2));
 } catch(error) { if(page)await page.screenshot({path:path.join(output,'failure.png'),fullPage:true});throw error; }
 finally { await browser?.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }

@@ -34,6 +34,13 @@ const note = { id: 'xhs:note1', nativeId: 'note1' } as Note;
 function mock(fn: (url: URL, init?: RequestInit) => unknown): typeof fetch {
   return (async (url, init) => Response.json(fn(new URL(String(url)), init))) as typeof fetch;
 }
+test('nonempty unrecognized TikHub comments fail instead of reporting an empty successful page', async () => {
+  saveXhsSettings({ provider: 'tikhub', apiKey: 'fixture', maxRequests: 5 });
+  const client = xhsClient(undefined, mock(() => ({code:200,data:{comments:[{unexpected:'shape'}],has_more:false}})));
+  await assert.rejects(() => client.comments(note, 20, null), /评论字段无法识别/);
+  const empty = xhsClient(undefined, mock(() => ({code:200,data:{comments:[],has_more:false}})));
+  assert.deepEqual(await empty.comments(note, 20, null), {items:[],nextCursor:null});
+});
 test('separate encrypted keys and provenance, no secret echo', () => {
   saveXhsSettings({ provider: 'tikhub', apiKey: 'tik-secret', maxRequests: 5 });
   const fingerprint = xhsFingerprint();
