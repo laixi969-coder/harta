@@ -40,8 +40,12 @@ try {
  await view.getByRole('heading',{name:'业务请求预算',exact:true}).waitFor();
  const budget=view.getByRole('region',{name:'业务请求预算'});
  await budget.getByRole('spinbutton',{name:'每流程数据源请求上限',exact:true}).fill('25');
+ await budget.getByRole('spinbutton',{name:'每日模型请求上限',exact:true}).fill('2');
  await budget.getByRole('button',{name:'保存预算',exact:true}).click();
  await budget.getByText('预算已保存，已用请求不会清零',{exact:true}).waitFor();
+ await budget.getByRole('button',{name:'刷新用量',exact:true}).click();
+ await budget.getByText('已刷新当前业务用量',{exact:true}).waitFor();
+ assert.match(await budget.innerText(),/销售草稿 0 次/);
  assert.equal(await view.getByRole('button',{name:'打开小红书'}).count(),0);
  await page.goto(origin+'/openfind?customerId=c1#acquisition');
  await view.getByRole('button',{name:'关键词搜索',exact:true}).click();
@@ -53,7 +57,8 @@ try {
  assert.equal((await context.request.post(base+'/library/undo',{data:{id:undoId}})).status(),200);
  assert.equal((await context.request.post(origin+'/api/openfind',{data:{customerId:'c2',action:'sync'}})).status(),200);
  assert.equal((await context.request.get(origin+'/api/openfind/workbench/c2/request-budget')).status(),200);
- assert.equal((await(await context.request.get(origin+'/api/openfind/workbench/c2/request-budget')).json()).policy.flowLimit,60);
+ const otherBudget=await(await context.request.get(origin+'/api/openfind/workbench/c2/request-budget')).json();
+ assert.equal(otherBudget.policy.flowLimit,60);assert.equal(otherBudget.policy.modelDailyLimit,100);
  await page.goto(origin+'/openfind?customerId=c1#comments');
  const picker=view.locator('.collected-work-picker');await picker.getByLabel('采集主题').selectOption('家具');
  assert.equal(await picker.locator('#comment-note optgroup option').count(),1);
