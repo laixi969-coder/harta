@@ -14,3 +14,5 @@ output/playwright/
 
 # Native RSSHub runtime logs
 logs/
+
+.harta-service.pid

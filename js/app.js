@@ -471,6 +471,8 @@ function invalidateMaterialBatch() {
 }
 
 function renderMaterialQueue() {
+  const consent = document.getElementById("material-external-consent");
+  if (consent) consent.checked = false;
   const box = document.getElementById("material-queue");
   const status = document.getElementById("material-state");
   if (!box || !status) return;
@@ -1184,9 +1186,15 @@ function renderToday() {
     exportDocx.dataset.exportName = `${mine.name}-获客建议报告.docx`;
     exportDocx.disabled = publishBlocked;
     exportDocx.title = publishBlocked ? "请先处理报告中的发布风险或字数限制" : "选择保存位置并下载 Word";
-    const canPreview = Boolean(pack.sharePath && !publishBlocked);
+    const canPreview = !publishBlocked;
+    document.getElementById("pack-share-create").disabled = publishBlocked;
+    const activeShare = Boolean(pack.sharePath && pack.shareExpiresAt > Date.now());
+    document.getElementById("pack-share-revoke").classList.toggle("hidden", !activeShare);
+    const shareLink = document.getElementById("pack-share-link");
+    shareLink.classList.toggle("hidden", !activeShare);
+    if (activeShare) shareLink.href = pack.sharePath; else shareLink.removeAttribute("href");
     open?.classList.toggle("hidden", !canPreview);
-    if (canPreview) open?.setAttribute("href", pack.sharePath);
+    if (canPreview) open?.setAttribute("href", `/api/reports/${encodeURIComponent(pack.id)}/preview`);
     else open?.removeAttribute("href");
     const autoFix = document.getElementById("pack-autofix");
     if (autoFix) {
@@ -2771,6 +2779,7 @@ document.getElementById("material-replace-files")?.addEventListener("change", as
   e.target.value = "";
   const customerId = usingCustomer()?.id;
   if (!files.length || !customerId) return;
+  if (!confirm("补充资料的正文、图片和语音会发送给已配置的模型服务。请确认你有权外发，且未包含未经授权的个人或患者资料。")) return;
   const btn = document.getElementById("material-re-upload");
   btn.disabled = true;
   const old = btn.innerHTML;
@@ -2779,7 +2788,7 @@ document.getElementById("material-replace-files")?.addEventListener("change", as
     const form = new FormData();
     files.forEach((file) => form.append("files", file, file.name));
     form.append("links", "[]");
-    const up = await fetch("/api/materials/analyze", { method: "POST", body: form });
+    const up = await fetch("/api/materials/analyze", { method: "POST", headers: {"x-harta-material-consent":"external-v1"}, body: form });
     const batch = await up.json();
     if (!up.ok) return toast(batch.error || "新资料没读取成功");
     const res = await fetch("/api/materials/replace", {
@@ -2805,6 +2814,7 @@ document.getElementById("analyze-materials")?.addEventListener("click", async ()
     toast("请先选择文件或加入网页链接");
     return;
   }
+  if (!document.getElementById("material-external-consent").checked) return toast("请先确认资料可以发送给模型服务");
   const btn = document.getElementById("analyze-materials");
   const status = document.getElementById("material-state");
   btn.disabled = true;
@@ -2815,7 +2825,7 @@ document.getElementById("analyze-materials")?.addEventListener("click", async ()
     const form = new FormData();
     state.materials.files.forEach((file) => form.append("files", file, file.name));
     form.append("links", JSON.stringify(state.materials.links));
-    const res = await fetch("/api/materials/analyze", { method: "POST", body: form });
+    const res = await fetch("/api/materials/analyze", { method: "POST", headers: {"x-harta-material-consent":"external-v1"}, body: form });
     const data = await res.json();
     if (!res.ok) {
       toast(data.error || "资料读取失败");
@@ -3729,4 +3739,16 @@ function renderKeywordOpportunities(customer) {
   target.innerHTML = `<h3>产品与平台的内容依据</h3><p class="meta">${esc(board.note)}</p>
     ${(board.platformBriefs || []).map(p => `<details><summary>${esc(p.platform)} · ${p.items.length}项内容依据</summary><p class="meta">${esc(p.basis)}</p>${p.items.map(i => `<p><b>${esc(i.product)} · ${esc(i.keyword)}</b><br>${esc(i.angle)} · ${esc(i.priority)}（${i.score}分）<br><span class="meta">${esc(i.metrics.map(m => `${m.name} ${m.raw}（${m.date || '日期未知'}）`).join('；') || '没有该平台的指标，仅作需求素材')}</span><br>${esc(i.consultation)}<br><span class="meta">${esc(i.reasons.join("；"))} ${esc(i.gaps.join("；"))}</span></p>`).join('')}</details>`).join('')}
     <details><summary>优先选题与待补依据 · 展示${board.items.length}/${board.total}项</summary><p class="meta">导入词与指数仅作选题参考，发布需结合本业务可核验资料。先回答具体问题，再邀请用户补充条件。</p>${board.items.map(item => `<div class="keyword-opportunity-row"><b>${esc(item.keyword)}</b> · ${esc(item.priority)} · ${item.score}分<p>${esc(item.scope.name)} / ${esc(item.platform)} · ${esc(item.types.join('、'))}</p><p>${esc(item.angle)}</p><p class="meta">${esc(item.reasons.join('；'))}</p><p class="meta">${esc(item.gaps.join('；'))}</p>${item.trends.map(t => `<p class="meta">${esc(t.platform)} ${esc(t.metric)}：${t.previous} → ${t.current}（${esc(t.from)} 至 ${esc(t.to)}${t.change === null ? '，零基数不算涨幅' : `，变化${Math.round(t.change*100)}%`}）</p>`).join('')}</div>`).join('')}</details>`;
+}
+
+for (const [id, enabled] of [['pack-share-create',true],['pack-share-revoke',false]]) {
+  document.getElementById(id)?.addEventListener('click', async () => {
+    const pack = currentPack(); if (!pack) return;
+    try {
+      const res = await fetch(`/api/reports/${encodeURIComponent(pack.id)}/share`, {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled})});
+      const result = await res.json(); if (!res.ok) return toast(result.error);
+      pack.sharePath = result.sharePath; pack.shareExpiresAt = result.expiresAt;
+      renderToday(); toast(enabled ? '分享链接已生成，7天后过期；旧链接已失效' : '分享已撤销');
+    } catch { toast('操作失败，请重试'); }
+  });
 }

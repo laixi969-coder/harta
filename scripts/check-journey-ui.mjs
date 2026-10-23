@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { SEED_VERSION } from '../lib/pitch-seed.mjs';
 import { readWorkspace, writeWorkspace } from '../lib/workspace.mjs';
-const { chromium } = await import(process.env.HARTA_PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = await import(process.env.HARTA_PLAYWRIGHT_MODULE || 'playwright-core');
 const root=fileURLToPath(new URL('..',import.meta.url));
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'harta-journey-browser-'));
 const output=process.env.HARTA_UI_OUTPUT || path.join(os.tmpdir(),'harta-commerce-previews');fs.mkdirSync(output,{recursive:true});
@@ -33,7 +33,7 @@ try {
   await page.goto(origin);
   const start=page.locator('#cm-workbench [data-cm-form=business]');
   await start.waitFor();
-  assert.equal(await page.locator('#cm-workbench h1').innerText(),'你想为哪项业务获客？');
+  assert.equal(await page.locator('#cm-workbench h1').innerText(),'添加业务');
   await page.screenshot({path:path.join(output,'onboarding-desktop.png'),fullPage:true});
   await start.locator('[name=name]').fill('杭州厨房翻新');
   await start.locator('[name=pitch]').fill('帮助杭州家庭改造老旧厨房，先核对需求，再安排报价。');
@@ -41,7 +41,7 @@ try {
   await page.locator('#cm-workbench .cm-next').waitFor();
   assert.equal(await page.locator('#cm-workbench .cm-next .btn').innerText(),'开始内容获客');
   await page.locator('#cm-workbench .cm-next .btn').click();
-  await page.locator('#cm-content-home .cm-next .btn').click();
+  await page.locator('#cm-content-home [data-cm=content]').click();
   await page.locator('#cm-content-scope [data-cm-form=generate]').waitFor();
   assert.equal(await page.locator('#customer-journey').isVisible(),false);
   assert.equal(await page.locator('#cm-content-scope [name=goal]').inputValue(),'leads');
@@ -55,6 +55,8 @@ try {
   assert.equal(await page.locator('#cm-content-scope [type=submit]').isEnabled(),true);
   await page.screenshot({path:path.join(output,'first-content-desktop.png'),fullPage:true});
   await page.locator('[data-nav=prospecting]').click();
+  await page.locator('.cm-acquisition-more summary').click();
+  await page.locator('[data-cm=go-prospecting-archive]').click();
   await page.locator('#cm-prospecting [data-cm=import-needs]').click();
   assert.equal(await page.locator('[data-persist=import-signals]').evaluate(el=>el.open),true);
   assert.equal(await page.locator('#acq-today').isVisible(),false);
@@ -68,7 +70,7 @@ try {
   assert.ok((await page.locator('#cm-workbench [data-cm-business] option:checked').innerText()).includes('苏州'));
   await page.locator('[data-nav=content-home]').click();
   assert.ok((await page.locator('#cm-content-home [data-cm-business] option:checked').innerText()).includes('苏州'));
-  await page.locator('#cm-content-home .cm-next .btn').click();
+  await page.locator('#cm-content-home [data-cm=content]').click();
   assert.ok((await page.locator('#cm-content-scope').innerText()).includes('苏州室内设计'));
   assert.equal(await page.locator('#cm-content-scope [name=goal]').inputValue(),'leads');
   await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));

@@ -10,7 +10,8 @@
     "build:openfind": "vite build --config vendor/openfind/vite.config.ts",
     "check:openfind": "tsc -p vendor/openfind/tsconfig.json",
     "check": "npm test && npm run test:openfind && npm run check:openfind && npm run build:openfind",
-    "backup": "node scripts/harta-backup.mjs"
+    "backup": "node scripts/harta-backup.mjs",
+    "start": "node scripts/harta-service.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

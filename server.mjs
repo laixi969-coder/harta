@@ -1,3 +1,9 @@
+import { hasContentJobs } from './lib/workspace.mjs';
+import { hasAcquisitionJobs } from './lib/acquisition-workspace.mjs';
+import { hasAgentJobs } from './lib/business-agents.mjs';
+import { hasOutreachJobs } from './lib/commerce-workspace.mjs';
+import { withModelAccount } from './lib/model-spend.mjs';
+import { withBusinessModelBudget } from './lib/model-budget.mjs';
 import { acquireDataLock } from './lib/data-lock.mjs';
 import { openFindContacts } from './lib/openfind-contacts.mjs';
 import { openFindRoute, proxyOpenFind } from './lib/openfind-proxy.mjs';
@@ -41,6 +47,7 @@ import {
   addCustomProvider,
   addModel,
   publicLlm,
+  readLlm,
   removeProvider,
   reorderProviders,
   saveProvider,
@@ -51,7 +58,7 @@ import {
   testVisionConnection,
   useModel,
 } from "./lib/llm.mjs";
-import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, fixPack, groupOverview, publicWorkspace, readWorkspace, refillPack, removePack, repack, replaceCustomerMaterials, setContentState, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
+import { addCustomer, addLedger, clearCustomerMaterials, dropToday, editLine, findShared, setReportShare, fixPack, groupOverview, publicWorkspace, readWorkspace, refillPack, removePack, repack, replaceCustomerMaterials, setContentState, setFeedback, setTrack, sweepStaleJobs, setUsing, upgradeToFull } from "./lib/workspace.mjs";
 import { createSession, destroySession, readSession } from "./lib/session.mjs";
 import { listHunts } from "./lib/industry.mjs";
 import { renderPackPage } from "./lib/pack-page.mjs";
@@ -216,6 +223,25 @@ function safeFile(urlPath) {
 }
 
 async function handleApi(req, res, url) {
+  const reportAccess = url.pathname.match(/^\/api\/reports\/([^/]+)\/(share|preview)$/);
+  if (reportAccess) {
+    const user = requireUser(req, res); if (!user) return;
+    const packId = decodeURIComponent(reportAccess[1]);
+    const found = reportForUser(user.email, packId);
+    if (!found) return json(res,404,{error:'找不到这份报告'});
+    if (reportAccess[2] === 'share' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (typeof body.enabled !== 'boolean') return json(res,400,{error:'请选择开启或撤销分享'});
+      if (body.enabled && hasHardBlock(checkPack(found.pack,found.customer.hunt))) return json(res,409,{error:'请先修复报告中的硬风险'});
+      return json(res,200,setReportShare(user.email,packId,body.enabled));
+    }
+    if (reportAccess[2] === 'preview' && req.method === 'GET') {
+      res.writeHead(200,securityHeaders({'content-type':'text/html; charset=utf-8'}));
+      return res.end(renderPackPage(found.pack,found.customer));
+    }
+    return json(res,405,{error:'不支持这个操作'});
+  }
+
   if(url.pathname==='/api/hosted-browser'||url.pathname.startsWith('/api/hosted-browser/')){
     const user=requireUser(req,res);if(!user)return;
     try{
@@ -322,6 +348,7 @@ async function handleApi(req, res, url) {
     try {
       const match = url.pathname.match(/^\/api\/openfind\/workbench\/([^/]+)(\/.*)$/);
       if (!match || !openFindRoute(req.method, match[2])) return json(res, 404, { error: '没有这个 Harta 操作' });
+      if (req.method === 'PUT' && match[2] === '/request-budget' && !isAdmin(user)) return json(res, 403, { error: '只有管理员可以调整请求预算' });
       const customerId = decodeURIComponent(match[1]);
       const customer = readWorkspace(user.email).customers.find(c => c.id === customerId);
       if (!customer) return json(res, 404, { error: '找不到当前业务' });
@@ -380,10 +407,11 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/login") {
-    if (!rateLimit(req, "login", 8, 10 * 60 * 1000) || !rateLimit(req, 'auth-global', 60, 60 * 1000, 'global')) {
+    const body = await readBody(req);
+    const loginIdentity = `${clientIp(req, TRUST_PROXY)}:${String(body.email || '').trim().toLowerCase().slice(0,254)}`;
+    if (!rateLimit(req, "login-ip", 60, 60 * 1000) || !rateLimit(req, "login-account", 8, 10 * 60 * 1000, loginIdentity)) {
       return json(res, 429, { error: "试的次数太多，过几分钟再来" }, { "retry-after": String(req.rateRetryAfter) });
     }
-    const body = await readBody(req);
     const result = loginOrBootstrap(body.email, body.password);
     if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
     const sid = createSession(result.user);
@@ -398,7 +426,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/register") {
-    if (!rateLimit(req, "register", 5, 10 * 60 * 1000) || !rateLimit(req, 'auth-global', 60, 60 * 1000, 'global')) {
+    if (!rateLimit(req, "register", 5, 10 * 60 * 1000)) {
       return json(res, 429, { error: "试的次数太多，过几分钟再来" }, { "retry-after": String(req.rateRetryAfter) });
     }
     const body = await readBody(req);
@@ -503,7 +531,8 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     try {
-      const batch = await receiveAndAnalyzeMaterials(req, user.email);
+      if (req.headers['x-harta-material-consent'] !== 'external-v1') return json(res, 400, { error: '请先确认资料可以发送给模型服务，勿上传未经授权的个人或患者资料' });
+      const batch = await withBusinessModelBudget(user.email, '__materials__', 'material-analysis', () => receiveAndAnalyzeMaterials(req, user.email));
       return json(res, 200, batch);
     } catch (err) {
       const detail = err?.code === 1009
@@ -1012,7 +1041,11 @@ async function handleApi(req, res, url) {
 
 const releaseDataLock = acquireDataLock(path.join(process.cwd(), 'data'), 'runtime');
 process.once('exit', releaseDataLock);
+readLlm(); // Migrate plaintext credentials before accepting any requests.
+let maintenance = false, activeRequests = 0;
 const server = http.createServer(async (req, res) => {
+  if (maintenance) return json(res,503,{error:"正在备份，请稍后重试"},{"retry-after":"30"});
+  activeRequests++;
   try {
     if (!validHost(req, { publicOrigin: PUBLIC_ORIGIN, port: PORT })) return json(res, 421, { error: "访问地址不正确" });
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
@@ -1032,7 +1065,7 @@ const server = http.createServer(async (req, res) => {
         release = expensiveRequests.acquire(user.email);
         if (!release) return json(res, 429, { error: "已有任务正在处理，请完成后再试" }, { 'retry-after': '10' });
       }
-      try { await handleApi(req, res, url); } finally { release?.(); }
+      try { await withModelAccount(currentUser(req)?.email || 'unauthenticated', () => handleApi(req, res, url)); } finally { release?.(); }
       return;
     }
     if (!rateLimit(req, "static", 600, 60 * 1000)) {
@@ -1119,7 +1152,7 @@ const server = http.createServer(async (req, res) => {
     stream.pipe(res);
   } catch (err) {
     json(res, err.statusCode || 500, { error: err.message || "服务器出错" });
-  }
+  } finally { activeRequests--; }
 });
 
 // Bound slow headers/body uploads and idle keep-alive sockets; completed LLM requests may run longer.
@@ -1138,4 +1171,23 @@ server.listen(PORT, "127.0.0.1", () => {
 hostedBrowser.startWorker();
 
 openFind.startWorker();
-for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>{openFind.stop();void hostedBrowser.stop();server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),3000).unref();});
+process.on('message', async message => {
+  if (message?.type === 'resume-after-backup') { maintenance = false; openFind.startWorker(); return; }
+  if (message?.type !== 'prepare-backup' || typeof message.id !== 'string') return;
+  let ready = false;
+  if (!maintenance && !activeRequests && !hasContentJobs() && !hasAcquisitionJobs() && !hasAgentJobs() && !hasOutreachJobs()) {
+    maintenance = true;
+    ready = await openFind.prepareMaintenance();
+    if (!ready) maintenance = false;
+  }
+  if (process.connected) process.send({type:'backup-ready',id:message.id,ready},()=>{});
+});
+let shuttingDown = false;
+async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true; maintenance = true;
+  const timeout = setTimeout(() => process.exit(1), 15000); timeout.unref();
+  await Promise.allSettled([openFind.stop(), hostedBrowser.stop(), new Promise(resolve => server.close(resolve))]);
+  clearTimeout(timeout); process.exit(0);
+}
+for (const signal of ['SIGTERM','SIGINT','disconnect']) process.once(signal, shutdown);
