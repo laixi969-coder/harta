@@ -17,3 +17,4 @@ jobs:
       - run: node scripts/check-commerce-ui.mjs
       - run: node scripts/check-security-ui.mjs
       - run: node scripts/check-journey-ui.mjs
+      - run: node scripts/check-platform-controls.mjs

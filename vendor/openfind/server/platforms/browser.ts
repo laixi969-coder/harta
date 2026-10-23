@@ -1,3 +1,4 @@
+import { openDouyinComments } from './comment-entry.ts';
 import { browserLaunchOptions } from './launch-options.ts';
 import { protectionStatus, protectionView, readInterval, reservePlatformAction, recordPlatformSuccess, recordPlatformFailure } from '../protection.ts';
 import { hasVisibleChallenge } from './challenge.ts';
@@ -719,14 +720,9 @@ export async function browserComments(
     await page.goto(input.note.url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await page.bringToFront();
     if (platform === 'douyin') {
-      const button = page.locator('[data-e2e="comment-icon"], [data-e2e="comment-count"]').first();
-      // Image posts may open the recommendations tab beside the work, while
-      // video layouts expose an icon. Wait for hydration and select comments.
-      const commentTab = page.getByText(/^评论\s*[（(]\s*\d+/).and(page.locator(':visible')).first();
-      await button.or(commentTab).first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-      if (await commentTab.isVisible().catch(() => false)) await commentTab.click();
-      else if (await button.isVisible().catch(() => false)) await button.click();
-      else if (!run.responses) throw new Error('抖音评论入口尚未加载，请检查平台页面后继续');
+      await assertNoChallenge(page);
+      try { await openDouyinComments(page, () => Boolean(run.responses)); }
+      catch (error) { await assertNoChallenge(page); throw error; }
     }
   }
   return collectPage(run, signal);
