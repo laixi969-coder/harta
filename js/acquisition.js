@@ -21,7 +21,7 @@ export function attributionEntries(pack) {
       if (!fields.length) return;
       entries.push({
         key: shellFeedbackKey(pack.id, platform, i), packId: pack.id,
-        group: `${platform} · 第 ${i + 1} 条`, platform, kind: "shell",
+        group: `${platform} · 第 ${i + 1} 条`, platform, index:i, kind: "shell",
         text: fields.map((field) => edited(pack, shellKey(platform, i, field), item[field])).join("\n"),
         contentKeys: fields.map((field) => contentItemKey(pack.id, shellKey(platform, i, field))),
       });

@@ -241,3 +241,8 @@ section[data-view="openfind"]:not(.hidden){display:flex;flex:1;min-height:0;widt
 
 .cm-result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;padding:8px 0}.cm-result-grid article{min-width:0;padding:12px 0}.cm-result-grid strong{font-size:26px;font-variant-numeric:tabular-nums}.cm-result-grid p{margin:6px 0 0;font-size:13px;color:var(--ink-2)}
 @media(max-width:860px){.cm-result-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}}
+
+/* Keep the full navigation reachable when a desktop viewport is shorter than the menu. */
+@media (min-width: 861px) {
+  .rail { overflow-y: auto; overscroll-behavior: contain; }
+}

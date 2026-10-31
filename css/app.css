@@ -2983,6 +2983,10 @@ section[data-view="ledger"] > .hook > :not(button) { grid-column: 1; }
 .post-growth { padding: 12px 0; }
 .post-growth > details, #growth-settings details { margin: 12px 0; border-top: 1px solid var(--line, #7775); padding-top: 12px; }
 .growth-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+.production-page-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; margin:12px 0; }
+.production-page-grid figure { margin:0; min-width:0; }
+.production-page-grid img { display:block; width:100%; height:auto; border-radius:8px; }
+.production-page-grid figcaption { margin-top:6px; }
 .post-growth label, #growth-settings label { display: grid; gap: 6px; margin: 10px 0; }
 .post-growth input, .post-growth textarea, #growth-settings input, #growth-settings select, #growth-settings textarea { width: 100%; min-width: 0; box-sizing: border-box; }
 .growth-fact, .rewrite-preview { padding: 12px; margin: 12px 0; border: 1px solid var(--line, #7775); border-radius: 8px; }
@@ -3110,3 +3114,15 @@ section[data-view="settings"] > .settings-section:not([open]) { padding: 16px 22
 .llm-section-title { margin: 0 0 14px; font-size: var(--t-3); }
 .llm-current > details { grid-column: 1 / -1; font-size: var(--t-5); }
 .llm-current > details > summary { cursor: pointer; }
+
+/* Content and live plans share a local-time weekly view. */
+.cm-calendar-week { display:grid; grid-template-columns:repeat(7,minmax(145px,1fr)); gap:10px; overflow-x:auto; padding:4px 0 12px; }
+.cm-calendar-day { min-width:145px; background:var(--panel-2, #f7f7f5); border:1px solid var(--border, #dededb); border-radius:10px; padding:10px; }
+.cm-calendar-day h3 { font-size:0.9rem; margin:0 0 10px; }
+.cm-calendar-card { border-top:1px solid var(--border, #dededb); padding:10px 0; overflow-wrap:anywhere; }
+.cm-calendar-card strong { display:block; }
+.cm-calendar-card .cm-form { margin-top:8px; }
+.cm-calendar-card input { max-width:100%; }
+
+.startup-error{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;background:var(--page,#f4f5f7);color:var(--ink-1,#23262c)}
+.startup-error>div{width:min(100%,460px);padding:28px;background:var(--bg,#fff);border:1px solid var(--border,#d7dbe1);border-radius:12px}.startup-error h1{font-size:24px;margin:0 0 12px}.startup-error p{line-height:1.6;margin:0 0 20px}

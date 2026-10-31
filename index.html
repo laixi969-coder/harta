@@ -9,21 +9,27 @@
     }
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>灵鹿增长 · 获客工作台</title>
+  <title>Harta · 创作与获客工作台</title>
   <link rel="stylesheet" href="css/app.css?v=20261018-distill">
   <script>
     (function () {
       var q = new URLSearchParams(location.search).get("theme");
-      var fresh = localStorage.getItem("harta-visual-version") !== "business-workbench-v2";
-      var t = q || (fresh ? localStorage.getItem("harta-theme") || "light" : localStorage.getItem("harta-theme") || "light");
-      if (fresh) { localStorage.setItem("harta-theme", t); localStorage.setItem("harta-visual-version", "business-workbench-v2"); }
+      var fresh = localStorage.getItem("harta-visual-version") !== "future-studio-v1";
+      var t = ['light','dark'].includes(q) ? q : fresh ? 'dark' : localStorage.getItem("harta-theme") || 'dark';
+      localStorage.setItem("harta-theme", t);
+      localStorage.setItem("harta-visual-version", "future-studio-v1");
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
   <link rel="stylesheet" href="css/commerce.css?v=20261018-mobile-ui">
   <link rel="stylesheet" href="css/ui-foundation.css?v=20261018-mobile-ui">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/axon-theme.css">
+  <link rel="stylesheet" href="css/future-studio.css?v=20261031-studio">
 </head>
-<body>
+<body data-shell="future-studio">
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
     <!-- 图标语法：24 视窗 / 1.6 描边 / 圆头 / currentColor。克制使用：导航、关键动作、回音状态，不做图标大楼 -->
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></symbol>
@@ -59,29 +65,38 @@
         <p class="brand-line">助力线索｜引流｜获客</p>
       </div>
       <nav aria-label="工作台">
-      <a href="#" data-nav="workbench"><svg class="icon" aria-hidden="true"><use href="#i-sun"></use></svg>工作台</a>
-
-      <a href="#" data-nav="content-home"><svg class="icon" aria-hidden="true"><use href="#i-film"></use></svg>内容获客</a>
-      <a href="#" data-nav="prospecting"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>主动获客</a>
-      <a href="#" data-nav="conversations"><svg class="icon" aria-hidden="true"><use href="#i-reply"></use></svg>客户跟进</a>
-<p class="rail-group-label">业务准备</p>
-      <a href="#" data-nav="delivery"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>平台执行</a>
-      <a href="#" data-nav="connections"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>平台账号</a>
-      <a href="#" data-nav="products"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>产品与服务</a>
-      <a href="#" data-nav="customers"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>业务资料</a>
-      <a href="#" data-nav="agents"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>智能体</a>
-      <a href="#" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>设置</a>
-<details class="rail-more"><summary>报告与记录</summary>
-<a href="#" data-nav="pack"><svg class="icon" aria-hidden="true"><use href="#i-folio"></use></svg>诊断报告</a>
-<a href="#" data-nav="ledger"><svg class="icon" aria-hidden="true"><use href="#i-ledger"></use></svg>跟进与复盘</a>
-<a href="#" data-nav="acquisition"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>发布与来源</a>
-<a href="#" data-nav="leads"><svg class="icon" aria-hidden="true"><use href="#i-reply"></use></svg>历史会话</a>
-<a href="#" data-nav="crew" id="nav-crew" class="hidden"><svg class="icon" aria-hidden="true"><use href="#i-crew"></use></svg>全组</a>
-</details><a href="#" id="nav-logout">退出</a></nav>
+        <div class="studio-primary-nav">
+          <a href="#" data-nav="workbench">总览</a>
+          <a href="#" data-nav="prospecting">主动截流</a>
+          <a href="#" data-nav="content-home">内容创作</a>
+          <a href="#" data-nav="conversations">客户跟进</a>
+          <a href="#" data-nav="account-review">复盘</a>
+        </div>
+        <div class="studio-aux-nav">
+          <details class="rail-more"><summary>工作空间 <span aria-hidden="true">⌄</span></summary>
+            <div class="studio-menu-content">
+              <p class="rail-group-label">资料与连接</p>
+              <a href="#" data-nav="customers">业务资料</a>
+              <a href="#" data-nav="products">产品与服务</a>
+              <a href="#" data-nav="connections">平台账号</a>
+              <a href="#" data-nav="delivery">平台执行</a>
+              <a href="#" data-nav="agents">智能体</a>
+              <p class="rail-group-label">报告与记录</p>
+              <a href="#" data-nav="pack">诊断报告</a>
+              <a href="#" data-nav="ledger">跟进与复盘</a>
+              <a href="#" data-nav="acquisition">发布与来源</a>
+              <a href="#" data-nav="leads">历史会话</a>
+              <a href="#" data-nav="crew" id="nav-crew" class="hidden">全组</a>
+              <a href="#" id="nav-logout">退出登录</a>
+            </div>
+          </details>
+          <a href="#" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>设置</a>
+        </div>
+      </nav>
     </aside>
     <main class="main" id="work">
       <header class="mast">
-        <span>灵鹿增长 · 获客工作台</span>
+        <span>HARTA / GROWTH STUDIO</span>
         <span id="mast-date"></span>
       </header>
       <div class="topbar">
@@ -501,6 +516,11 @@
           <p class="meta" id="crew-line">仅管理员可见，显示汇总数据。</p>
         </div>
         <article class="card">
+          <h2>成员工作概况</h2>
+          <p class="meta">仅管理员可见；按本地记录统计，不代表平台实时数据。最近记录不等于登录活跃度。</p>
+          <div id="crew-members" class="chase"></div>
+        </article>
+        <article class="card">
           <h2>按目标行业</h2>
           <div id="crew-rows" class="chase"></div>
         </article>
@@ -545,6 +565,17 @@
           <div class="research-fields"><div class="research-field"><label for="research-searxng-url">SearXNG 搜索地址</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">SearXNG 需启用 JSON 搜索；留空使用 Brave。</p></div><div class="research-field"><label for="research-rsshub-url">RSSHub 资讯地址</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">按业务词匹配 36 氪最新快讯，不含历史搜索。</p></div><div class="research-field"><label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password"></div><div class="research-field"><label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password"></div></div>
           <div class="acts"><button class="btn" type="button" id="save-research-config">保存数据源</button><button class="btn ghost" type="button" id="test-research-config">测试连接</button></div>
           <p class="meta">测试使用已保存配置，会消耗 API 额度。</p><p class="meta" id="research-config-status" role="status"></p>
+        </details>
+        <details class="card form settings-section hidden" id="image-model-settings">
+          <summary>AI 封面出图</summary>
+          <p class="meta">配置支持 OpenAI 兼容图片生成接口的独立模型。密钥保存在服务器；封面生成会消耗服务商额度。</p>
+          <label for="image-model-url">接口地址</label><input id="image-model-url" type="url" maxlength="2048" placeholder="https://…/v1">
+          <label for="image-model-name">出图模型名</label><input id="image-model-name" maxlength="200" placeholder="例如服务商提供的图片模型 ID">
+          <label for="image-model-request-mode">请求参数</label><select id="image-model-request-mode"><option value="auto">自动选择</option><option value="minimal">精简参数</option><option value="legacy">兼容旧版参数</option><option value="dashscope">阿里云百炼原生接口</option></select>
+          <p class="meta">自动选择会按模型名称选择参数；若服务商报参数不支持，可按其接口说明切换。每次点击只发起一次出图请求。</p>
+          <label for="image-model-key">出图密钥</label><input id="image-model-key" type="password" maxlength="4096" autocomplete="new-password" placeholder="留空保留已保存密钥">
+          <label><input type="checkbox" id="image-model-clear">清除已保存密钥</label>
+          <div class="acts"><button type="button" class="btn" id="image-model-save">保存出图设置</button></div><p class="meta" id="image-model-status" role="status"></p>
         </details>
         <div id="llm-box"></div>
       </section>

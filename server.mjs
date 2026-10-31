@@ -1,8 +1,15 @@
+import {topicBoardAction} from './lib/topic-board.mjs';
+import {wechatWorkspace} from './lib/wechat-workspace.mjs';
+import { reviewStudioText } from './lib/studio-standard-review.mjs';
 import { hasContentJobs } from './lib/workspace.mjs';
 import { hasAcquisitionJobs } from './lib/acquisition-workspace.mjs';
 import { hasAgentJobs } from './lib/business-agents.mjs';
 import { hasOutreachJobs } from './lib/commerce-workspace.mjs';
 import { withModelAccount } from './lib/model-spend.mjs';
+import { publicImageConfig, saveImageConfig, generateCover } from './lib/image-generation.mjs';
+import { generateRadarHook, saveRadarHook } from './lib/radar-hook.mjs';
+import { registerOwnedPublication, correctOwnedPublication, recordOwnedPublicationOutcome, importOwnedPublicationOutcomes, adoptAccountReviewMemory } from './lib/account-review.mjs';
+import { saveProductionAssets, readProductionAsset, exportProductionAssets } from './lib/production-assets.mjs';
 import { withBusinessModelBudget } from './lib/model-budget.mjs';
 import { acquireDataLock } from './lib/data-lock.mjs';
 import { openFindContacts } from './lib/openfind-contacts.mjs';
@@ -16,16 +23,16 @@ import { issuePairing, redeemPairing, authenticateConnector, connections, revoke
 import { commerceWorkspace, commerceAction, startOutreachDraft } from './lib/commerce-workspace.mjs';
 import { importOpenFind } from './lib/openfind-import.mjs';
 import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, validHost, sameOriginMutation, sessionCookie, readJsonBody } from './lib/request-guard.mjs';
-import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, saveAccount, preparePublication, confirmPublication, recordInquiry, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
+import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, attributeSignalPublication, saveAccount, preparePublication, confirmPublication, recordPublicationReview, recordInquiry, correctInquiryPublicationSource, correctInquiryLiveSource, saveDemandTopic, reviseDemandTopic, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
 import { agentWorkspace, createAgent, saveAgent, agentAction, startAgentTrial } from './lib/business-agents.mjs';
-import { proposeFactCards, saveGrowthSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
-import { expandKeywordsForCustomer, aggregatePains, teardownForCustomer, teardownAccountForCustomer, rebuildPlaybook, topicPoolFor, decideTopic, refreshPlaybookAfterFeedback, calibrateHuntFor } from './lib/research-tools.mjs';
+import { proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, reviewProductionFacts, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
+import { expandKeywordsForCustomer, aggregatePains, teardownForCustomer, teardownAccountForCustomer, rebuildPlaybook, topicPoolFor, decideTopic, decideRadarWork, importRadarSamples, refreshPlaybookAfterFeedback, calibrateHuntFor } from './lib/research-tools.mjs';
 import { rewriteOrganicPost } from './lib/generate.mjs';
 import { receiveKeywordBatch, prepareKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
 import { saveKeywordLibrary, removeKeywordLibrary } from './lib/workspace.mjs';
 import { crawlerInstalled, readPublicSource, queryRsshub } from "./lib/native-sources.mjs";
 import { publicResearchConfig, saveResearchConfig, readResearchConfig, queryKeywords, queryWeb, querySearxng } from "./lib/research.mjs";
-import { setGrowthDirection } from "./lib/workspace.mjs";
+import { setGrowthDirection, scheduleContent } from "./lib/workspace.mjs";
 import { setCustomerStage, updateCustomerBusiness } from "./lib/workspace.mjs";
 import http from "node:http";
 import fs from "node:fs";
@@ -109,7 +116,10 @@ function rateLimit(req, key, max, windowMs, identity) {
   req.rateRetryAfter = result.retryAfter;
   return result.allowed;
 }
-const EXPENSIVE_ROUTES = new Set(['/api/materials/analyze', '/api/keywords/import', '/api/keywords/expand', '/api/pain-clusters', '/api/benchmark/teardown', '/api/writing-playbook', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
+const EXPENSIVE_ROUTES = new Set(['/api/production-generate', '/api/production-fact-review', '/api/materials/analyze', '/api/keywords/import', '/api/keywords/expand', '/api/pain-clusters', '/api/benchmark/teardown', '/api/writing-playbook', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
+EXPENSIVE_ROUTES.add('/api/production-cover');
+EXPENSIVE_ROUTES.add('/api/radar-hook-generate');
+EXPENSIVE_ROUTES.add('/api/topic-board/generate');
 const JOB_ROUTES = new Set(['/api/customers', '/api/repack', '/api/refill', '/api/today']);
 EXPENSIVE_ROUTES.add('/api/acquisition/suggestion');
 JOB_ROUTES.add('/api/acquisition/search');
@@ -356,6 +366,7 @@ async function handleApi(req, res, url) {
         const space=readWorkspace(user.email);
         return json(res,200,{customerId,name:customer.name,profile:{identity:String(customer.name||'').slice(0,2000),offering:String(customer.pitch||'').slice(0,2000),regions:String(customer.city||'').slice(0,2000),priceRange:'',value:'',proof:''},upstream:'8532f51ec89fefedb5a9eee53703097629f931ae',suggestedKeywords:(space.acquisition?.products||[]).filter(p=>p.customerId===customerId&&p.status==='active').slice(0,8).map(p=>p.name),pitch:customer.pitch||''});
       }
+      if (match[2] === '/harta/standards-review') return json(res,200,reviewStudioText(user.email,customerId,await readBody(req)));
       if (match[2] === '/harta/contacts') return json(res, 200, openFindContacts(readWorkspace(user.email), customerId));
       if (match[2] === '/harta/handoff') return json(res, 200, await openFind.handoff(user.email, customerId, await readBody(req)));
       if (req.method === 'POST' && (/^\/workflows\/[^/]+\/pause$/.test(match[2]) || /^\/jobs\/[^/]+\/stop$/.test(match[2]))) openFind.suspendSchedule(user.email, customerId);
@@ -371,6 +382,16 @@ async function handleApi(req, res, url) {
       return json(res,200,{state,...(['frame','pointer'].includes(input.action)?{}:{workspace:publicWorkspace(readWorkspace(user.email))})});
     } catch(error) { return json(res,400,{error:error.message||'获客引擎未完成操作'}); }
   }
+  if (['/api/topic-board','/api/topic-board/generate'].includes(url.pathname) && req.method === 'POST') {
+    const user=requireUser(req,res);if(!user)return;
+    try{const input=await readBody(req,MAX_BODY);if(['generate','generate-week','generate-new'].includes(input.action)!==(url.pathname==='/api/topic-board/generate'))throw new Error('选题操作入口不正确');const result=await topicBoardAction(user.email,input);return json(res,200,{...result,workspace:publicWorkspace(result.workspace)});}
+    catch(error){return json(res,error.statusCode||400,{error:error.message||'选题操作未完成'});}
+  }
+  if (url.pathname === '/api/wechat' && ['GET','POST'].includes(req.method)) {
+    const user=requireUser(req,res);if(!user)return;
+    try {const connections=req.method==='GET'?wechatWorkspace.state(user.email):await wechatWorkspace.action(user.email,await readBody(req,8192));return json(res,200,{connections,...(req.method==='POST'?{workspace:publicWorkspace(readWorkspace(user.email))}:{})});}
+    catch(error){return json(res,400,{error:error.message||'公众号操作未完成'});}
+  }
   if (url.pathname === '/api/acquisition' && req.method === 'GET') {
     const user = requireUser(req, res);
     if (!user) return;
@@ -382,7 +403,7 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const action = url.pathname.slice('/api/acquisition/'.length);
-    const handlers = { commerce: commerceAction, import: importSignals, stop: stopSearch, review: reviewSignal, account: saveAccount, 'prepare-publication': preparePublication, publication: confirmPublication, inquiry: recordInquiry, lead: leadAction, 'agent-create': createAgent, 'agent-save': saveAgent, 'agent-action': agentAction };
+    const handlers = { commerce: commerceAction, import: importSignals, stop: stopSearch, review: reviewSignal, 'signal-publication':attributeSignalPublication, account: saveAccount, 'prepare-publication': preparePublication, publication: confirmPublication, 'publication-review':recordPublicationReview, inquiry: recordInquiry, 'publication-source':correctInquiryPublicationSource, 'live-source':correctInquiryLiveSource, 'demand-topic':saveDemandTopic, 'demand-topic-revise':reviseDemandTopic, lead: leadAction, 'agent-create': createAgent, 'agent-save': saveAgent, 'agent-action': agentAction };
     const body = await readBody(req, action === 'openfind-import' ? 2 * 1024 * 1024 : MAX_BODY);
     try {
       if (action === 'openfind-import') return json(res, 200, { workspace: publicWorkspace(importOpenFind(user.email, body)) });
@@ -507,11 +528,11 @@ async function handleApi(req, res, url) {
     return result.error ? json(res, 400, result) : json(res, 200, publicWorkspace(result.workspace));
   }
 
-  if (req.method === "POST" && ["/api/keywords/expand", "/api/pain-clusters", "/api/benchmark/teardown", "/api/benchmark/account", "/api/writing-playbook", "/api/topic-pool", "/api/topic-decide", "/api/hunt-calibration"].includes(url.pathname)) {
+  if (req.method === "POST" && ["/api/keywords/expand", "/api/pain-clusters", "/api/benchmark/teardown", "/api/benchmark/account", "/api/writing-playbook", "/api/topic-pool", "/api/topic-decide", "/api/radar-decision", "/api/radar-import", "/api/hunt-calibration"].includes(url.pathname)) {
     const user = requireUser(req, res);
     if (!user) return;
     try {
-      const body = await readBody(req);
+      const body = await readBody(req, url.pathname === '/api/radar-import' ? 256 * 1024 : MAX_BODY);
       const actions = {
         "/api/keywords/expand": () => expandKeywordsForCustomer(user.email, body),
         "/api/pain-clusters": () => aggregatePains(user.email, body),
@@ -520,6 +541,8 @@ async function handleApi(req, res, url) {
         "/api/writing-playbook": () => rebuildPlaybook(user.email, body),
         "/api/topic-pool": () => topicPoolFor(user.email, body),
         "/api/topic-decide": () => decideTopic(user.email, body),
+        "/api/radar-decision": () => decideRadarWork(user.email, body),
+        "/api/radar-import": () => importRadarSamples(user.email, body),
         "/api/hunt-calibration": () => calibrateHuntFor(user.email, body),
       };
       const result = await actions[url.pathname]();
@@ -728,14 +751,23 @@ async function handleApi(req, res, url) {
     } catch (err) { return json(res, err.statusCode || 400, { error: err.message }); }
   }
 
-  if (req.method === "POST" && ['/api/growth-facts/extract', '/api/growth-goal', '/api/growth-outcomes', '/api/growth-facts', '/api/post-rewrite', '/api/post-version'].includes(url.pathname)) {
+  if (req.method === "POST" && ['/api/growth-facts/extract', '/api/growth-goal', '/api/production-draft', '/api/live-schedule', '/api/studio-return', '/api/studio-return-action', '/api/production-apply', '/api/creation-standards', '/api/creator-profile', '/api/creator-memory', '/api/creator-packs', '/api/growth-outcomes', '/api/growth-facts', '/api/post-rewrite', '/api/post-version'].includes(url.pathname)) {
     const user = requireUser(req, res);
     if (!user) return;
     try {
-      const body = await readBody(req, url.pathname === '/api/growth-facts' ? 256 * 1024 : MAX_BODY);
+      const body = await readBody(req, url.pathname === '/api/production-draft' ? 512 * 1024 : url.pathname === '/api/growth-facts' ? 256 * 1024 : MAX_BODY);
       const actions = {
         '/api/growth-facts/extract': () => proposeFactCards(user.email, body),
         '/api/growth-goal': () => saveGrowthSettings(user.email, body),
+        '/api/production-draft': () => saveProductionDraft(user.email, body),
+        '/api/live-schedule': () => rescheduleLive(user.email, body),
+        '/api/studio-return': () => stageStudioReturn(user.email, body),
+        '/api/studio-return-action': () => applyStudioReturn(user.email, body),
+        '/api/production-apply': () => applyProductionDraft(user.email, body),
+        '/api/creation-standards': () => saveCreationStandards(user.email, body),
+        '/api/creator-profile': () => saveCreatorProfile(user.email, body),
+        '/api/creator-memory': () => creatorMemoryAction(user.email, body),
+        '/api/creator-packs': () => saveCreatorPackSettings(user.email, body),
         '/api/growth-outcomes': () => saveOutcomes(user.email, body),
         '/api/growth-facts': () => saveFactCards(user.email, body),
         '/api/post-rewrite': () => preparePostRewrite(user.email, body, rewriteOrganicPost),
@@ -743,6 +775,75 @@ async function handleApi(req, res, url) {
       };
       return json(res, 200, publicWorkspace(await actions[url.pathname]()));
     } catch (error) { return json(res, error.statusCode || 400, { error: error.message || '保存失败' }); }
+  }
+
+  if(req.method==='POST' && url.pathname==='/api/studio-handoff-check') {
+    const user=requireUser(req,res);if(!user)return;
+    try{validateStudioSource(user.email,await readBody(req));return json(res,200,{ok:true});}catch(error){return json(res,400,{error:error.message||'交接校验失败'});}
+  }
+
+  if(req.method==='POST' && ['/api/owned-publication','/api/owned-publication-correct','/api/owned-publication-outcome'].includes(url.pathname)) {
+    const user=requireUser(req,res);if(!user)return;
+    try{const body=await readBody(req),workspace=url.pathname==='/api/owned-publication'?registerOwnedPublication(user.email,body):url.pathname==='/api/owned-publication-correct'?correctOwnedPublication(user.email,body):recordOwnedPublicationOutcome(user.email,body);return json(res,200,publicWorkspace(workspace));}catch(error){return json(res,400,{error:error.message||'记录失败'});}
+  }
+  if(req.method==='POST' && url.pathname==='/api/owned-outcomes-import') {
+    const user=requireUser(req,res);if(!user)return;
+    try{return json(res,200,publicWorkspace(importOwnedPublicationOutcomes(user.email,await readBody(req))));}catch(error){return json(res,400,{error:error.message||'导入失败'});}
+  }
+  if(req.method==='POST' && url.pathname==='/api/account-review-memory') {
+    const user=requireUser(req,res);if(!user)return;
+    try{return json(res,200,publicWorkspace(adoptAccountReviewMemory(user.email,await readBody(req))));}catch(error){return json(res,400,{error:error.message||'记忆保存失败'});}
+  }
+
+  if(req.method==='POST' && url.pathname==='/api/production-create') {
+    const user=requireUser(req,res);if(!user)return;
+    try {const result=createProductionContent(user.email,await readBody(req));return json(res,200,{packId:result.packId,workspace:publicWorkspace(result.workspace)});}
+    catch(error){return json(res,error.statusCode || 400,{error:error.message || '无法新建制作草稿'});}
+  }
+
+  if(req.method==='POST' && url.pathname==='/api/live-duplicate') {
+    const user=requireUser(req,res);if(!user)return;
+    try {const result=duplicateLiveSession(user.email,await readBody(req));return json(res,200,{packId:result.packId,platform:result.platform,index:result.index,workspace:publicWorkspace(result.workspace)});}
+    catch(error){return json(res,error.statusCode || 400,{error:error.message || '无法复制直播场次'});}
+  }
+
+  if(url.pathname==='/api/production-assets' && ['POST','GET'].includes(req.method)) {
+    const user=requireUser(req,res);if(!user)return;
+    try {
+      if(req.method==='POST')return json(res,200,publicWorkspace(await saveProductionAssets(user.email,await readBody(req,24*1024*1024))));
+      const input={customerId:url.searchParams.get('customerId'),packId:url.searchParams.get('packId'),platform:url.searchParams.get('platform'),index:Number(url.searchParams.get('index')),bundleId:url.searchParams.get('bundleId'),name:url.searchParams.get('name')};
+      const archive=input.name==='bundle',bytes=archive?await exportProductionAssets(user.email,input):readProductionAsset(user.email,input);
+      res.writeHead(200,securityHeaders({'content-type':archive?'application/zip':'image/png','content-length':bytes.length,...(archive?{'content-disposition':attachmentName('Harta制作素材.zip')}:{})}));return res.end(bytes);
+    } catch(error){return json(res,error.statusCode||400,{error:error.message||'素材操作失败'});}
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/production-fact-review') {
+    const user=requireUser(req,res);if(!user)return;
+    try { return json(res,200,await reviewProductionFacts(user.email,await readBody(req,512 * 1024))); }
+    catch(error) { return json(res,error.statusCode || 400,{error:error.message || '事实核对失败'}); }
+  }
+
+  if (req.method === 'POST' && ['/api/radar-hook-generate','/api/radar-hook-save'].includes(url.pathname)) {
+    const user=requireUser(req,res);if(!user)return;
+    try {const body=await readBody(req);if(url.pathname.endsWith('-generate'))return json(res,200,await generateRadarHook(user.email,body));const result=saveRadarHook(user.email,body);return json(res,200,{workspace:publicWorkspace(result.workspace)});}
+    catch(error) {return json(res,error.statusCode || 400,{error:error.message || '开头操作失败'});}
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/production-generate') {
+    const user=requireUser(req,res);if(!user)return;
+    try { return json(res,200,await generateProductionOutline(user.email,await readBody(req,512 * 1024))); }
+    catch(error) { return json(res,error.statusCode || 400,{error:error.message || '脚本生成失败'}); }
+  }
+
+  if (url.pathname === '/api/image-model' && ['GET','POST'].includes(req.method)) {
+    if (!requireAdmin(req,res)) return;
+    try { return json(res,200,req.method==='GET'?publicImageConfig():await saveImageConfig(await readBody(req))); }
+    catch(error) { return json(res,error.statusCode || 400,{error:error.message || '出图配置保存失败'}); }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/production-cover') {
+    const user=requireUser(req,res);if(!user)return;
+    try {return json(res,200,await generateCover(user.email,await readBody(req)));}
+    catch(error) {return json(res,error.statusCode || 400,{error:error.message || '出图失败'});}
   }
 
   if (req.method === "POST" && url.pathname === "/api/growth-direction") {
@@ -870,6 +971,13 @@ async function handleApi(req, res, url) {
     return json(res, 200, { workspace: publicWorkspace(result.workspace), updated: result.updated });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/content-schedule") {
+    const user=requireUser(req,res); if(!user)return;
+    const result=scheduleContent(user.email,await readBody(req));
+    if(result.error)return json(res,400,{error:result.error});
+    return json(res,200,{workspace:publicWorkspace(result.workspace),updated:result.updated});
+  }
+
   if (req.method === "POST" && url.pathname === "/api/using") {
     const user = requireUser(req, res);
     if (!user) return;
@@ -899,7 +1007,7 @@ async function handleApi(req, res, url) {
     return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist() });
   }
 
-  // 全组一屏：只给聚合数。谁的客户是谁的，销售互相看不见的规矩不变
+  // 管理员只读团队概况；成员工作区仍保持隔离
   if (req.method === "GET" && url.pathname === "/api/overview") {
     if (!requireAdmin(req, res)) return;
     return json(res, 200, groupOverview(listUsersPublic().map((u) => u.email)));

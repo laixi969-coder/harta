@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest';
-import { demandEvidence, discoveryWorks } from './discovery.js';
+import { demandEvidence, discoveryWorks, recentDemandQueue } from './discovery.js';
 const now = Date.parse('2026-10-17T12:00:00Z');
 const recent = { id: 's1', customerId: 'c1', workId: 'w1', text: '想买厨房灯，多少钱', publishedAt: '2026-10-16T12:00:00Z', status: 'pending' };
 it('recent demand needs actual known dates and excludes author, resolved and promotional speech', () => {
@@ -12,4 +12,11 @@ it('filters and ranks saved works using metrics and same-business evidence, keep
   expect(discoveryWorks(works, signals, { sort: 'demand' }, now)).toMatchObject([{ id: 'w1', recentDemand: 1, savedComments: 1, engagement: 15 }]);
   expect(discoveryWorks(works, signals, { type: 'image', query: '厨房' }, now)).toMatchObject([{ id: 'w2', engagement: null }]);
   expect(discoveryWorks(works, signals, { platform: '抖音', query: '不存在' }, now)).toEqual([]);
+});
+
+it('近期需求按业务隔离并过滤演示数据，已保存线索排在未核实需求之后',()=>{
+  const rows=[recent,{...recent,id:'demo1',demo:true},{...recent,id:'demo2',source:'demo'},{...recent,id:'demo3',sourceType:'demo'},{...recent,id:'other',customerId:'c2'},{...recent,id:'saved',leadId:'lead',publishedAt:'2026-10-17T10:00:00Z'}];
+  expect(recentDemandQueue(rows,'c1',now).map(s=>s.id)).toEqual(['s1','saved']);
+  const work={id:'w1',customerId:'c1',title:'作品'};
+  expect(discoveryWorks([work],rows,{},now)[0]).toMatchObject({savedComments:2,recentDemand:2});
 });

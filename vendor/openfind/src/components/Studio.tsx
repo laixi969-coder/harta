@@ -1,3 +1,4 @@
+import {StudioStandards} from './StudioStandards';
 import { MediaGallery, MediaImage } from './Media';
 import { useState, useRef, useEffect } from 'react';
 import {
@@ -21,7 +22,7 @@ import {
   Eye,
   ExternalLink,
 } from 'lucide-react';
-import type { Note, Draft, Platform } from '../../shared/types';
+import type { Note, Draft, Platform, HartaSource } from '../../shared/types';
 import { api, safeUrl, apiUrl, mediaUrl, downloadDraft } from '../api';
 import { useWorkspace } from '../context';
 import { AccountForm } from './Accounts';
@@ -202,27 +203,33 @@ export function Studio() {
     </>
   );
 }
+export type ProductionSeed = {title:string; body:string; productionNotes?:string; platform:Platform; kind:'image'|'video'; images:string[]; hartaSource:HartaSource};
 export function Editor({
   note,
   draft: initial,
+  seed,
   onClose,
 }: {
   note?: Note;
   draft?: Draft;
+  seed?: ProductionSeed;
   onClose: () => void;
 }) {
   const { data, refresh, notify, navigate, setUnsaved } = useWorkspace();
   const source = note || data.notes.find((n) => n.id === initial?.noteId);
+  const hartaSource = initial?.hartaSource || seed?.hartaSource;
+  const productionNotes = initial?.productionNotes ?? seed?.productionNotes ?? '';
+
   const [platform, setPlatform] = useState<Platform>(
-    initial?.platform || source?.platform || data.settings.platform || 'xiaohongshu',
+    initial?.platform || seed?.platform || source?.platform || data.settings.platform || 'xiaohongshu',
   );
-  const [kind, setKind] = useState<'image' | 'video'>(initial?.kind || 'image');
+  const [kind, setKind] = useState<'image' | 'video'>(initial?.kind || seed?.kind || 'image');
   const [video, setVideo] = useState(initial?.video || '');
   const videoFile = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState(initial?.title || note?.title.slice(0, 20) || ''),
-    [body, setBody] = useState(initial?.body || note?.body || ''),
+  const [title, setTitle] = useState(initial?.title || seed?.title || note?.title.slice(0, 20) || ''),
+    [body, setBody] = useState(initial?.body || seed?.body || note?.body || ''),
     [tags, setTags] = useState((initial?.tags || note?.tags || []).join(' ')),
-    [images, setImages] = useState<string[]>(initial?.images || note?.images || []),
+    [images, setImages] = useState<string[]>(initial?.images || seed?.images || note?.images || []),
     [visibility, setVisibility] = useState<Draft['visibility']>(
       initial?.visibility || 'public',
     ),
@@ -231,15 +238,16 @@ export function Editor({
         data.accounts.find(
           (a) =>
             (a.platform || 'xiaohongshu') ===
-              (source?.platform || data.settings.platform || 'xiaohongshu') &&
+              (seed?.platform || source?.platform || data.settings.platform || 'xiaohongshu') &&
             a.connectionType === 'browser',
         )?.id ||
         data.settings.accountId,
     ),
     [saved, setSaved] = useState<Draft | undefined>(initial),
     [busy, setBusy] = useState(''),
-    [dirty, setDirty] = useState(false),
+    [dirty, setDirty] = useState(Boolean(seed)),
     [preview, setPreview] = useState(false),
+    [returned, setReturned] = useState(false),
     [accountDialog, setAccountDialog] = useState(false),
     [closeRequested, setCloseRequested] = useState(false);
   useEffect(()=>{setUnsaved?.('editor',dirty);return ()=>setUnsaved?.('editor',false);},[dirty,setUnsaved]);
@@ -252,7 +260,19 @@ export function Editor({
     (kind === 'video' ? !!video : images.length >= 1 && images.length <= 18);
   const changed = () => {
     setDirty(true);
+    setReturned(false);
   };
+  async function sendBack() {
+    if(!hartaSource)return;
+    setBusy('return');
+    try {
+      const tagsText=tags.split(/\s+/).filter(Boolean).map(t=>t.startsWith('#')?t:'#'+t).join(' ');
+      const response=await fetch('/api/studio-return',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({source:hartaSource,title,body,tagsText,studioPlatform:platform,kind})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error || '送回失败');
+      setReturned(true);notify('已送回原作品，请核对并采用；尚未登记发布');
+      if(window.parent!==window)parent.postMessage({type:'harta-studio-synced',customerId:hartaSource.customerId},location.origin);
+    } catch(e){notify((e as Error).message,true);}finally{setBusy('');}
+  }
   async function persist() {
     const d = await api<Draft>('/drafts', {
       id: saved?.id,
@@ -267,6 +287,8 @@ export function Editor({
       kind,
       video: kind === 'video' ? video : undefined,
       origin: source ? 'clone' : 'original',
+      hartaSource: initial?.hartaSource || seed?.hartaSource,
+      productionNotes: productionNotes || undefined,
     });
     setSaved(d);
     setDirty(false);
@@ -277,7 +299,7 @@ export function Editor({
     setBusy('save');
     try {
       await persist();
-      notify('图文草稿已保存到内容工作室');
+      notify(`${kind === 'video' ? '视频' : '图文'}草稿已保存到内容工作室`);
     } catch (e) {
       notify((e as Error).message, true);
     } finally {
@@ -382,7 +404,7 @@ export function Editor({
       </div>
       <div className="editor-layout">
         <section className="editor-assets">
-          {kind === 'video' ? (
+          {kind === 'video' && (
             <div className="video-uploader">
               {video && <video src={mediaUrl(video)} controls />}
               <button
@@ -432,13 +454,13 @@ export function Editor({
                 保存后可下载素材，由你在官方平台上传。
               </p>
             </div>
-          ) : (
+          )}
             <>
               <div className="editor-section-label">
-                <h3>图片素材</h3>
+                <h3>{kind === 'video' ? '视频封面与图片素材' : '图片素材'}</h3>
                 <span>{images.length} / 18</span>
               </div>
-              <p className="field-hint">首张作为封面，可调整顺序或加入自己的图片。</p>
+              <p className="field-hint">{kind === 'video' ? '首张作为封面参考，下载后请在平台选择；不会自动设置视频封面。' : '首张作为封面，可调整顺序或加入自己的图片。'}</p>
               <div className="editor-image-grid">
                 {images.map((url, i) => (
                   <div className="editor-image" key={url + '-' + i}>
@@ -491,7 +513,6 @@ export function Editor({
               />
               <p className="field-hint">PNG / JPG / WebP · 单张不超过 5 MB</p>
             </>
-          )}
           <div className="editor-note">
             <ShieldCheck size={16} />
             <p>草稿保存在本机。请在发布前确认图片、文案和拟用账号（备注）。</p>
@@ -527,6 +548,7 @@ export function Editor({
               {preview ? '收起预览' : '预览作品'}
             </button>
           </div>
+          {productionNotes && <details className="panel" aria-label="制作说明"><summary>查看制作说明</summary><p className="muted">来自交接时的制作稿快照，供添加素材时参考，不会进入发布正文。</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{productionNotes}</pre></details>}
           <label className="field-label" htmlFor="draft-title">
             标题<span>{title.length} / 20</span>
           </label>
@@ -621,12 +643,15 @@ export function Editor({
             </div>
           </div>
         </section>
+        <StudioStandards content={{title,body,tags:tags.split(/[\s#]+/).filter(Boolean),platform,kind}} disabled={!!busy} notify={notify}/>
       </div>
       <footer className="editor-footer">
         <span className="muted">
           {dirty ? '有未保存的修改' : saved ? '已保存到本机' : '完成后保存为草稿'}
         </span>
         <div>
+          {hartaSource && <button type="button" className="btn" disabled={!!busy} onClick={()=>void sendBack()}>送回 Harta 核对</button>}
+          {hartaSource && returned && <button type="button" className="btn" onClick={()=>parent.postMessage({type:'harta-studio-return',customerId:hartaSource.customerId,packId:hartaSource.packId},location.origin)}>返回原作品核对</button>}
           <button className="btn" onClick={requestClose} disabled={!!busy}>
             <ArrowLeft size={14} />
             返回作品列表
@@ -658,30 +683,7 @@ export function Editor({
               </>
             )}
           </button>
-          <button
-            className="btn primary"
-            disabled={!!busy || !title.trim()}
-            onClick={() =>
-              void navigator.clipboard
-                .writeText(
-                  [
-                    title,
-                    body,
-                    tags
-                      .split(/\s+/)
-                      .filter(Boolean)
-                      .map((t) => (t.startsWith('#') ? t : '#' + t))
-                      .join(' '),
-                  ].join('\n\n'),
-                )
-                .then(
-                  () => notify('文案已复制，请到官方平台手动发布'),
-                  () => notify('复制失败，请手动复制文案', true),
-                )
-            }
-          >
-            复制发布文案
-          </button>
+
         </div>
       </footer>
       {closeRequested && (

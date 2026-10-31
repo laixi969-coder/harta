@@ -3,35 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>登录 · 灵鹿增长</title>
-  <link rel="stylesheet" href="css/app.css?v=20260921h">
-  <script>
-    (function () {
-      var q = new URLSearchParams(location.search).get("theme");
-      var fresh = localStorage.getItem("harta-visual-version") !== "color-block-v1";
-      var t = q || (fresh ? "dark" : localStorage.getItem("harta-theme") || "dark");
-      if (fresh) { localStorage.setItem("harta-theme", t); localStorage.setItem("harta-visual-version", "color-block-v1"); }
-      document.documentElement.setAttribute("data-theme", t);
-    })();
-  </script>
+  <meta name="description" content="Harta 将内容创作、主动获客与客户跟进连接起来。为小红书和抖音准备脚本、封面和直播，记录真实咨询与发布效果。">
+  <title>Harta — 让好内容，带来下一位客户</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/landing.css">
 </head>
 <body>
-  <a class="skip" href="#form">跳到登录</a>
-  <div class="gate">
-    <aside class="gate-panel"><div class="gate-statement"><span>HARTA / WORKSPACE</span><h2>MAKE<br>CONTENT<br>MATTER.</h2><p>让每一篇内容，都有明确的方向。</p></div>
-      <div>
-        <img class="logo" src="images/logo-harta-dark.png" width="989" height="390" alt="灵鹿线索 HARTA">
-        <p class="brand-line">助力线索｜引流｜获客</p>
-      </div>
-    </aside>
-    <main class="gate-form">
-      <div class="hook">
-        <h1>登录工作台</h1>
-      </div>
-      <div class="tabs">
-        <a class="on" href="login.html">登录</a>
-        <a href="register.html">注册</a>
-      </div>
+  <a class="skip" href="#login">跳到登录</a>
+  <main class="landing">
+    <div class="landing-background" aria-hidden="true">
+      <video id="hero-video" autoplay muted loop playsinline preload="none" tabindex="-1" data-src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260714_113715_c7e0daa0-8bdd-4486-a2da-040901f8f0ea.mp4"></video>
+    </div>
+    <header class="landing-header">
+      <nav class="landing-nav" aria-label="首页导航">
+        <a class="landing-brand" href="#intro" aria-label="Harta 首页"><svg width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><path d="M 256 256 L 128 256 L 0 128 L 128 128 Z"/><path d="M 256 128 L 128 128 L 0 0 L 128 0 Z"/></svg><span>Harta</span></a>
+        <a class="landing-about" href="#intro">产品介绍</a>
+        <a href="#login">登录</a>
+        <a href="register.html">注册账号 <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+    <section class="landing-intro" id="intro" aria-labelledby="hero-title">
+      <div class="landing-badge"><span aria-hidden="true">↗</span>内容创作与获客，一起向前</div>
+      <p class="landing-display" lang="en">Make content <em>matter.</em></p>
+      <h1 id="hero-title">让好内容，<br>带来下一位客户。</h1>
+      <p class="landing-subtitle">从小红书、抖音的图文与视频，到脚本、封面与直播。<br class="desktop-break">让创作有方向，让真实咨询得到跟进，在复盘中找到下一步。</p>
+      <a class="landing-cta" href="#login">进入工作台 <span aria-hidden="true">↗</span></a>
+      <p class="landing-caption">内容获客 <span>·</span> 主动获客 <span>·</span> 客户跟进</p>
+    </section>
+    <section class="landing-login" id="login" aria-labelledby="login-title" hidden>
+      <a class="landing-back" href="#intro">← 返回首页</a>
+      <p class="login-wordmark" lang="en">Welcome back.</p>
+      <h1 id="login-title">登录工作台</h1>
+      <p class="login-note">继续你的创作与获客。</p>
       <form class="form" id="form">
         <label for="email">邮箱</label>
         <input id="email" name="email" type="email" autocomplete="username" maxlength="254" required>
@@ -44,8 +49,12 @@
         <div class="acts"><button class="btn" type="submit">进入</button></div>
         <p class="meta" style="margin-top:14px">忘记密码？联系管理员获取重设激活码。</p>
       </form>
-    </main>
-  </div>
+
+      <p class="login-register">已有激活码？<a href="register.html">注册账号</a></p>
+    </section>
+    <footer class="landing-footer"><span>HARTA / 灵鹿增长</span><button type="button" id="video-toggle" aria-pressed="false">播放背景</button><span class="landing-footer-note">让每一次创作，都更接近客户。</span></footer>
+  </main>
+  <script type="module" src="js/landing.js"></script>
   <script type="module">
     import { bindEyes } from "./js/eyes.js?v=20260819r";
     bindEyes();

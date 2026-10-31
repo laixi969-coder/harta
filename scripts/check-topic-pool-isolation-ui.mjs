@@ -1,0 +1,38 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import {fileURLToPath} from 'node:url';
+import {chromium} from 'playwright-core';
+import {readWorkspace,writeWorkspace} from '../lib/workspace.mjs';
+const root=fileURLToPath(new URL('..',import.meta.url)),dir=fs.mkdtempSync(path.join(os.tmpdir(),'harta-pool-ui-'));
+let server,browser;
+try{
+  for(const item of ['index.html','login.html','register.html','css','js','images','vendor'])fs.cpSync(path.join(root,item),path.join(dir,item),{recursive:true});
+  process.chdir(dir);writeWorkspace('66445039@qq.com',{seedVersion:999,customers:['a','b'].map(id=>({id,name:`业务 ${id}`,hunt:'家装',city:'杭州',pitch:'厨房设计',track:'存量',stage:'cooperating',packs:[],drops:[]})),usingId:'a',ledger:[],contentStates:{},feedback:{}});const seeded=readWorkspace('66445039@qq.com');seeded.customers[0].drops=Array.from({length:9},(_,i)=>({id:`pack-${i}`,tier:'今日',title:`参考批次 ${i+1}`,battlefields:[],copies:{},shells:{},origin:{mode:'organic'},workReferences:[{title:`参考来源 ${i+1}`,url:'',platform:'公众号'}]}));seeded.acquisition.works=Array.from({length:14},(_,i)=>({id:`work-${i}`,customerId:'a',platform:'抖音',title:`对标样本 ${i+1}`,authorId:`author-${i}`,authorName:`对标博主 ${i+1}`,description:'用于验收的作品',metrics:{likes:i},url:`https://www.douyin.com/video/${100000+i}`}));writeWorkspace('66445039@qq.com',seeded);process.chdir(root);
+  const listener=net.createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(r=>listener.close(r));
+  server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'fixture-only-password'},stdio:['ignore','pipe','pipe']});await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw Error('test server exited');})]);
+  const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';browser=await chromium.launch({headless:true,...fs.existsSync(chrome)?{executablePath:chrome}:{}});
+  const context=await browser.newContext(),page=await context.newPage();await context.request.post(`http://127.0.0.1:${port}/api/login`,{data:{email:'66445039@qq.com',password:'fixture-only-password'}});
+  let oldRoute,oldReceived;const received=new Promise(resolve=>oldReceived=resolve);
+  const pool=(id,n)=>({note:`${id} 的选题`,sources:{痛点:0,对标:0,研究:n,关键词:0},counts:{候选:n,已用:0},topics:Array.from({length:n},(_,i)=>({key:`${id}-${i}`,angle:`${id} 选题 ${i+1}`,source:'研究',alsoFrom:[],status:'候选',why:'',keywords:[],evidence:{}}))});
+  await page.route('**/api/topic-pool',async route=>{const data=route.request().postDataJSON();if(data.customerId==='a'){oldRoute=route;oldReceived();}else await route.fulfill({json:{pool:pool('B',14)}});});
+  await page.goto(`http://127.0.0.1:${port}`);await page.locator('#cm-workbench h1').waitFor();await page.locator('[data-nav=prospecting]').click();await page.getByRole('button',{name:'录入真实需求',exact:true}).click();const panel=page.locator('#acq-workspace .acq-panel').filter({has:page.getByRole('heading',{name:'对标拆解',exact:true})});await panel.locator('[data-acq-action=teardown-work-next]').click();await panel.getByText('对标样本 14',{exact:true}).waitFor();await panel.locator('[data-acq-action=teardown-author-next]').click();await panel.locator('[data-acq-action=teardown-author-next]').click();await panel.getByText('对标博主 14',{exact:true}).waitFor();await page.locator('[data-nav=content-home]').click();await page.locator('#cm-content-home [data-cm=content]').click();const refs=page.locator('#cm-content-scope details').filter({hasText:'内容批次的参考来源'}).first();await refs.locator('summary').click();await refs.getByText('参考来源 1',{exact:true}).waitFor();await refs.locator('[data-cm=reference-page]').click();await refs.getByText('参考来源 9',{exact:true}).waitFor();await page.locator('[data-nav=content-home]').click();await page.locator('#cm-content-home [data-cm=legacy]').click();await received;
+  await page.locator('#acq-context [data-acq-business]').selectOption('b');await page.getByText('B 选题 1',{exact:true}).waitFor();
+  await page.locator('[data-acq-action=topic-pool-next]').click();await page.getByText('B 选题 14',{exact:true}).waitFor();
+  await oldRoute.fulfill({json:{pool:pool('A',1),workspace:{customers:[],acquisition:{}}}});await page.waitForTimeout(200);
+  assert.equal(await page.getByText('A 选题 1',{exact:true}).count(),0);await page.getByText('B 选题 14',{exact:true}).waitFor();assert.equal(await page.locator('#acq-context [data-acq-business]').inputValue(),'b');
+  await page.locator('[data-acq-action=topic-pool-prev]').click();await page.getByText('B 选题 1',{exact:true}).waitFor();
+  await page.locator('[data-nav=content-home]').click();await page.locator('[data-content-tab=ideas]').click();
+  await page.locator('#content-radar summary').filter({hasText:'粘贴参考样本'}).click();const articleForm=page.locator('[data-cm-form=radar-import]');
+  await articleForm.locator('[name=platform]').selectOption('公众号');await articleForm.locator('[name=text]').fill('厨房文章样本\n第一段介绍厨房。\n\n第二段介绍收纳。');await articleForm.locator('[type=submit]').click();
+  const article=page.locator('#content-radar article').filter({hasText:'厨房文章样本'});await article.waitFor();await article.getByText('公众号 · 粘贴样本，未独立核实',{exact:false}).waitFor();
+  const savedDecision=page.waitForResponse(r=>r.url().endsWith('/api/radar-decision')&&r.request().method()==='POST');await article.locator('[data-radar-work]').selectOption('now');assert.equal((await savedDecision).status(),200);
+  const result=await (await context.request.get(`http://127.0.0.1:${port}/api/acquisition`)).json(),business=result.workspace.customers.find(c=>c.id==='b'),work=result.workspace.acquisition.works.find(w=>w.title==='厨房文章样本');
+  assert.equal(work.description,'第一段介绍厨房。\n\n第二段介绍收纳。');assert.equal(business.radarDecisions[work.id].action,'now');
+  await page.locator('[data-radar-filter]').selectOption('公众号');await page.locator('#content-radar article').filter({hasText:'厨房文章样本'}).waitFor();assert.equal(await page.locator('[data-radar-filter]').inputValue(),'公众号');
+  console.log('PASS: benchmark, reference and topic pagination; delayed response isolation; article radar import and platform filter');
+}finally{process.chdir(root);await browser?.close();if(server&&server.exitCode===null){server.kill('SIGKILL');await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true});}

@@ -14,7 +14,7 @@ import { llmSettings, saveLlmSettings, syncModels, testLlm, semanticFor } from '
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, createReadStream } from 'node:fs';
 import { join } from 'node:path';
 import multer from 'multer';
 import { dataDir } from './store.ts';
@@ -732,6 +732,8 @@ const draftSchema = z.object({
   origin: z.enum(['original', 'clone']).default('clone'),
   visibility: z.enum(['public', 'private']),
   accountId: z.string().min(1),
+  productionNotes: z.string().max(120_000).optional(),
+  hartaSource: z.object({customerId:z.string().min(1).max(200),packId:z.string().min(1).max(200),platform:z.enum(['小红书','抖音']),index:z.number().int().min(0).max(10000),draftVersion:z.number().int().min(1),sourceRevision:z.string().regex(/^[a-f0-9]{64}$/),basisRevision:z.string().regex(/^[a-f0-9]{64}$/).optional()}).optional(),
 });
 app.post('/api/drafts', (req, res) => {
   const input = draftSchema.parse(req.body);
@@ -1217,18 +1219,32 @@ app.get('/api/drafts/:id/bundle', async (req, res) => {
     res.status(404).json({ error: '草稿不存在' });
     return;
   }
+  let videoFile = '';
+  if (d.kind === 'video') {
+    const match = /^\/api\/media\/([a-f0-9-]+\.(mp4|webm|mov))$/.exec(d.video || '');
+    if (!match || !existsSync(join(uploads, match[1]))) {
+      res.status(404).json({ error: '视频素材不存在，请重新选择本地视频后保存' });
+      return;
+    }
+    videoFile = match[1];
+  }
   const zip = new JSZip();
   zip.file('draft.json', JSON.stringify(d, null, 2));
   zip.file('正文.txt', `${d.title}\n\n${d.body}\n\n${d.tags.map((t) => '#' + t).join(' ')}`);
+  if (d.productionNotes) zip.file('制作说明.txt', d.productionNotes);
   for (let i = 0; i < d.images.length; i++) {
     const im = d.images[i];
     const asset = await imageAsset(im);
     zip.file(`images/${i + 1}.${asset.extension}`, asset.bytes);
   }
+  if (videoFile) zip.file(`video.${videoFile.split('.').at(-1)}`, createReadStream(join(uploads, videoFile)), { compression: 'STORE' });
   res
     .type('application/zip')
-    .attachment(`openfind-draft-${d.id}.zip`)
-    .send(await zip.generateAsync({ type: 'nodebuffer' }));
+    .attachment(`openfind-draft-${d.id}.zip`);
+  const stream = zip.generateNodeStream({ type:'nodebuffer', streamFiles:true, compression:'DEFLATE' });
+  stream.on('error', () => res.destroy());
+  res.on('close', () => stream.destroy());
+  stream.pipe(res);
 });
 if (existsSync(resolve('dist'))) {
   app.use(express.static(resolve('dist')));

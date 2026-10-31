@@ -4,7 +4,7 @@ import { commentJob, scopedComments, withinCommentWindow, type CommentScope } fr
 import { hartaHandoff } from '../api';
 import { SalesWorkbench, SalesMetrics } from './SalesWorkbench';
 import { AssessmentDetails } from './AssessmentDetails';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   MessageSquareText,
   Users,
@@ -44,10 +44,14 @@ export function Comments() {
     [query, setQuery] = useState(''),
     [days, setDays] = useState(data.settings.mode === 'live' ? '7' : 'all'),
     [kind, setKind] = useState(data.settings.mode === 'live' ? 'intent' : 'all'),
-    [view, setView] = useState('terminal'),
+    [view, setView] = useState('reading'),
     [selected, setSelected] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
-    [focused, setFocused] = useState<Comment | null>(null);
+    [focusedId, setFocusedId] = useState('');
+  const focused=data.comments.find(c=>c.id===focusedId)||null;
+  const inspector=useRef<HTMLElement>(null);
+  const setFocused=(comment:Comment|null)=>setFocusedId(comment?.id||'');
+  useEffect(()=>{if(focusedId && matchMedia('(max-width: 760px)').matches)inspector.current?.scrollIntoView({block:'start',behavior:'instant'});},[focusedId]);
   const job = commentJob(jobs, noteId, jobId);
   const target = data.notes.find((n) => n.id === noteId);
   useEffect(() => {
@@ -57,7 +61,7 @@ export function Comments() {
     }
   }, [commentNoteId]);
   useEffect(() => {
-    setSelected([]);
+    setSelected([]);setFocusedId('');
   }, [noteId, scope, jobId, kind, days, query]);
   const comments = useMemo(
     () => scopedComments(data.comments, noteId, scope, job),
@@ -93,6 +97,8 @@ export function Comments() {
       (a, b) =>
         assessment(b).score - assessment(a).score || b.createdAt.localeCompare(a.createdAt),
     );
+  useEffect(()=>{if(focusedId && !shown.some(c=>c.id===focusedId))setFocusedId('');},[data.comments,focusedId,shown]);
+  const focusedIndex=shown.findIndex(c=>c.id===focusedId);
   async function start() {
     if (!noteId) return;
     setBusy(true);
@@ -124,7 +130,7 @@ export function Comments() {
         r.restricted
           ? `已保存 ${r.added} 条；${r.restricted} 条涉及敏感主题，不建立个人营销画像`
           : r.added
-            ? `已保存 ${r.added} 位客户，重复客户已去重`
+            ? `已保存 ${r.added} 位候选，请继续核实需求；重复候选已去重`
             : '所选客户已在线索库中',
       );
       setSelected([]);
@@ -155,13 +161,38 @@ export function Comments() {
           </button>
         }
       />
-      <div className="discover-layout">
-        <section className="panel search-panel">
-          <div className="section-title">
-            <MessageSquareText size={17} />
-            <h2>采集设置</h2>
+      <div className="comment-workbench">
+        <section className="panel comment-source-bar" aria-label="目标作品与采集设置">
+          <div className="comment-source-context"><WorkSource key={noteId} note={target} /></div>
+          <div className="comment-collection-actions">          <div className="search-actions">
+            <button
+              className="btn primary"
+              disabled={busy || data.jobs.some((j) => j.status === 'running') || !noteId}
+              onClick={() => void start()}
+            >
+              {busy ? (
+                <Busy />
+              ) : (
+                <>
+                  <MessageSquareText size={15} />
+                  开始采集
+                </>
+              )}
+            </button>
+            <button
+              className="stop-btn"
+              aria-label="停止评论采集"
+              disabled={job?.status !== 'running'}
+              onClick={() => void stop()}
+            >
+              <Square size={14} />
+            </button>
           </div>
-          <CollectedWorkPicker value={noteId} onChange={chooseNote} />
+          {job?.source === 'demo' && <p className="field-hint">演示评论</p>}
+</div>
+          <details className="comment-collection-setup">
+            <summary>{target?'更换作品与采集设置':'选择作品与采集设置'}</summary>
+            <div className="comment-collection-fields">          <CollectedWorkPicker value={noteId} onChange={chooseNote} />
           <details className="workflow-details"><summary>作品 ID</summary>
           <label className="field-label" htmlFor="comment-note-id">
             笔记 ID
@@ -212,33 +243,10 @@ export function Comments() {
               </select>
             </div>
           </div>
-          <WorkSource key={noteId} note={target} />
-          <div className="search-actions">
-            <button
-              className="btn primary"
-              disabled={busy || data.jobs.some((j) => j.status === 'running') || !noteId}
-              onClick={() => void start()}
-            >
-              {busy ? (
-                <Busy />
-              ) : (
-                <>
-                  <MessageSquareText size={15} />
-                  开始采集
-                </>
-              )}
-            </button>
-            <button
-              className="stop-btn"
-              aria-label="停止评论采集"
-              disabled={job?.status !== 'running'}
-              onClick={() => void stop()}
-            >
-              <Square size={14} />
-            </button>
-          </div>
-          {job?.source === 'demo' && <p className="field-hint">演示评论</p>}
+</div>
+          </details>
         </section>
+        <div className="comment-reading-grid">
         <section className="results-panel">
           {job && (
             <section className="panel comment-task-status" aria-label="评论采集状态">
@@ -395,7 +403,7 @@ export function Comments() {
                   ['all', '全部'],
                   ['root', '一级评论'],
                   ['reply', '楼中楼'],
-                  ['intent', '高意向'],
+                  ['intent', '建议核实'],
                 ].map(([id, t]) => (
                   <button
                     key={id}
@@ -427,6 +435,7 @@ export function Comments() {
                 </select>
               </label>
               <div className="display-switch">
+                <button className={view==='reading'?'active':''} aria-label="阅读视图" aria-pressed={view==='reading'} onClick={()=>setView('reading')}><MessageSquareText size={16}/></button>
                 <button
                   className={view === 'terminal' ? 'active' : ''}
                   aria-label="实时终端"
@@ -462,22 +471,22 @@ export function Comments() {
                 }
               >
                 <UserPlus size={14} />
-                保存高意向客户
+                保存建议核实的候选
               </button>
             </div>
-            <div className="live-bar">
+            <div className={`live-bar ${view==='reading'?'comment-live-status':''}`}>
               <span>
-                <i /> {job?.status === 'running' ? 'LIVE' : 'SAVED'}
+                <i /> {job?.status === 'running' ? '采集中' : '已保存'}
               </span>
               <b>
-                {job?.status === 'running' ? 'CAPTURING' : 'COMMENTS'}
-                <span>· {shown.length} CAPTURED</span>
+                {job?.status === 'running' ? '接收评论' : '评论记录'}
+                <span> · {shown.length} 条</span>
               </b>
               <SourceTag source={job?.source || target?.source || 'live'} />
-              <span className="live-bar-right">ROOT + REPLY</span>
+              <span className="live-bar-right">一级评论与回复</span>
             </div>
             {shown.length ? (
-              <div className={view === 'terminal' ? 'comments-terminal' : 'comments-table'}>
+              <div className={view === 'reading' ? 'comments-feed' : view === 'terminal' ? 'comments-terminal' : 'comments-table'}>
                 <div className="comment-table-head">
                   <label>
                     <input
@@ -498,7 +507,7 @@ export function Comments() {
                 {shown.map((c, i) => (
                   <div
                     key={c.id}
-                    className={`comment-row ${c.parentId ? 'is-reply' : ''} ${selected.includes(c.id) ? 'is-selected' : ''}`}
+                    className={`comment-row ${c.parentId ? 'is-reply' : ''} ${selected.includes(c.id) ? 'is-selected' : ''} ${focusedId===c.id?'is-reading':''}`}
                   >
                     <label>
                       <input
@@ -510,7 +519,7 @@ export function Comments() {
                     </label>
                     <span className="comment-type">
                       <b className={c.parentId ? 'reply' : 'root'}>
-                        [{c.parentId ? 'REPLY' : 'ROOT'}]
+                        {view==='terminal'?`[${c.parentId?'REPLY':'ROOT'}]`:c.parentId?'楼中楼回复':'一级评论'}
                       </b>
                       <time>
                         {new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false })}
@@ -520,12 +529,12 @@ export function Comments() {
                       {c.author}
                     </button>
                     <span className="comment-region">{c.region || '未知'}</span>
-                    <button className="comment-content" onClick={() => setFocused(c)}>
+                    <button className="comment-content" aria-controls="comment-inspector" aria-expanded={focusedId===c.id} onClick={() => setFocused(c)}>
                       {c.parentId && <span className="reply-arrow">↳ </span>}
                       {c.body || '无文字评论'}
                     </button>
-                    <span className={`intent-mini ${assessment(c).score >= 50 ? 'high' : ''}`}>
-                      {assessment(c).score}
+                    <span title="规则排序分，不代表购买概率" className={`intent-mini ${assessment(c).score >= 50 ? 'high' : ''}`}>
+                      {view==='reading'?(assessment(c).recommended?'建议核实':'查看依据')+' · ':''}{assessment(c).score}
                     </span>
                   </div>
                 ))}
@@ -571,10 +580,11 @@ export function Comments() {
             </div>
           )}
         </section>
-      </div>
-      {focused && (
-        <Modal title="评论与客户信息" onClose={() => setFocused(null)}>
-          <div className="modal-body">
+        <aside className="panel comment-inspector" id="comment-inspector" ref={inspector} aria-label="评论详情与核实">
+          <header><h2>评论详情</h2>{focused && <button className="btn small" onClick={()=>setFocused(null)}>收起详情</button>}</header>
+      {focused ? (
+          <div className="comment-inspector-body">
+            <div className="comment-reading-position"><span>当前筛选第 {focusedIndex+1} / {shown.length} 条</span><div><button className="btn small" disabled={focusedIndex<=0} onClick={()=>setFocused(shown[focusedIndex-1])}>上一条评论</button><button className="btn small" disabled={focusedIndex<0||focusedIndex>=shown.length-1} onClick={()=>setFocused(shown[focusedIndex+1])}>下一条评论</button></div></div>
             <div className="customer-profile">
               <span className="profile-avatar">{focused.author.slice(0, 1)}</span>
               <div>
@@ -596,7 +606,7 @@ export function Comments() {
                 {data.comments.find((c) => c.id === focused.parentId)?.body || focused.parentId}
               </p>
             )}
-            <p className="field-hint">评论时间：{focused.createdAt ? new Date(focused.createdAt).toLocaleString('zh-CN') : '未知'} · 意向 {assessment(focused).score}</p>
+            <p className="field-hint">评论时间：{focused.createdAt ? new Date(focused.createdAt).toLocaleString('zh-CN') : '未知'} · 规则排序 {assessment(focused).score}（不是购买概率）</p>
             <AssessmentDetails assessment={assessment(focused)} />
             <div className="modal-action-row">
               <button
@@ -607,7 +617,13 @@ export function Comments() {
                   )
                 }
               >
-                在 Harta 核实并跟进
+                核实需求并跟进
+              </button>
+              <button
+                className="btn"
+                onClick={() => void hartaHandoff(focused.noteId, focused.id, 'topic').catch((e) => notify(e.message, true))}
+              >
+                提炼为内容选题
               </button>
               <button
                 className="btn"
@@ -631,8 +647,10 @@ export function Comments() {
               </button>
             </div>
           </div>
-        </Modal>
-      )}
+      ) : <div className="comment-inspector-empty"><MessageSquareText size={32}/><h3>先读原话，再判断需求</h3><p>选择一条评论，在这里核对作品语境和判断依据，再决定进入客户跟进，或提炼为创作选题。</p></div>}
+        </aside>
+        </div>
+      </div>
     </>
   );
 }

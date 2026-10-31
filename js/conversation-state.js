@@ -7,3 +7,10 @@ export function unansweredMessages(messages = []) {
   return [...latest.values()].filter(incoming => !messages.some(message =>
     ['sent_manual','sent_platform'].includes(message.status) && message.replyTo === incoming.id && messageTime(message) >= messageTime(incoming)));
 }
+
+// Older records may only have the flag; once messages exist, their actual
+// thread state is authoritative and an old flag must not revive a reply.
+export function leadNeedsReply(lead = {}) {
+  const messages=lead.messages || [];
+  return messages.some(m=>m.direction==='inbound') ? unansweredMessages(messages).length>0 : Boolean(lead.needsReply);
+}

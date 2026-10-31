@@ -1,0 +1,20 @@
+:root,[data-theme="light"]{
+ --font-ui:"Source Han Sans SC","PingFang SC",Inter,"Microsoft YaHei",sans-serif;--font-display:var(--font-ui);
+ --page:#eef1ec;--wash:#eef1ec;--bg:#fafcf7;--panel-2:#e5ebe1;--zone:#f2f5ee;
+ --ink-1:#1b281e;--ink-2:#415043;--ink-3:#566456;--border:#cdd6c8;--rule:#73836d;
+ --accent:#405e0b;--accent-2:#14616e;--accent-3:#405e0b;--accent-soft:#e4edd2;--on-accent:#f7fbea;
+ --studio-content:#14616e;--studio-content-soft:#e1eff0;
+ --rail:var(--bg);--rail-ink:var(--ink-2);--rail-ink-active:var(--ink-1);
+ --control-bg:var(--bg);--control-ink:var(--ink-1);--control-border:#929f8c;
+ --feature-bg:var(--zone);--feature-ink:var(--ink-1);--block-orange:var(--accent);--block-ink:var(--on-accent);--block-purple:var(--panel-2);--block-light:var(--ink-1);--block-ice:var(--studio-content-soft);--block-sage:var(--accent-soft);
+ --ui-brand:var(--accent);--ui-brand-hover:#304908;--ui-brand-soft:var(--accent-soft);--ui-surface:var(--bg);--ui-ink:var(--ink-1);--ui-muted:var(--ink-3);--ui-border:var(--border);--ui-radius:10px;
+ --up:#32623c;--down:#a63138;--warn:#805219;--shadow:none;--paper-shadow:none;--r:12px;--r-sm:8px;
+}
+[data-theme="dark"]{
+ --page:#0b1016;--wash:#0b1016;--bg:#131b23;--panel-2:#202c36;--zone:#17212a;
+ --ink-1:#edf2f5;--ink-2:#bac6cf;--ink-3:#9eabb7;--border:#303e49;--rule:#82929f;
+ --accent:#d6ff64;--accent-2:#83ddf6;--accent-3:#d6ff64;--accent-soft:#26341e;--on-accent:#19220f;
+ --studio-content:#83ddf6;--studio-content-soft:#19313c;
+ --control-border:#5d707e;--ui-brand-hover:#e3ff96;
+ --up:#9adaad;--down:#ff9d9f;--warn:#f5cc84;
+}

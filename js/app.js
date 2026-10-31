@@ -1,7 +1,8 @@
+import { creationIntentLabel } from './creation-intent.js';
 import { openAcquisitionPage, acquisitionActiveSection, resumeAcquisitionRoute } from './openfind-workbench.js';
-import { installCommerceUI, renderCommerceUI, resumeOpenFindHandoff } from './commerce-ui.js';
+import { installCommerceUI, renderCommerceUI, resumeOpenFindHandoff, setContentWorkspaceTab, contentWorkspaceTab, preserveCommerceDrafts } from './commerce-ui.js';
 import { installResponsiveNavigation } from './responsive-navigation.js';
-import { renderGrowthSettings, renderPostGrowth, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
+import { renderGrowthSettings, renderPostGrowth, renderProduction, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
 import { installAcquisitionUI, renderAcquisitionUI, refreshAcquisition, openPublication, openAcquisitionContext } from './acquisition-ui.js';
 import { renderRecommendation, renderMaterialSuggestion, renderCreationPlan } from './content-plan.js';
 import { GROWTH_GOALS, growthGoal } from './growth.js';
@@ -31,6 +32,13 @@ import {
 } from "./customer-view.js";
 
 const updateNavigation = installResponsiveNavigation();
+document.addEventListener('harta-content-tab',event=>{
+  if(state.view!=='content-home')return;
+  const active=event.detail==='review'?'account-review':'content-home';
+  document.querySelectorAll('.rail [data-nav]').forEach(a=>{const on=a.dataset.nav===active;a.classList.toggle('on',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  updateNavigation(active);
+  const heading=document.querySelector('#cm-content-home h1');if(heading)heading.textContent=event.detail==='review'?'账号复盘':'内容创作';
+});
 const state = {
   view: "workbench",
   customerStageFilter: 'all',
@@ -711,13 +719,17 @@ function addMaterialFiles(files) {
 }
 
 function nav(view) {
+  preserveCommerceDrafts();
+  if(view==='account-review'){setContentWorkspaceTab('review');view='content-home';}
+  if (view === 'crew') void loadCrew();
   if (view === 'prospecting') { openAcquisitionPage('discover'); return; }
   if (view !== 'openfind' && new URLSearchParams(location.search).has('acqPage')) history.replaceState(null, '', '/');
   state.view = view;
-  const activeView = view === 'today' ? (state.contentOnly || !currentPack() || currentPack()?.tier === '今日' ? 'content-home' : 'pack') : view === 'acquisition' ? (document.querySelector('[data-view=acquisition]').dataset.journey === 'content' ? 'content-home' : 'prospecting') : view === 'leads' ? 'conversations' : view === 'openfind' ? acquisitionActiveSection() : ['prospecting-archive','review'].includes(view) ? 'prospecting' : view;
+  const activeView = view === 'content-home' && contentWorkspaceTab()==='review' ? 'account-review' : view === 'today' ? (state.contentOnly || !currentPack() || currentPack()?.tier === '今日' ? 'content-home' : 'pack') : view === 'acquisition' ? (document.querySelector('[data-view=acquisition]').dataset.journey === 'content' ? 'content-home' : 'prospecting') : view === 'leads' ? 'conversations' : view === 'openfind' ? acquisitionActiveSection() : ['prospecting-archive','review'].includes(view) ? 'prospecting' : view;
   updateNavigation(activeView);
   const secondary=document.querySelector(`.rail-more [data-nav="${activeView}"]`);
-  document.querySelector('.rail-more').open=Boolean(secondary);
+  document.querySelector('.rail-more').open=false;
+  document.querySelector('.rail-more').classList.toggle('has-current',Boolean(secondary));
   renderAcquisitionUI();
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const on = a.dataset.nav === activeView;
@@ -860,7 +872,7 @@ function renderContentConsole(pack, customer, hardRows) {
   if(kindFilter) {kindFilter.querySelector('option[value="copy"]').disabled=organic;kindFilter.querySelector('option[value="all"]').textContent=organic?'完整平台内容':'文案与平台版本';}
   const platformsInBatch = platformOutcomes({ id: customer.id, drops: [pack] }, state.workspace.contentStates, state.workspace.feedback);
   const itemRisks = [...document.querySelectorAll("[data-content-item][data-risk=\"1\"]")].length;
-  document.getElementById("content-batch-title").textContent = `${pack.date || pack.deliveredAt || pack.createdAt || "本次"} · ${pack.batch ? `第 ${pack.batch} 批` : "内容批次"}`;
+  document.getElementById("content-batch-title").textContent = `${pack.date || pack.deliveredAt || pack.createdAt || "本次"} · ${pack.batch ? `第 ${pack.batch} 批` : "内容批次"}${pack.origin?.requestedPlatform ? ` · ${pack.origin.requestedPlatform}` : ''}${pack.origin?.format === 'image' ? ' · 图文' : pack.origin?.format === 'video' ? ' · 短视频' : ''}`;
   document.getElementById("content-summary").innerHTML = [
     ["基础文案", counts.total],
     ["基础已发", counts.published],
@@ -1007,6 +1019,7 @@ function renderToday() {
     facts.push(`${pack.deliveredAt || pack.createdAt || pack.date || "历史批次"} 出的`);
     if (headCount) facts.push(headCount);
     facts.push(`${nCopy} 条`);
+    if(creationIntentLabel(pack.origin))facts.push(`创作用途：${creationIntentLabel(pack.origin)}`);
     if (fields && fields !== "尚未确定主平台") facts.push(`主平台 ${fields}`);
   }
   // 这行事实是日期/条数目录，不是正文句子
@@ -1462,7 +1475,7 @@ function renderToday() {
   // 一个「复制这条」按钮解决不了，那是把三个字段当成一句话。
   const outcomesByKey = new Map(attributionEntries(pack).map((entry) => [entry.key, entry]));
   const platBlock = (s, kind) => {
-    const specific = deliveryFields(s.name);
+    const specific = deliveryFields(s.name,{format:pack.origin?.format});
     const fields = specific.length ? specific : state.platformFields[s.name] || [{ key: "title", label: "文案" }];
     const items = s.lines
       .map((raw, localIndex) => {
@@ -1498,7 +1511,7 @@ function renderToday() {
             ${pack.origin?.mode !== "organic" ? `<button type="button" class="verdict ${outcome === "replied" ? "on-yes" : ""}" data-fb="${esc(outcomeKey)}" data-val="replied" aria-pressed="${outcome === "replied"}">有客户反馈</button>
             <button type="button" class="verdict ${outcome === "dead" ? "on-no" : ""}" data-fb="${esc(outcomeKey)}" data-val="dead" aria-pressed="${outcome === "dead"}">没反应</button>` : ""}
             <button type="button" class="textish" data-record-outcome="${esc(outcomeKey)}">记询价 / 成交</button>
-          </div></div>` : ""}</div>`;
+          </div></div>${renderProduction(mine.id,pack,s.name,idx,mine.creatorPackSettings)}${pack.origin?.mode!=='organic'?renderPostGrowth(mine.id,pack,s.name,idx,state.workspace.acquisition?.accounts || [],state.workspace.acquisition?.publications || [],state.workspace.acquisition?.leads || [],true,mine.growthGoal,state.workspace.acquisition?.signals || [],state.workspace.acquisition?.works || []):''}` : ""}</div>`;
       })
       .join("");
     return `<section class="plat ${kind}"${isContentPack ? " data-content-container" : ""}><h3>${esc(s.name)}<span>${kind === "is-main" ? "主平台" : "适配版本"}</span></h3>${items}</section>`;
@@ -1538,7 +1551,7 @@ function renderToday() {
       const fullText=[title,edited(pack,shellKey(s.name,index,'body'),item.body || '')].filter(Boolean).join('\n\n');
       const copyPost=publishBlocked ? '<button type="button" class="btn" disabled>修改后可复制</button>' : `<button type="button" class="btn" data-copy="${encodeURIComponent(fullText)}" data-copy-whole-post="${esc(shellFeedbackKey(pack.id,s.name,index))}">复制标题和正文</button>`;
 
-      return `<article class="sleeve sleeve-across" data-content-container><div class="sleeve-tab"><span><i class="sleeve-num">${index+1}</i>${esc(title)}</span><span>${esc(s.name)} · 完整内容</span></div><div class="sleeve-body">${renderRecommendation(pack,s.name,index)}<div class="acts">${copyPost}</div>${platBlock({...s,lines:[raw],offset:index},'is-main')}${renderPostGrowth(mine.id,pack,s.name,index)}</div></article>`;
+      return `<article class="sleeve sleeve-across" data-content-container><div class="sleeve-tab"><span><i class="sleeve-num">${index+1}</i>${esc(title)}</span><span>${esc(s.name)} · 完整内容</span></div><div class="sleeve-body">${renderRecommendation(pack,s.name,index)}<div class="acts">${copyPost}</div>${platBlock({...s,lines:[raw],offset:index},'is-main')}${renderPostGrowth(mine.id,pack,s.name,index,state.workspace.acquisition?.accounts || [],state.workspace.acquisition?.publications || [],state.workspace.acquisition?.leads || [],false,mine.growthGoal,state.workspace.acquisition?.signals || [],state.workspace.acquisition?.works || [])}</div></article>`;
     })).join('')}</div>${renderMaterialSuggestion(pack)}`;
     platBox.innerHTML='';
   }
@@ -1870,6 +1883,7 @@ function bind() {
     if (navEl) {
       e.preventDefault();
       if(navEl.dataset.nav==='acquisition'){openAcquisitionContext(usingCustomer()?.id||'','content');return;}
+      if(navEl.dataset.nav==='content-home')setContentWorkspaceTab('library');
       nav(navEl.dataset.nav);
       if (navEl.tagName === "BUTTON" && navEl.dataset.nav === "customers") {
         document.getElementById("customer-create-panel").open = true;
@@ -2306,7 +2320,7 @@ async function loadCrew() {
   const res = await fetch("/api/overview");
   if (res.status === 403 || res.status === 401) return;
   if (!res.ok) return;
-  const { hunts = [], talks = [] } = await res.json();
+  const { hunts = [], talks = [], members = [] } = await res.json();
   const line = document.getElementById("crew-line");
   const top = hunts.find((h) => h.replied > 0 || h.deals > 0);
   if (line) {
@@ -2331,6 +2345,8 @@ async function loadCrew() {
         )
         .join("")
     : `<p class="meta">还没有客户。</p>`;
+  const mbox = document.getElementById("crew-members");
+  if (mbox) mbox.innerHTML = members.length ? members.map(m => `<article class="row hunt-stat"><div class="row-main"><div class="row-head"><strong>${esc(m.email)}</strong></div><p class="meta">最近发布：${esc(m.lastPublished ? new Date(m.lastPublished).toLocaleDateString('zh-CN') : '无记录')} · 最近记录：${esc(m.lastRecorded ? new Date(m.lastRecorded).toLocaleDateString('zh-CN') : '无记录')}</p>${m.lastReview ? `<p>最新采用的复盘假设 · ${esc(m.lastReview.customer)}：${esc(m.lastReview.text)}</p>` : '<p class="meta">暂无可用的复盘假设</p>'}</div><div class="stat-pills"><span><b>${m.customers}</b> 业务</span><span><b>${m.published}</b> 已登记发布</span><span><b>${m.waiting}</b> 待回复联系人</span><span><b>${m.reviewDue}</b> 待回看作品</span></div></article>`).join('') : '<p class="meta">暂无成员记录。</p>';
   const tbox = document.getElementById("crew-talks");
   if (tbox) {
     tbox.innerHTML = talks.length
@@ -2353,6 +2369,7 @@ async function boot() {
     location.href = "/login.html";
     return;
   }
+  if (!me.ok) throw new Error(me.status===429?'请求过于频繁，请稍候再试。':'无法验证登录状态，请检查连接后重试。');
   const user = await me.json();
   const who = document.getElementById("who");
   who.textContent = user.email;
@@ -2390,7 +2407,9 @@ async function boot() {
   if (pf.ok) state.platformFields = (await pf.json()).fields || {};
 
   const space = await fetch("/api/workspace");
-  if (space.ok) state.workspace = await space.json();
+  if (space.status === 401) { location.href = "/login.html"; return; }
+  if (!space.ok) throw new Error(space.status===429?"请求过于频繁，请稍候再试。":"无法读取工作台，请检查服务连接后重试。");
+  state.workspace = await space.json();
   await refreshAcquisition();
   bindEyes();
   renderToday();
@@ -2412,6 +2431,8 @@ async function boot() {
   }
   if (user.isAdmin) {
     loadLlm();
+    document.getElementById('image-model-settings')?.classList.remove('hidden');
+    loadImageModel();
     loadUsers();
     document.getElementById("nav-crew")?.classList.remove("hidden");
     loadCrew();
@@ -2422,6 +2443,20 @@ async function boot() {
     history.replaceState(null, "", "/");
   }
 }
+
+async function loadImageModel() {
+  try {
+    const response=await fetch('/api/image-model');if(!response.ok)throw new Error('无法读取出图设置');
+    const config=await response.json();document.getElementById('image-model-url').value=config.baseUrl || '';document.getElementById('image-model-name').value=config.model || '';
+    document.getElementById('image-model-request-mode').value=config.requestMode || 'auto';
+    document.getElementById('image-model-status').textContent=config.hasKey?'已保存密钥；留空可保留。':'尚未配置出图密钥。';
+  } catch(error) { document.getElementById('image-model-status').textContent=error.message; }
+}
+document.getElementById('image-model-save')?.addEventListener('click',async event=>{
+  const button=event.currentTarget,status=document.getElementById('image-model-status');button.disabled=true;
+  try {const response=await fetch('/api/image-model',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:document.getElementById('image-model-url').value,model:document.getElementById('image-model-name').value,requestMode:document.getElementById('image-model-request-mode').value,apiKey:document.getElementById('image-model-key').value,clearKey:document.getElementById('image-model-clear').checked})});const result=await response.json();if(!response.ok)throw new Error(result.error || '保存失败');document.getElementById('image-model-key').value='';document.getElementById('image-model-clear').checked=false;status.textContent=result.hasKey?'已保存出图设置和密钥。':'设置已保存，尚无密钥。';}
+  catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+});
 
 document.getElementById("nav-logout")?.addEventListener("click", async (e) => {
   e.preventDefault();
@@ -3537,16 +3572,19 @@ installCommerceUI({getWorkspace:()=>state.workspace,setWorkspace:value=>{state.w
   getContentCustomer:usingCustomer,
   getBusiness:()=>state.openedId || state.workspace.usingId,
   setBusiness:id=>{state.openedId=id;state.packId='';},
-  openContent:async(id,packId='')=>{if(await useCustomer(id,packId,!state.workspace.customers.find(c=>c.id===id)?.packs?.some(p=>p.id===packId)))document.querySelector('[data-workspace-view=content]')?.click();},
-  openLegacy:(id,mode)=>openAcquisitionContext(id,mode==='legacy'?'content':mode),
+  openContent:async(id,packId='')=>{const opened=await useCustomer(id,packId,!state.workspace.customers.find(c=>c.id===id)?.packs?.some(p=>p.id===packId));if(opened)document.querySelector('[data-workspace-view=content]')?.click();return opened;},
+  openLegacy:(id,mode,source)=>openAcquisitionContext(id,mode==='legacy'?'content':mode,source),
   openLegacyLead:(id,leadId)=>openAcquisitionContext(id,'leads',leadId)
 });
-boot();
+boot().catch(error=>{
+  const overlay=document.createElement('section');overlay.className='startup-error';overlay.setAttribute('role','alertdialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-labelledby','startup-error-title');
+  const card=document.createElement('div'),title=document.createElement('h1'),message=document.createElement('p'),retry=document.createElement('button');title.id='startup-error-title';title.textContent='工作台暂时无法打开';message.textContent=error?.message==='请求过于频繁，请稍候再试。'?error.message:'无法读取工作台，请检查服务连接后重试。';retry.type='button';retry.className='btn';retry.textContent='重新加载';retry.addEventListener('click',()=>location.reload());card.append(title,message,retry);overlay.append(card);document.body.append(overlay);document.getElementById('work')?.setAttribute('inert','');document.getElementById('harta-navigation')?.setAttribute('inert','');retry.focus();
+});
 
 function showResearchConfig(config) {
   document.getElementById("research-rsshub-url").value = config.rsshubUrl || "";
   document.getElementById("research-searxng-url").value = config.searxngUrl || "";
-  document.getElementById("research-config-status").textContent = `5118：${config.keywordReady ? "已配置" : "未配置"}；外部搜索：${config.searxngReady ? "SearXNG 已配置" : config.searchReady ? "Brave 已配置" : "未配置"}；行业资讯：${config.rsshubReady ? "RSSHub 已配置" : "未配置"}；正文读取：${config.crawlerReady ? "Crawl4AI 已安装" : "基础读取器"}。`;
+  document.getElementById("research-config-status").textContent = `5118：${config.keywordReady ? "已配置" : "未配置"}；外部搜索：${config.searxngReady && config.searchReady ? "SearXNG 与 Brave 已配置（备用搜索可能收费）" : config.searxngReady ? "SearXNG 已配置" : config.searchReady ? "Brave 已配置" : "未配置"}；行业资讯：${config.rsshubReady ? "RSSHub 已配置" : "未配置"}；正文读取：${config.crawlerReady ? "Crawl4AI 已安装" : "基础读取器"}。`;
 }
 function renderGrowthResearch(customer, pack) {
   renderGrowthSettings(customer);
@@ -3711,7 +3749,7 @@ document.getElementById('expand-keywords')?.addEventListener('click', async even
   const scopeSelect = document.getElementById('keyword-scope-name');
   const scopeName = (scopeSelect.value === '__new__' ? document.getElementById('keyword-scope-new').value : scopeSelect.value).trim();
   const button = event.currentTarget; button.disabled = true;
-  status.textContent = '正在取下拉词，并把扩展词和你自己的评论对一遍…';
+  status.textContent = '正在取下拉词，并与当前业务资料、真实评论和对标作品比对…';
   try {
     const response = await fetch('/api/keywords/expand', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ customerId: customer.id, seeds, scopeType: document.getElementById('keyword-scope-type').value, scopeName: scopeName || customer.hunt }) });
     const data = await response.json();
@@ -3719,7 +3757,7 @@ document.getElementById('expand-keywords')?.addEventListener('click', async even
     state.workspace = data.workspace; renderToday();
     const batch = data.batch;
     const hit = (batch.items || []).filter(row => row.corpusHit > 0).length;
-    status.textContent = `已扩展 ${batch.items.length} 个词并入词库${hit ? `，其中 ${hit} 个在你自己的评论或对标正文里出现过` : '，暂时没有真实语料可比对'}。${(batch.warnings || []).join(' ')}`;
+    status.textContent = `已扩展 ${batch.items.length} 个词并入词库${hit ? `，其中 ${hit} 个在当时业务资料、真实评论或对标作品里出现过` : '，未命中当时的业务资料、真实评论或对标作品'}。${(batch.warnings || []).join(' ')}`;
     toast('下拉词已归入词库');
   } catch (error) { status.textContent = error.message; toast(error.message); }
   finally { button.disabled = false; }

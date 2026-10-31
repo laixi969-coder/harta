@@ -1,9 +1,10 @@
+import { createStateRefresh } from './state-refresh';
 import { CustomerRecord } from './components/CustomerRecord';
 import { isAcquisitionPage } from '../../../js/acquisition-route.js';
 import { FollowUp } from './components/FollowUp';
 import { Inbox } from './components/Inbox';
 import { NavigationDialog, useMobileNavigation } from './components/Navigation';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import {
   ClipboardCheck,
   Search,
@@ -33,7 +34,7 @@ import { WorkspaceContext, type Page } from './context';
 import { Acquisition } from './components/Acquisition';
 import { Discover } from './components/Discover';
 import { Comments, Leads } from './components/Customers';
-import { Studio, Editor } from './components/Studio';
+import { Studio, Editor, type ProductionSeed } from './components/Studio';
 import { SettingsPage, HistoryPage, Guide } from './components/System';
 const navs: { id: Page; name: string; icon: typeof Search }[] = [
   { id: 'acquisition', name: '一键获客', icon: Workflow },
@@ -64,19 +65,16 @@ export default function App() {
     [page, setPage] = useState<Page>(currentPage),
     [error, setError] = useState(''),
     [toast, setToast] = useState<{ text: string; error: boolean } | null>(null),
-    [editor, setEditor] = useState<{ note?: Note; draft?: Draft } | null>(null),
+    [editor, setEditor] = useState<{ note?: Note; draft?: Draft; seed?: ProductionSeed; instance?: string } | null>(null),
     [guide, setGuide] = useState(false),
     [collapsed, setCollapsed] = useState(false),
     [commentNoteId, setCommentNoteId] = useState('');
   const notify = useCallback((text: string, error = false) => setToast({ text, error }), []);
-  const refresh = useCallback(async () => {
-    try {
-      setData(await getState());
-      setError('');
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, []);
+  const refresh = useMemo(() => createStateRefresh({
+    load: getState,
+    onSuccess: value => { setData(value); setError(''); },
+    onError: error => setError((error as Error).message),
+  }), []);
   const navigate = useCallback((p: Page) => {
     if(embedded && p === 'followup') { parent.postMessage({type:'harta-acquisition-native',view:'conversations',customerId:new URLSearchParams(location.search).get('customerId')},location.origin); return; }
     if(unsaved.current.size && !window.confirm('有未保存的修改，放弃并继续？')) return;
@@ -90,7 +88,10 @@ export default function App() {
   useEffect(() => {
     void refresh();
     void api<{name:string}>('/harta/context').then(c => setBusinessName(c.name)).catch(() => {});
-    const id = setInterval(() => void refresh(), 3000);
+    const id = setInterval(() => {
+      if (document.visibilityState === 'hidden' || (embedded && !window.frameElement?.getClientRects().length)) return;
+      void refresh();
+    }, 3000);
     const hash = () => { setPage(currentPage()); setNavigationOpen(false); if(embedded) parent.postMessage({type:'harta-acquisition-page',page:currentPage(),params:Object.fromEntries([...new URLSearchParams(location.search)].filter(([key])=>['note','lead','job','platform','workflow'].includes(key))),customerId:new URLSearchParams(location.search).get('customerId')},location.origin); };
     window.addEventListener('hashchange', hash);
     return () => {
@@ -102,6 +103,12 @@ export default function App() {
     if(!embedded) return;
     const receive = (event:MessageEvent) => {
       const message=event.data;
+      if(event.origin===location.origin && event.source===parent && message?.type==='harta-production-handoff' && message.customerId===new URLSearchParams(location.search).get('customerId')) {
+        const seed=message.seed;
+        if(!seed || !seed.hartaSource || seed.hartaSource.customerId!==message.customerId || (seed.productionNotes != null && (typeof seed.productionNotes!=='string' || seed.productionNotes.length>120000)) || typeof seed.title!=='string' || seed.title.length>12000 || typeof seed.body!=='string' || seed.body.length>12000 || !['xiaohongshu','douyin'].includes(seed.platform) || !['image','video'].includes(seed.kind) || !Array.isArray(seed.images) || seed.images.length>11 || seed.images.some((s:unknown)=>typeof s!=='string' || s.length>6*1024*1024 || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s))) return;
+        if(unsaved.current.size && !window.confirm('当前内容有未保存的修改，放弃并继续？'))return;
+        unsaved.current.clear();setPage('studio');setEditor({seed,instance:crypto.randomUUID()});notify('已带入制作草稿，请添加素材并保存到工作室');return;
+      }
       if(event.origin!==location.origin || event.source!==parent || message?.type!=='harta-acquisition-navigate' || message.customerId!==new URLSearchParams(location.search).get('customerId') || !isAcquisitionPage(message.page)) return;
       const params=new URLSearchParams(location.search);
       for(const key of ['note','lead','job','platform','workflow']) { params.delete(key); if(typeof message.params?.[key]==='string') params.set(key,message.params[key]); }
@@ -113,7 +120,7 @@ export default function App() {
     window.addEventListener('message',receive);
     parent.postMessage({type:'harta-acquisition-ready',customerId:new URLSearchParams(location.search).get('customerId')},location.origin);
     return ()=>window.removeEventListener('message',receive);
-  },[setUnsaved]);
+  },[setUnsaved,notify]);
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(null), 5000);
@@ -355,7 +362,7 @@ export default function App() {
           </button>
         )}
         {editor && (
-          <Editor note={editor.note} draft={editor.draft} onClose={() => setEditor(null)} />
+          <Editor key={editor.instance || editor.draft?.id || editor.note?.id || 'new'} note={editor.note} draft={editor.draft} seed={editor.seed} onClose={() => setEditor(null)} />
         )}
         {guide && <Guide onClose={() => setGuide(false)} />}
       </div>

@@ -20,7 +20,8 @@ export function shellKey(platform, i, field) {
 
 /** 这一条最终是什么样。没改过就是原样。 */
 export function edited(pack, key, raw) {
-  const now = pack?.edits?.[key]?.now;
+  const edit = pack?.edits?.[key], now = edit?.now;
+  if (edit?.verbatim === true && typeof now === 'string') return now;
   return cleanDeliverable(typeof now === "string" && now ? now : raw);
 }
 
@@ -45,7 +46,15 @@ export function packAsSent(pack) {
     shells[plat] = (items || []).map((raw, i) => {
       const item = typeof raw === "string" ? { title: raw } : { ...(raw || {}) };
       for (const f of CONTENT_FIELDS) {
-        if (item[f] || pack?.edits?.[shellKey(plat, i, f)]) item[f] = edited(pack, shellKey(plat, i, f), item[f] || '');
+        if (item[f] || pack?.edits?.[shellKey(plat, i, f)]) {
+          const key=shellKey(plat,i,f);
+          // Article paragraphs are part of the authored document. The general
+          // short-form cleaner collapses blank lines, so retain the article's
+          // text when it is read back, edited, restored or published.
+          if(plat==='公众号' && f==='body') {
+            const value=pack?.edits?.[key]?.now;item[f]=String(typeof value==='string'&&value?value:item[f]||'').trim();
+          } else item[f]=edited(pack,key,item[f]||'');
+        }
       }
       return item;
     });

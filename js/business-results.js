@@ -1,16 +1,36 @@
-import { unansweredMessages } from './conversation-state.js';
+import { unansweredMessages, leadNeedsReply } from './conversation-state.js';
+import { pendingPublicationReviews } from './publication-review.js';
+import { isRealEvidence } from './evidence-kind.js';
 // Current saved evidence, scoped to one business. Copies and scores never imply contact or revenue.
 const sent = m => ['sent_manual','sent_platform'].includes(m.status);
-const real = r => !r.demo && r.source !== 'demo' && r.sourceType !== 'demo';
+const real = isRealEvidence;
+// Imported comments attached to demo or missing works are not real demand.
+// Unattached manually entered records and search summaries can still be reviewed.
+function pendingSignals(acquisition,customerId) {
+ const works=acquisition.works || [];
+ return (acquisition.signals || []).filter(s=>s.customerId===customerId && real(s) && s.status==='pending' && !s.isAuthorReply && (!s.workId || real(works.find(w=>w.id===s.workId && w.customerId===customerId))));
+}
+export function actionPage(items=[], requested=0, size=12) {
+ const pages=Math.max(1,Math.ceil(items.length/size)),page=Math.max(0,Math.min(Number.isSafeInteger(requested)?requested:0,pages-1));
+ return {items:items.slice(page*size,(page+1)*size),page,pages,total:items.length};
+}
 export function businessResults(acquisition = {}, customerId) {
  const rows = key => (acquisition[key] || []).filter(r=>r.customerId===customerId&&real(r));
  const leads=rows('leads'), opportunities=rows('opportunities').filter(o=>leads.some(l=>l.id===o.leadId));
- const unique = list => new Set(list.map(l=>l.authorId ? `${l.platform}:${l.authorId}` : l.id)).size;
- return { works:rows('works').length, pending:rows('signals').filter(s=>s.status==='pending'&&!s.isAuthorReply).length,
+ const identity=l=>JSON.stringify(l.authorId&&l.platform?['platform',l.platform,l.authorId]:['record',l.id]);
+ const unique = list => new Set(list.map(identity)).size;
+ const pathsFor=l=>{const paths=(Array.isArray(l.sourcePaths)?l.sourcePaths:[]).filter(p=>['active','content','unknown'].includes(p));return paths.length?paths:['unknown'];};
+ const pathRows=path=>leads.filter(l=>pathsFor(l).includes(path));
+ const pathMetrics=list=>({contacts:unique(list),qualified:unique(list.filter(l=>['值得跟进','已联系','沟通中','已成交'].includes(l.stage))),pendingReply:unique(list.filter(l=>!l.doNotContact&&leadNeedsReply(l)))});
+ const activeIds=new Set(pathRows('active').map(identity)),contentIds=new Set(pathRows('content').map(identity));
+ const paths=Object.fromEntries(['active','content','unknown'].map(path=>[path,pathMetrics(pathRows(path))]));
+ const overlapContacts=[...activeIds].filter(id=>contentIds.has(id)).length;
+ const intents=Object.fromEntries(['buy','ad','divert'].map(kind=>[kind,{contacts:unique(leads.filter(l=>(l.intentTracks||[]).some(t=>t.kind===kind))),completed:unique(leads.filter(l=>(l.intentTracks||[]).some(t=>t.kind===kind&&t.status==='won')))}]));
+ return { paths, overlapContacts, works:rows('works').filter(w=>!w.owned).length, pending:pendingSignals(acquisition,customerId).length,
   contacts:unique(leads), qualified:unique(leads.filter(l=>['值得跟进','已联系','沟通中','已成交'].includes(l.stage))),
   contacted:unique(leads.filter(l=>(l.messages||[]).some(sent))), replied:unique(leads.filter(l=>(l.messages||[]).some(m=>m.direction==='inbound'))),
   wonNeeds:opportunities.filter(o=>o.stage==='已成交').length, wonContacts:unique(leads.filter(l=>l.stage==='已成交'||opportunities.some(o=>o.leadId===l.id&&o.stage==='已成交'))),
-  published:rows('publications').filter(p=>p.status==='published').length,
+  published:rows('publications').filter(p=>p.status==='published').length,intents,
   revenue:null, exposures:null };
 }
 export function businessActions(acquisition = {}, customerId, now=Date.now()) {
@@ -31,8 +51,9 @@ export function businessActions(acquisition = {}, customerId, now=Date.now()) {
   const l=leads.find(l=>l.id===o.leadId);if(!l)continue;
   if(!(l.messages||[]).some(m=>m.opportunityId===o.id&&(sent(m)||m.direction==='inbound')))list.push({id:o.id,action:'open-need',title:o.title,note:o.nextStep||'根据原话准备联系草稿',label:'待开场',rank:2,time:0});
  }
- const pending=rows('signals').filter(s=>s.status==='pending'&&!s.isAuthorReply).length;
+ const pending=pendingSignals(acquisition,customerId).length;
  if(pending)list.push({id:'',action:'search',title:`${pending} 条需求待核实`,note:'核对原话与业务匹配情况',label:'待核实',rank:2,time:0});
+ for(const p of pendingPublicationReviews(acquisition,customerId,now))list.push({id:p.id,action:'open-publication-review',title:p.content?.title || p.content?.cover || '已发布作品',note:`${p.platform} · 发布已满两天，回看评论和咨询；未采集不代表没有需求。`,label:'回看评论',rank:2,time:Date.parse(p.publishedAt)});
  const drafts=rows('publications').filter(p=>p.status==='pending_confirmation').length;
  if(drafts)list.push({id:'',action:'legacy',title:`${drafts} 篇待登记发布`,note:'在平台发布后登记，不自动执行',label:'待发布',rank:3,time:0});
  return list.sort((a,b)=>a.rank-b.rank||a.time-b.time);

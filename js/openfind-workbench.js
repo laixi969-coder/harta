@@ -2,7 +2,7 @@ import { acquisitionSection, isAcquisitionPage, hartaAcquisitionUrl } from './ac
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export { nativeWorkCover, nativeWorkGallery } from './work-media.js';
 const initialParams = new URLSearchParams(location.search);
-let page = isAcquisitionPage(initialParams.get('acqPage')) ? initialParams.get('acqPage') : 'discover', routeParams = Object.fromEntries(['note','lead','job','platform','workflow'].filter(key=>initialParams.has(key)).map(key=>[key,initialParams.get(key)])), context, dirty = false;
+let page = isAcquisitionPage(initialParams.get('acqPage')) ? initialParams.get('acqPage') : 'discover', routeParams = Object.fromEntries(['note','lead','job','platform','workflow'].filter(key=>initialParams.has(key)).map(key=>[key,initialParams.get(key)])), context, dirty = false, pendingProduction = null;
 export const acquisitionActiveSection = () => acquisitionSection(page);
 export function canLeaveAcquisition() {
   if(!dirty) return true;
@@ -10,12 +10,26 @@ export function canLeaveAcquisition() {
   dirty = false; return true;
 }
 export function openAcquisitionPage(next = 'discover', params = {}) {
-  if (!isAcquisitionPage(next) || !canLeaveAcquisition()) return;
+  if (!isAcquisitionPage(next) || !canLeaveAcquisition()) return false;
   dirty = false; page = next; routeParams = params;
   context?.nav('openfind');
   const frame = document.querySelector('#cm-openfind iframe');
   frame?.contentWindow?.postMessage({type:'harta-acquisition-navigate',page,params,customerId:frame.dataset.customer}, location.origin);
   updateRoute(frame?.dataset.customer);
+  return true;
+}
+function deliverProduction(frame) {
+  if(!pendingProduction)return;
+  if(page!=='studio' || frame?.dataset.customer!==pendingProduction.customerId || frame.closest('[data-view]')?.classList.contains('hidden')){pendingProduction=null;return;}
+  if(!frame.dataset.ready)return;
+  frame.contentWindow.postMessage({type:'harta-production-handoff',...pendingProduction},location.origin);
+  pendingProduction=null;
+}
+export function openStudioWithProduction(seed) {
+  if(!canLeaveAcquisition())return false;
+  context?.setBusiness?.(seed.customerId);
+  if(!openAcquisitionPage('studio'))return false;
+  pendingProduction=seed;deliverProduction(document.querySelector('#cm-openfind iframe'));return true;
 }
 function updateRoute(customerId) {
   if (!customerId) return;
@@ -37,7 +51,7 @@ export function installAcquisitionShell(ctx) {
   window.addEventListener('message',event => {
     const frame = document.querySelector('#cm-openfind iframe');
     if(event.origin !== location.origin || event.source !== frame?.contentWindow || event.data?.customerId !== frame.dataset.customer) return;
-    if(event.data.type === 'harta-acquisition-ready') frame.contentWindow.postMessage({type:'harta-acquisition-navigate',page,params:routeParams,customerId:frame.dataset.customer},location.origin);
+    if(event.data.type === 'harta-acquisition-ready') {frame.dataset.ready='1';frame.contentWindow.postMessage({type:'harta-acquisition-navigate',page,params:routeParams,customerId:frame.dataset.customer},location.origin);deliverProduction(frame);}
     if(event.data.type === 'harta-acquisition-native' && event.data.view === 'conversations') ctx.nav('conversations');
     if(event.data.type === 'harta-acquisition-dirty') dirty = Boolean(event.data.dirty);
     if(event.data.type === 'harta-acquisition-page' && isAcquisitionPage(event.data.page)) {
@@ -64,11 +78,10 @@ export function mountOpenFindWorkbench(business, customers) {
     dirty = false;
     if(frame) routeParams = {};
     const params = new URLSearchParams({customerId:business.id,...routeParams});
-    host.innerHTML = `<header class="cm-openfind-heading"><h1>主动获客</h1><label>业务<select data-cm-business aria-label="当前业务"></select></label><details class="cm-acquisition-more"><summary class="btn ghost">更多操作</summary><div>${[['acquisition','批量采集'],['history','任务记录'],['inbox','平台私信'],['settings','平台账号']].map(([id,label])=>`<button type="button" class="btn ghost" data-acq-page="${id}">${label}</button>`).join('')}<button type="button" class="btn ghost" data-cm="go-prospecting-archive">历史资料与目标账号</button></div></details></header><nav class="cm-acquisition-flow" aria-label="主动获客流程">${[['discover','找作品'],['comments','看评论'],['leads','核实线索']].map(([id,label])=>`<button type="button" class="btn ghost" data-acq-page="${id}">${label}</button>`).join('')}<button type="button" class="btn ghost" data-cm="go-conversations">客户跟进 →</button></nav>`;
+    host.innerHTML = `<header class="cm-openfind-heading"><h1>主动截流</h1><label>业务<select data-cm-business aria-label="当前业务"></select></label><details class="cm-acquisition-more"><summary class="btn ghost">更多操作</summary><div>${[['acquisition','批量采集'],['history','任务记录'],['inbox','平台私信'],['settings','平台账号']].map(([id,label])=>`<button type="button" class="btn ghost" data-acq-page="${id}">${label}</button>`).join('')}<button type="button" class="btn ghost" data-cm="go-prospecting-archive">历史资料与目标账号</button></div></details></header><nav class="cm-acquisition-flow" aria-label="主动获客流程">${[['discover','找作品'],['comments','看评论'],['leads','核实线索']].map(([id,label])=>`<button type="button" class="btn ghost" data-acq-page="${id}">${label}</button>`).join('')}<button type="button" class="btn ghost" data-cm="comment-insights">评论洞察</button><button type="button" class="btn ghost" data-cm="public-search">搜索公开摘要</button><button type="button" class="btn ghost" data-cm="import-needs">录入真实需求</button><button type="button" class="btn ghost" data-cm="go-conversations">客户跟进 →</button></nav>`;
     frame = document.createElement('iframe');
     frame.title = '获客内容'; frame.dataset.customer = business.id;
     frame.allow = 'clipboard-write'; frame.loading = 'eager';
-    frame.addEventListener('load',()=>frame.contentWindow?.postMessage({type:'harta-acquisition-navigate',page,params:routeParams,customerId:business.id},location.origin));
     frame.src = '/openfind?' + params;
     host.append(frame);
     updateRoute(business.id);
@@ -77,7 +90,7 @@ export function mountOpenFindWorkbench(business, customers) {
   if (select.dataset.signature !== signature) { select.innerHTML = customers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join(''); select.dataset.signature = signature; }
   select.value = business.id;
   const heading = host.querySelector('h1');
-  heading.textContent = page === 'studio' ? '作品草稿' : page === 'followup' ? '沟通记录' : page === 'settings' ? '平台账号' : page === 'inbox' ? '平台私信' : '主动获客';
+  heading.textContent = page === 'studio' ? '作品草稿' : page === 'followup' ? '沟通记录' : page === 'settings' ? '平台账号' : page === 'inbox' ? '平台私信' : '主动截流';
   host.querySelector('.cm-acquisition-flow').hidden = ['studio','followup','settings','inbox'].includes(page);
   host.querySelectorAll('[data-acq-page]').forEach(button => { const on=button.dataset.acqPage===page;button.classList.toggle('selected',on);if(on)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current'); });
 }

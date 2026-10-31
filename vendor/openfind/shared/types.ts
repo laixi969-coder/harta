@@ -86,7 +86,10 @@ export interface LeadAssessment {
   evidence: { label: string; excerpt: string; points: number }[];
   exclusions: string[];
 }
+export interface HartaSource { customerId:string; packId:string; platform:'小红书'|'抖音'; index:number; draftVersion:number; sourceRevision:string; basisRevision?:string }
 export interface Draft {
+  hartaSource?: HartaSource;
+  productionNotes?: string;
   platform?: Platform;
   kind?: 'image' | 'video';
   video?: string;

@@ -1,3 +1,4 @@
+import { retryDelay } from './state-refresh';
 import type { Snapshot } from '../shared/types';
 export const customerId = new URLSearchParams(location.search).get('customerId') || '';
 export const apiUrl = (path: string) => '/api/openfind/workbench/' + encodeURIComponent(customerId) + path;
@@ -22,7 +23,7 @@ export async function api<T = unknown>(path: string, body?: unknown, method?: st
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await r.json();
-  if (!r.ok) throw new Error(data.error || `请求失败 (${r.status})`);
+  if (!r.ok) throw Object.assign(new Error(data.error || `请求失败 (${r.status})`), {status:r.status, retryAfterMs:retryDelay(r.headers.get('retry-after'),r.status)});
   return data as T;
 }
 export const getState = () => api<Snapshot>('/state');

@@ -33,6 +33,12 @@ try {
   await page.goto(origin);await page.locator('.rail-more > summary').click();await page.locator('[data-nav=pack]').click();
   await page.locator('#pack-list [data-using=c1]').click();
   await page.locator('#pack-share-create').waitFor({state:'visible'});
+  await page.evaluate(()=>{window.showSaveFilePicker=undefined;});
+  for(const [format,magic] of [['pdf','25504446'],['docx','504b0304']]){
+    const button=page.locator(`#pack-export-${format}`);await button.waitFor({state:'visible'});
+    const event=page.waitForEvent('download');await button.click();const download=await event;
+    assert.equal(fs.readFileSync(await download.path()).subarray(0,4).toString('hex'),magic,`${format} 下载内容应为实际文件`);
+  }
   assert.equal((await context.request.get(origin+'/api/reports/p1/preview')).status(),200);
   assert.equal((await anon.request.get(origin+'/api/reports/p1/preview')).status(),401);
   await page.locator('#pack-share-create').click();await page.locator('#pack-share-link').waitFor({state:'visible'});
@@ -41,15 +47,17 @@ try {
   await page.locator('#pack-share-revoke').click();await page.locator('#pack-share-link').waitFor({state:'hidden'});
   assert.equal((await anon.request.get(origin+shared)).status(),404);
   for(const format of ['pdf','docx'])assert.equal((await context.request.get(origin+`/api/reports/p1/export/${format}`)).status(),200);
-  await page.locator('[data-nav=customers]').click();await page.getByText('按原合作分类查看（选用）',{exact:true}).click();await page.locator('[data-stage-filter=new]').click();await page.locator('#customer-stage-add').click();
+  await page.locator('.rail-more > summary').click();await page.locator('[data-nav=customers]').click();await page.getByText('按原合作分类查看（选用）',{exact:true}).click();await page.locator('[data-stage-filter=new]').click();await page.locator('#customer-stage-add').click();
   await page.locator('.customer-evidence > summary').click();
   let uploads=0;page.on('request',r=>{if(r.url().endsWith('/api/materials/analyze'))uploads++;});
+  if(process.env.HARTA_E2E_PUBLIC_PAGE){await page.locator('#material-link').fill(process.env.HARTA_E2E_PUBLIC_PAGE);await page.locator('#add-material-link').click();}
   await page.locator('#material-files').setInputFiles({name:'fixture.txt',mimeType:'text/plain',buffer:Buffer.from('用户提供的厨房翻新业务资料；只讨论已经核实的信息。')});
   await page.locator('#analyze-materials').click();assert.equal(uploads,0);
   await page.locator('#material-external-consent').check();
   const response=page.waitForResponse(r=>r.url().endsWith('/api/materials/analyze'));
   await page.locator('#analyze-materials').click();const result=await response;assert.equal(result.status(),200);
-  assert.equal((await result.json()).sources[0].kind,'文本');assert.equal(uploads,1);
+  const parsed=await result.json();assert.equal(parsed.sources[0].kind,'文本');assert.equal(uploads,1);
+  if(process.env.HARTA_E2E_PUBLIC_PAGE){const pageSource=parsed.sources.find(source=>source.kind==='网页'),length=Number(pageSource?.note?.match(/已读取网页正文 (\d+) 字/)?.[1] || 0);assert.ok(length>=80,`公开网页读取失败：${pageSource?.note || '无来源'}`);}
   await page.locator('#material-analysis').waitFor({state:'visible'});
   await page.locator('#material-external-consent').check();
   await page.locator('#material-files').setInputFiles({name:'second.txt',mimeType:'text/plain',buffer:Buffer.from('新的资料')});

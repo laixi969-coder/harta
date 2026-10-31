@@ -33,7 +33,7 @@ try {
   await page.goto(origin);await page.locator('#cm-workbench h1').waitFor();
   assert.equal(await page.locator('[data-view=workbench]').isVisible(),true);
   await page.screenshot({path:path.join(output,'workbench-desktop.png'),fullPage:true});
-  await page.locator('[data-nav=content-home]').click();await page.getByRole('heading',{name:'内容获客',exact:true}).waitFor();
+  await page.locator('[data-nav=content-home]').click();await page.locator('[data-content-tab=ideas]').click();await page.getByRole('heading',{name:'内容获客',exact:true}).waitFor();
   await page.getByRole('button',{name:'查看 / 更新需求选题',exact:true}).click();
   await page.getByRole('heading',{name:'从真实需求选题',exact:true}).waitFor();
   await page.screenshot({path:path.join(output,'content-home-desktop.png'),fullPage:true});

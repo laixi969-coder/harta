@@ -21,6 +21,9 @@ export function installResponsiveNavigation() {
   dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
   media.addEventListener('change', layout);
   layout();
+  const more=rail.querySelector('.rail-more');
+  document.addEventListener('click',event=>{if(more.open&&!more.contains(event.target))more.open=false;});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&more.open){more.open=false;more.querySelector('summary').focus();}});
   return view => {
     title.textContent = rail.querySelector(`[data-nav="${view}"]`)?.textContent.trim() || '工作台';
     close();

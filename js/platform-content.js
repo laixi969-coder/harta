@@ -35,13 +35,26 @@ export function platformKind(name) {
   if (value.includes('快手') || value === 'B站') return 'video';
   return 'other';
 }
-export function deliveryFields(platform) {
+export function deliveryFields(platform, { format = '' } = {}) {
   const kind = platformKind(platform);
+  if (kind === 'douyin' && format === 'image') return [
+    { key:'title', label:'图文发布标题', required:true },
+    { key:'cover', label:'封面文案', required:true },
+    { key:'coverLayout', label:'封面排版说明', completeOnly:true },
+    { key:'body', label:'图文正文', required:true },
+    { key:'shots', label:'逐页图片内容', completeOnly:true, note:'按需要安排页数，每行写一页画面与对应文字。' },
+  ];
   if (kind === 'xiaohongshu') return [
     { key: 'title', label: '笔记标题', required: true, limit: 20, note: '本工作台按每个汉字、字母、数字、标点、空格计1字，最多20字；采用保守计数，发布时仍以平台为准。' },
     { key: 'cover', label: '封面文案', required: true, advise: 12, note: '建议6—12字、一件事、最多两行；这是阅读建议，不是平台硬上限。' },
     { key: 'coverLayout', label: '封面排版说明', completeOnly: true, note: '主次文字、断行、画面主体和留白；制作说明，不是发布正文。' },
-    { key: 'body', label: '笔记正文', required: true, note: '具体问题与可兑现的下一步；长度以发布页为准，不声称正文无限制。' },
+    { key: 'body', label: format === 'video' ? '完整口播脚本' : '笔记正文', required: true, note: '具体问题与可兑现的下一步；长度以发布页为准，不声称正文无限制。' },
+    ...(format === 'image' ? [{key:'shots',label:'逐页图片内容',completeOnly:true,note:'按需要安排页数，每行写一页画面与对应文字。'}] : []),
+    ...(format === 'video' ? [
+      { key:'hook', label:'开场画面与第一句话', completeOnly:true },
+      { key:'shots', label:'分镜与字幕', completeOnly:true, note:'至少3个镜头，每行给出时间段、画面和口播/字幕。' },
+      { key:'cta', label:'收尾与咨询承接', completeOnly:true },
+    ] : []),
   ];
   if (['douyin', 'channels', 'video'].includes(kind)) return [
     { key: 'title', label: kind === 'channels' ? '发布描述' : '发布文案', required: true, note: '视频之外的发布文字，不粘贴整段口播。' },
@@ -62,20 +75,30 @@ export function deliveryFields(platform) {
   ];
   return [];
 }
-export function deliveryIssues(platform, item = {}, { complete = false } = {}) {
+export function deliveryIssues(platform, item = {}, { complete = false, format = '' } = {}) {
   item = Object.fromEntries(CONTENT_FIELDS.map(key => [key, typeof item?.[key] === 'string' ? item[key].trim() : '']));
   const issues=[];
-  for (const f of deliveryFields(platform)) {
+  for (const f of deliveryFields(platform,{format})) {
     const text = typeof item?.[f.key] === 'string' ? item[f.key].trim() : '';
     if ((f.required || (complete && f.completeOnly)) && !text) issues.push({ field:f.key, why:`缺少${f.label}` });
     if (text && f.limit && titleCount(text)>f.limit) issues.push({field:f.key,why:`${f.label}${titleCount(text)}字，最多${f.limit}字`});
   }
   if (complete && platformKind(platform)==='xiaohongshu' && item.title?.trim()===item.cover?.trim()) issues.push({field:'cover',why:'封面与标题完全相同，请用封面突出问题、标题补足场景'});
-  if (complete && ['douyin','channels','video'].includes(platformKind(platform))) {
+  const kind=platformKind(platform);
+  const video=kind==='xiaohongshu'?format==='video':kind==='douyin'?format!=='image':['channels','video'].includes(kind);
+  if (complete && video) {
     if (item.shots && item.shots.split('\n').filter(s=>s.trim()).length<3) issues.push({field:'shots',why:'分镜至少需要3个镜头，分行写出时间、画面和口播/字幕'});
     if (item.title?.trim()===item.body?.trim()) issues.push({field:'title',why:'发布文案不能直接等于整段口播脚本'});
   }
   return issues;
+}
+
+export function formatDeliveryBrief(platform, format) {
+  if (format === 'image' && ['小红书','抖音'].includes(platform)) return `本批用户指定${platform}图文：title是平台标题，cover和coverLayout是封面文案及排版，body是图文正文，shots按内容需要安排1至10页（每行一页画面和文字，不为凑页数重复）。这只是制作说明，不假称图片已生成。无需视频hook和cta。此指定覆盖通用视频交付说明。`;
+  if (format === 'video' && platform === '小红书') return '本批用户指定小红书短视频：title为20字内标题，cover和coverLayout为封面，body为完整口播，hook为开场，shots为至少3行分镜，cta为收尾；均需填写。';
+  if (format === 'video' && platform === '抖音') return '本批用户指定抖音短视频，交付独立发布文案、封面、完整口播、开场、分镜和收尾。';
+  if (format === 'video' && platform === '视频号') return '本批用户指定视频号短视频，交付独立发布描述、封面、完整口播、开场、分镜和收尾。';
+  return '';
 }
 
 export const PLATFORM_DELIVERY_BRIEF = `按平台分别制作，不是把同一段文章换字数：

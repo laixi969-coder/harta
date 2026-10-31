@@ -9,7 +9,7 @@ import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { readWorkspace, writeWorkspace } from '../lib/workspace.mjs';
-const { chromium } = await import(process.env.HARTA_PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = await import(process.env.HARTA_PLAYWRIGHT_MODULE || 'playwright-core');
 const root=fileURLToPath(new URL('..',import.meta.url));
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'harta-acq-browser-'));
 const output=process.env.HARTA_UI_OUTPUT || path.join(os.tmpdir(),'harta-acquisition-previews');fs.mkdirSync(output,{recursive:true});
@@ -30,6 +30,10 @@ try {
   const page=await context.newPage(),errors=[];currentPage=page;page.on('response',async response=>{if(response.url().includes('/api/acquisition')&&response.status()>=400)console.log('Acquisition error',await response.text());});page.on('pageerror',error=>errors.push(error.message));
   assert.equal((await context.request.get(`${origin}/api/acquisition`)).status(),401);
   const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);
+  // A batch with a comment from a different identifiable work must be atomic.
+  process.chdir(dir);const mismatchSpace=readWorkspace('66445039@qq.com');mismatchSpace.acquisition.works=[{id:'mismatch-work',customerId:'c1',platform:'抖音',title:'参考作品',url:'https://www.douyin.com/video/123456'}];writeWorkspace('66445039@qq.com',mismatchSpace);process.chdir(previous);
+  const mismatch=await context.request.post(`${origin}/api/acquisition/import`,{data:{customerId:'c1',workId:'mismatch-work',source:'验收',rows:[{platform:'抖音',text:'第一个问题',recordId:'ok',url:'https://www.douyin.com/video/123456'},{platform:'抖音',text:'另一个作品的问题',recordId:'wrong',url:'https://www.douyin.com/video/654321'}]}});assert.equal(mismatch.status(),400);assert.match((await mismatch.json()).error,/评论链接与关联作品不一致/);
+  process.chdir(dir);const afterMismatch=readWorkspace('66445039@qq.com');assert.equal((afterMismatch.acquisition.signals||[]).length,0);afterMismatch.acquisition.works=Array.from({length:14},(_,i)=>({id:`fixture-work-${i}`,customerId:'c1',platform:'抖音',title:`对标样本 ${i+1}`,authorId:`author-${i}`,authorName:`验收博主 ${i+1}`,description:'验收对标作品描述',metrics:{likes:i},url:`https://www.douyin.com/video/${100000+i}`}));writeWorkspace('66445039@qq.com',afterMismatch);process.chdir(previous);
   await page.goto(origin);await page.locator('#cm-workbench h1').waitFor();await page.locator('.rail-more summary').click();await page.locator('[data-nav=content-home]').click();await page.locator('#cm-content-home [data-cm=content]').click();await page.locator('[data-publish-post]').waitFor();
   // Preserve the original one-click publication action and all existing pages.
   await page.locator('[data-publish-post]').click();
@@ -42,8 +46,14 @@ try {
   const legacy=await (await context.request.get(`${origin}/api/acquisition`)).json();
   assert.equal(legacy.workspace.acquisition.publications.length,0);
   assert.ok(Object.values(legacy.workspace.contentStates).some(s=>s.status==='published'));
-  await page.locator('[data-nav=prospecting]').click();await page.locator('#cm-prospecting [data-cm=search]').click();
-  await page.locator('[data-persist=import-signals] > summary').click();
+  await page.locator('[data-nav=prospecting]').click();await page.getByRole('button',{name:'录入真实需求',exact:true}).click();
+  const benchmarks=page.locator('#acq-workspace .acq-panel').filter({has:page.getByRole('heading',{name:'对标拆解',exact:true})});
+  await benchmarks.getByText('对标样本 1',{exact:true}).waitFor();
+  await benchmarks.locator('[data-acq-action=teardown-work-next]').click();await benchmarks.getByText('对标样本 14',{exact:true}).waitFor();
+  await benchmarks.locator('[data-acq-action=teardown-author-next]').click();await benchmarks.getByText('验收博主 12',{exact:true}).waitFor();
+  await benchmarks.locator('[data-acq-action=teardown-author-next]').click();await benchmarks.getByText('验收博主 14',{exact:true}).waitFor();
+  await benchmarks.locator('[data-acq-action=teardown-work-prev]').click();await benchmarks.getByText('对标样本 1',{exact:true}).waitFor();
+  await page.locator('[data-persist=import-signals]').evaluate(el=>{el.open=true;});
   const intake=page.locator('[data-acq-form=single-signal]');
   await intake.locator('[name=text]').fill('杭州厨房翻新，有没有服务方推荐？需要核对工期。');
   await intake.locator('[name=url]').fill('https://www.xiaohongshu.com/explore/browser-test');
@@ -58,7 +68,11 @@ try {
   await page.locator('#acq-connection-panel > summary').click();
   const account=page.locator('[data-acq-form=account]');await account.locator('[name=name]').fill('验收发布账号');await account.locator('button[type=submit]').click();
   await page.locator('#acq-accounts').getByText('小红书 · 验收发布账号',{exact:true}).waitFor();
-  await page.locator('[data-nav=conversations]').click();await page.locator('#cm-conversations .cm-support > summary').click();await page.getByRole('button',{name:'未关联需求的历史会话',exact:true}).click();
+  const trackWorkspace=await (await context.request.get(`${origin}/api/acquisition`)).json(),trackedLead=trackWorkspace.workspace.acquisition.leads.find(l=>l.authorId==='fixture-user');
+  const trackResponse=await context.request.post(`${origin}/api/acquisition/lead`,{data:{leadId:trackedLead.id,action:'intent-track',kind:'ad',status:'won',baseRevision:0,note:'验收合作事项'}});assert.equal(trackResponse.status(),200);
+  await page.reload();await page.locator('#cm-workbench h1').waitFor();
+  await page.locator('[data-nav=conversations]').click();await page.locator('#cm-conversations summary').filter({hasText:'账号与历史会话'}).click();await page.getByRole('button',{name:'未关联需求的历史会话',exact:true}).click();
+  const legacyTimeline=page.locator('#acq-lead-detail details').filter({has:page.locator('summary').filter({hasText:'跟进时间线'})});await legacyTimeline.locator('summary').first().click();await legacyTimeline.getByText(/商务合作 · 已签约/).waitFor();
   const draft=page.locator('[data-acq-form=draft]');await draft.getByRole('button',{name:'结合业务生成草稿'}).click();
   await page.waitForFunction(()=>document.querySelector('[data-acq-form=draft] [name=text]')?.value.length>0);
   await draft.locator('[name=accountId]').selectOption({label:'小红书 · 验收发布账号'});
@@ -68,7 +82,7 @@ try {
   const pub=page.locator('[data-acq-form=publication]');await pub.waitFor();await pub.locator('[name=url]').fill('https://www.xiaohongshu.com/explore/published-fixture');await pub.locator('[name=confirmed]').check();await pub.locator('button[type=submit]').click();
   await page.getByRole('button',{name:'登记这篇带来的咨询'}).click();
   const inquiry=page.locator('[data-acq-form=inquiry]');await inquiry.locator('[name=authorName]').fill('验收用户');await inquiry.locator('[name=text]').fill('看了刚发布的内容，想了解怎样安排。');await inquiry.locator('[name=evidence]').fill('验收消息凭证');await inquiry.locator('details > summary').click();await inquiry.locator('[name=authorId]').fill('fixture-user');await inquiry.locator('[name=messageId]').fill('fixture-message');await inquiry.locator('button[type=submit]').click();
-  await page.getByText('看了刚发布的内容，想了解怎样安排。',{exact:true}).waitFor();
+  await page.locator('#acq-lead-detail').getByText('看了刚发布的内容，想了解怎样安排。',{exact:true}).waitFor();
   const follow=page.locator('[data-acq-form=followup]');await follow.locator('[name=stage]').selectOption('沟通中');await follow.locator('[name=note]').fill('验收：已核实需求，待确认时间');await follow.locator('[name=nextStep]').fill('核对现场条件');await follow.locator('button[type=submit]').click();
   await page.locator('.acq-lead-row small').getByText('核对现场条件',{exact:true}).waitFor();
   let result=await (await context.request.get(`${origin}/api/acquisition`)).json();assert.equal(result.workspace.acquisition.leads.length,1);assert.deepEqual(result.workspace.acquisition.leads[0].sourcePaths,['active','content']);assert.equal(result.workspace.acquisition.leads[0].needsReply,true);assert.equal(result.workspace.acquisition.publications[0].confirmationSource,'manual');
@@ -94,10 +108,10 @@ try {
   }
   await contrastCheck('dark');
   await page.screenshot({path:path.join(output,'leads-desktop.png'),fullPage:true});
-  await page.locator('[data-nav=prospecting]').click();await page.locator('#cm-prospecting [data-cm=search]').click();await page.screenshot({path:path.join(output,'acquisition-dark.png'),fullPage:true});
+  await page.locator('[data-nav=prospecting]').click();await page.getByRole('button',{name:'录入真实需求',exact:true}).click();await page.screenshot({path:path.join(output,'acquisition-dark.png'),fullPage:true});
   await page.locator('[data-theme-toggle]').click();await contrastCheck('light');await page.screenshot({path:path.join(output,'acquisition-light.png'),fullPage:true});
   await page.locator('[data-theme-toggle]').click();
-  await page.locator('[data-nav=agents]').click();
+  await page.locator('.rail-more summary').click();await page.locator('[data-nav=agents]').click();
   await page.getByRole('button',{name:'创建找客户助手',exact:true}).click();
   let config=page.locator('[data-agent-form=config]');await config.waitFor({state:'attached'});
   assert.ok(await config.locator('[name=criteria]').inputValue());
@@ -136,9 +150,9 @@ try {
   assert.equal(result.workspace.acquisition.agentRuns[1].version,2);
   assert.equal(result.workspace.acquisition.agentRuns[0].status,'limited');
   assert.equal(result.workspace.acquisition.publications.length,1);
-  await page.locator('[data-nav=prospecting]').click();await page.locator('#cm-prospecting [data-cm=search]').click();
+  await page.locator('[data-nav=prospecting]').click();await page.getByRole('button',{name:'录入真实需求',exact:true}).click();
   await page.locator('#acq-context [data-acq-business]').selectOption('c2');
-  assert.ok((await page.locator('#acq-today').textContent()).includes('0 条线索待回复'));
+  assert.ok((await page.locator('#acq-today').textContent()).includes('0 位关联联系人待回复'));
   await page.locator('#acq-context [data-acq-business]').selectOption('c1');
   await page.locator('[data-persist=tasks] > summary').click();
   await page.locator('[data-acq-action=open-task]').first().click();
@@ -146,10 +160,10 @@ try {
   assert.ok((await page.locator('#acq-task-detail').innerText()).includes('本次新增证据'));
   await page.screenshot({path:path.join(output,'task-detail.png'),fullPage:true});
   await page.getByRole('button',{name:'返回需求机会',exact:true}).click();
-  await page.locator('[data-nav=conversations]').click();await page.locator('#cm-conversations .cm-support > summary').click();await page.getByRole('button',{name:'未关联需求的历史会话',exact:true}).click();
+  await page.locator('[data-nav=conversations]').click();await page.locator('#cm-conversations summary').filter({hasText:'账号与历史会话'}).click();await page.getByRole('button',{name:'未关联需求的历史会话',exact:true}).click();
   assert.equal(await page.getByRole('button',{name:'复制草稿',exact:true}).count(),0);
   assert.ok((await page.locator('#acq-lead-detail').innerText()).includes('有新消息，请按最新会话重新起草'));
-  await page.locator('[data-nav=agents]').click();
+  await page.locator('.rail-more summary').click();await page.locator('[data-nav=agents]').click();
   for(const [name,scenario,expected] of [['内容助手','normal','口播脚本草稿'],['咨询接待助手','refusal','停止营销']]){
     const chooser=page.locator('[data-agent-persist=new-recipes]');
     if(!await chooser.getAttribute('open').then(v=>v!==null))await chooser.locator('summary').click();
@@ -164,9 +178,9 @@ try {
     await page.screenshot({path:path.join(output,scenario==='refusal'?'reception-refusal.png':'content-trial.png'),fullPage:true});
   }
   for(const view of ['acquisition','agents','leads','settings']){
-    await page.setViewportSize({width:390,height:844});if(['acquisition','leads'].includes(view))await page.locator('.rail-more summary').click();await page.locator(`[data-nav=${view}]`).click();
+    await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'打开导航'}).click();if(['acquisition','agents','leads'].includes(view)&&await page.locator('.rail-more').getAttribute('open')===null)await page.locator('.rail-more summary').click();await page.locator(`[data-nav=${view}]`).click();
     const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(overflow.scroll<=overflow.width,`${view} mobile overflow: ${JSON.stringify(overflow)}`);
     await page.screenshot({path:path.join(output,`${view}-mobile.png`),fullPage:true});
   }
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['legacy publication and page preservation','import','verify','account','draft','publication','inquiry','followup','agent create/version/trial/enable','business and draft isolation','task detail','stale reply','mobile','light/dark'],consoleErrors:errors,previews:output},null,2));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['legacy publication and page preservation','atomic mismatched work rejection','import','verify','account','draft','publication','inquiry','followup','agent create/version/trial/enable','business and draft isolation','task detail','stale reply','mobile','light/dark'],consoleErrors:errors,previews:output},null,2));
 } catch(error) { if(currentPage){console.log('Visible errors',await currentPage.locator('.acq-error').allTextContents());await currentPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error; } finally { if(browser)await browser.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }
