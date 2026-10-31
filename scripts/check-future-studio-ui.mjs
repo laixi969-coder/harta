@@ -13,6 +13,35 @@ const root=fileURLToPath(new URL('..',import.meta.url));
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'harta-studio-ui-'));
 const output=path.join(root,'output/future-studio');fs.mkdirSync(output,{recursive:true});
 let server,browser,page;
+const spacingFindings=[];
+async function spacingIssues(page,label){
+  return page.evaluate((label)=>{
+    const visible=el=>el&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';
+    const path=el=>{const parts=[];let node=el;while(node&&parts.length<4){parts.unshift(node.tagName.toLowerCase()+(node.id?'#'+node.id:'')+(node.classList.length?'.'+[...node.classList].slice(0,2).join('.'):''));node=node.parentElement;}return parts.join(' > ');};
+    const candidate=el=>{
+      if(!visible(el))return false;
+      const style=getComputedStyle(el);if(style.display==='inline')return false;
+      const bordered=(parseFloat(style.borderLeftWidth)||0)>0||(parseFloat(style.borderRightWidth)||0)>0;
+      const bg=style.backgroundColor&&!/rgba\(0, 0, 0, 0\)|transparent/.test(style.backgroundColor);
+      return bordered||bg;
+    };
+    const issues=[],walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    let node;
+    while((node=walker.nextNode())&&issues.length<60){
+      if(!node.textContent.trim()||!visible(node.parentElement)||node.parentElement.closest('.skip'))continue;
+      let container=node.parentElement;
+      while(container&&container!==document.body&&!candidate(container))container=container.parentElement;
+      if(!container||container===document.body)continue;
+      const style=getComputedStyle(container),box=container.getBoundingClientRect(),leftBorder=parseFloat(style.borderLeftWidth)||0,rightBorder=parseFloat(style.borderRightWidth)||0;
+      const range=document.createRange();range.selectNodeContents(node);
+      for(const rect of range.getClientRects()){
+        const left=rect.left-box.left-leftBorder,right=box.right-rightBorder-rect.right;
+        if(left<3.5||right<3.5)issues.push({label,selector:path(container),text:node.textContent.trim().slice(0,50),left:Math.round(left*10)/10,right:Math.round(right*10)/10,padding:style.padding});
+      }
+    }
+    return issues.slice(0,30);
+  },label);
+}
 async function contrastCheck(page,label,selector){
   const results=await page.evaluate((selector)=>{
     const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});canvas.width=canvas.height=1;
@@ -49,7 +78,7 @@ try{
   const primary=await page.locator('.studio-primary-nav').boundingBox(),aux=await page.locator('.studio-aux-nav').boundingBox();assert.ok(Math.abs(primary.y-aux.y)<4,'Primary and auxiliary navigation share one row');
   for(const selector of ['.studio-lane-active','.studio-lane-content'])assert.ok((await page.locator(selector).boundingBox()).y<400);
   for(const selector of ['.studio-lane-active footer button','.studio-lane-content footer button']){const rect=await page.locator(selector).first().boundingBox();assert.ok(rect.y+rect.height<=960,'两条主线的主要操作应在桌面首屏可见');}
-  await contrastCheck(page,'dark overview');await page.screenshot({path:path.join(output,'overview-dark.png')});
+  await contrastCheck(page,'dark overview');spacingFindings.push(...await spacingIssues(page,'dark overview'));await page.screenshot({path:path.join(output,'overview-dark.png')});
   await page.locator('#cm-workbench [data-cm=calendar-home]').click();await page.locator('#content-panel-schedule').waitFor({state:'visible'});await page.locator('[data-nav=workbench]').click();
   await page.locator('[data-cm=review-home]').click();await page.locator('#content-panel-review').waitFor({state:'visible'});
   assert.equal(await page.locator('[data-nav=account-review]').getAttribute('aria-current'),'page');
@@ -66,7 +95,7 @@ try{
   await createPlatform.selectOption('');
   await page.locator('#cm-content-scope [name=distributionIntent]').selectOption('mixed');
   await page.locator('[data-nav=content-home]').click();await page.locator('[data-cm=content-platform]').click();await entry.waitFor();assert.equal(await entry.inputValue(),'platform');assert.equal(await page.locator('#cm-content-scope [name=distributionIntent]').inputValue(),'mixed');
-  await page.locator('[data-nav=content-home]').click();await contrastCheck(page,'dark content');await page.screenshot({path:path.join(output,'content-dark.png')});
+  await page.locator('[data-nav=content-home]').click();await contrastCheck(page,'dark content');spacingFindings.push(...await spacingIssues(page,'dark content'));await page.screenshot({path:path.join(output,'content-dark.png')});
   await page.locator('#content-library [data-cm=open-pack]').click();await page.getByText('脚本、直播与封面制作',{exact:true}).first().waitFor();
   await page.screenshot({path:path.join(output,'production-dark.png')});
   const production=page.locator('[data-production-mode]').first();
@@ -115,7 +144,7 @@ try{
   assert.ok(editorRect.width>400 && previewRect.x>editorRect.x+editorRect.width,'Desktop editor and preview share one canvas');
   await page.screenshot({path:path.join(output,'production-workspace-dark.png')});
   await page.locator('[data-theme-toggle]').click();await production.locator('[data-production-editor]').evaluate(el=>el.scrollIntoView({block:'start'}));
-  await contrastCheck(page,'light production','.production-tabs button,.production-context,.production-studio-head h3,.production-save-state span,.production-preview header,.production-preview-copy h4,.production-preview-copy p,.production-preview footer,.production-panel>label');
+  await contrastCheck(page,'light production','.production-tabs button,.production-context,.production-studio-head h3,.production-save-state span,.production-preview header,.production-preview-copy h4,.production-preview-copy p,.production-preview footer,.production-panel>label');spacingFindings.push(...await spacingIssues(page,'light production'));
   await page.screenshot({path:path.join(output,'production-workspace-light.png')});
   await page.setViewportSize({width:375,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Production mobile must not overflow');
@@ -129,11 +158,17 @@ try{
   await page.locator('#content-production>summary').click();await page.locator('[data-cm-form=production-create] [name=title]').fill('保留未保存的主题');
   await page.locator('[data-nav=account-review]').click();await page.locator('[data-nav=content-home]').click();assert.equal(await page.locator('[data-cm-form=production-create] [name=title]').inputValue(),'保留未保存的主题');
   await page.locator('[data-theme-toggle]').click();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');await contrastCheck(page,'light content');await page.screenshot({path:path.join(output,'content-light.png')});
-  await page.locator('[data-nav=workbench]').click();await contrastCheck(page,'light overview');await page.screenshot({path:path.join(output,'overview-light.png')});
+  await page.locator('[data-nav=workbench]').click();await contrastCheck(page,'light overview');spacingFindings.push(...await spacingIssues(page,'light overview'));await page.screenshot({path:path.join(output,'overview-light.png')});
   const more=page.locator('.rail-more');
-  for(const route of ['products','customers','connections','delivery','agents','pack','ledger']){
+  for(const route of ['products','customers','connections','delivery','agents','pack','leads','ledger']){
     await more.locator('summary').click();await more.locator(`[data-nav="${route}"]`).click();await page.locator(`[data-view="${route}"]`).waitFor({state:'visible'});assert.equal(await more.evaluate(el=>el.open),false);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,route+' desktop overflow');
+    await page.locator(`[data-view="${route}"] details`).evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);
+    spacingFindings.push(...await spacingIssues(page,route+' light'));
+    await page.screenshot({path:path.join(output,route+'-light.png'),fullPage:true});
   }
+  await page.locator('[data-nav=conversations]').click();await page.locator('[data-view=conversations]').waitFor({state:'visible'});await page.locator('[data-view=conversations] details').evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);spacingFindings.push(...await spacingIssues(page,'conversations light'));await page.screenshot({path:path.join(output,'conversations-light.png'),fullPage:true});
+  await page.locator('[data-nav=settings]').click();await page.locator('[data-view=settings]').waitFor({state:'visible'});await page.locator('[data-view=settings] details').evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);spacingFindings.push(...await spacingIssues(page,'settings light'));await page.screenshot({path:path.join(output,'settings-light.png'),fullPage:true});
   await more.locator('summary').click();await more.locator('summary').press('Escape');assert.equal(await more.evaluate(el=>el.open),false);
   await page.locator('[data-nav=prospecting]').click();await page.locator('[data-view=openfind]').waitFor({state:'visible'});
   const acquisition=page.frameLocator('#cm-openfind iframe');await acquisition.locator('.main-content').waitFor();assert.ok((await page.locator('#cm-openfind iframe').boundingBox()).height>400,'Acquisition must have usable viewport below top navigation');
@@ -143,10 +178,26 @@ try{
 
   await page.locator('[data-nav=workbench]').click();await page.locator('[data-theme-toggle]').click();
   await page.locator('[data-nav=prospecting]').click();await acquisition.locator('.main-content').waitFor();assert.equal(await acquisition.locator('html').getAttribute('data-theme'),'dark');await contrastCheck(page.frames().find(f=>f.url().includes('/openfind?')),'dark acquisition','.btn.primary,.search-panel label,.search-panel .field-label,.page-heading h1,.results-toolbar button,.xhs-icon');await page.screenshot({path:path.join(output,'acquisition-dark.png')});await page.locator('[data-acq-page=comments]').click();await acquisition.locator('.comment-inspector').waitFor();await contrastCheck(page.frames().find(f=>f.url().includes('/openfind?')),'dark comment status','.live-bar>span,.live-bar>b,.live-bar b span,.page-heading h1,.filter-tabs button');await page.locator('[data-nav=workbench]').click();
-  for(const width of [390,768,1024]){
-    await page.setViewportSize({width,height:960});await page.waitForTimeout(150);
-    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`No overflow at ${width}`);
-    if(width===390)await page.screenshot({path:path.join(output,'overview-mobile.png'),fullPage:true});
+  for(const route of ['products','customers','connections','delivery','agents','pack','leads','ledger']){
+    await more.locator('summary').click();await more.locator(`[data-nav="${route}"]`).click();await page.locator(`[data-view="${route}"]`).waitFor({state:'visible'});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,route+' dark desktop overflow');
+    await page.locator(`[data-view="${route}"] details`).evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);
+    spacingFindings.push(...await spacingIssues(page,route+' dark'));
+    await page.screenshot({path:path.join(output,route+'-dark.png'),fullPage:true});
+  }
+  await page.locator('[data-nav=conversations]').click();await page.locator('[data-view=conversations]').waitFor({state:'visible'});await page.locator('[data-view=conversations] details').evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);spacingFindings.push(...await spacingIssues(page,'conversations dark'));await page.screenshot({path:path.join(output,'conversations-dark.png'),fullPage:true});
+  await page.locator('[data-nav=settings]').click();await page.locator('[data-view=settings]').waitFor({state:'visible'});await page.locator('[data-view=settings] details').evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);spacingFindings.push(...await spacingIssues(page,'settings dark'));await page.screenshot({path:path.join(output,'settings-dark.png'),fullPage:true});
+  await page.locator('[data-nav=workbench]').click();
+  const spacingRoutes=['workbench','content-home','products','customers','connections','delivery','agents','pack','leads','ledger','settings','conversations'];
+  for(const width of [320,375,390,414,768,1024]){
+    await page.setViewportSize({width,height:960});
+    for(const route of spacingRoutes){
+      await page.evaluate(route=>document.querySelector(`[data-nav="${route}"]`)?.click(),route);await page.locator(`[data-view="${route}"]`).waitFor({state:'visible'});
+      await page.locator(`[data-view="${route}"] details`).evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(40);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${route} overflow at ${width}`);
+      spacingFindings.push(...await spacingIssues(page,`${route} at ${width}`));
+      if(width===390&&['workbench','products','settings','conversations'].includes(route))await page.screenshot({path:path.join(output,route+'-mobile.png'),fullPage:true});
+    }
   }
   await page.setViewportSize({width:390,height:844});await page.locator('#mobile-menu-toggle').click();await page.locator('#harta-navigation [data-nav=content-home]').click();assert.equal(await page.locator('#harta-navigation').evaluate(el=>el.open),false);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:path.join(output,'content-mobile.png'),fullPage:true});
@@ -161,6 +212,6 @@ try{
   const confirmed=await context.request.post(origin+'/api/acquisition/publication',{data:{publicationId:pub.id,url:'https://mp.weixin.qq.com/s/article-one',publishedAt:'2026-01-01T12:00:00Z',confirmed:true}});assert.equal(confirmed.status(),200);const measured=await context.request.post(origin+'/api/growth-outcomes',{data:{customerId:'ui-business',packId:articlePack.id,rows:[{platform:'公众号',index:0,publicationId:pub.id,start:'2026-01-01',end:'2026-01-07',source:'隔离后台样本',metrics:{views:21}}]}});assert.equal(measured.status(),200);
   const second=await context.request.post(origin+'/api/owned-publication',{data:{customerId:'ui-business',accountId:articleAccountId,title:'另一篇公众号文章',url:'https://mp.weixin.qq.com/s/article-two',publishedAt:'2026-01-01T12:00:00Z',confirmed:true}});assert.equal(second.status(),200);const secondId=(await second.json()).acquisition.publications.find(p=>p.content.title==='另一篇公众号文章').id;const secondMetric=await context.request.post(origin+'/api/owned-publication-outcome',{data:{customerId:'ui-business',publicationId:secondId,start:'2026-01-01',end:'2026-01-07',source:'隔离后台样本',metrics:{views:30}}});assert.equal(secondMetric.status(),200);
   await page.reload();await page.locator('#cm-workbench h1').waitFor();await page.locator('[data-nav=content-home]').click();await page.locator('#content-tab-review').click();const articleCompare=page.locator('#content-review article').filter({hasText:'长文验收公众号'});await articleCompare.getByText(/厨房设计如何比较方案和报价/).first().waitFor();await articleCompare.getByText(/另一篇公众号文章/).first().waitFor();
-  assert.deepEqual(errors,[]);console.log('PASS: horizontal navigation, both acquisition paths, real creation intent, preserved drafts, production and live entries, review, legacy pages, dark/light contrast, responsive layouts and article drafting and review');
+  assert.deepEqual(spacingFindings,[],'Text must not touch bordered or filled container edges');assert.deepEqual(errors,[]);console.log('PASS: horizontal navigation, both acquisition paths, real creation intent, preserved drafts, production and live entries, review, legacy pages, dark/light contrast, responsive layouts, text edge spacing and article drafting and review');
 }catch(error){console.error(error);await page?.screenshot({path:path.join(output,'failure.png'),fullPage:true}).catch(()=>{});throw error;}
 finally{server?.kill('SIGTERM');await browser?.close();fs.rmSync(dir,{recursive:true,force:true});}

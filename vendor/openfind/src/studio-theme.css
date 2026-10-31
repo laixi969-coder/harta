@@ -8,7 +8,7 @@ input,select,textarea{background:var(--control-bg);color:var(--control-ink)}
 ::placeholder{color:var(--ink-3);opacity:1}
 .btn{border-radius:8px;min-height:44px}.btn:active:not(:disabled){transform:none}
 .agent-form:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
-.platform-tab.active,.filter-tabs .active,.filter-tabs [aria-selected=true]{color:var(--accent);background:var(--accent-soft)}
+.platform-tab.active,.filter-tabs button.active,.filter-tabs button[aria-selected=true]{color:var(--accent-ink);background:var(--accent-soft)}
 .page-heading h1{font-weight:600;letter-spacing:-.03em}
 [data-theme="dark"] :is(.agent-badge,.followup-due,.warning-banner,.warning-box){color:var(--warn);background:var(--zone);border-color:var(--border)}
 @media(max-width:680px){.embedded .main-content{padding:16px 12px}}
@@ -25,4 +25,14 @@ input,select,textarea{background:var(--control-bg);color:var(--control-ink)}
 [data-theme="light"] .live-bar{background:var(--zone);color:var(--ink-2);border-block:1px solid var(--border)}
 [data-theme="light"] .live-bar > span:first-child{color:#8c2637}
 [data-theme="light"] .live-bar .source-tag{background:var(--panel-2);color:var(--ink-2)}
-[data-theme="light"] .live-bar .source-tag.live{background:var(--accent-soft);color:var(--accent)}
+[data-theme="light"] .live-bar .source-tag.live{background:var(--accent-soft);color:var(--accent-ink)}
+
+/* Match the shared darkroom / print geometry instead of the legacy pink SaaS controls. */
+:root{--r:3px;--r-sm:2px;--shadow:0 1px 2px color-mix(in srgb,var(--ink-1) 8%,transparent)}
+.btn,.icon-btn,input,select,textarea{border-radius:3px}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+:is(.panel,.agent-panel,.note-card,.draft-card,.modal,.result-stats>div,.lead-stats>div,.coverage-table,.work-source,.workflow-details,.acquisition-results,.settings-form){border-radius:3px;border-color:var(--border);background:var(--bg);box-shadow:var(--shadow)}
+:is(.native-contact-grid article,.comment-inspector blockquote,.studio-standard-review,.video-uploader,.image-preview-stage,.gallery-open,.note-detail .media-gallery>img,.media-gallery>video,.video-unavailable>img){border-radius:3px;border-color:var(--border)}
+:is(.filter-tabs button,.workflow-steps button,.platform-tab,.source-tag,.hot-badge,.agent-badge,.followup-due,.sparkle-box,.platform-symbol){border-radius:2px}
+:is(.gallery-thumbs button,.gallery-open>span){border-radius:2px}
+.gallery-open>span{background:color-mix(in srgb,var(--ink-1) 78%,transparent);color:var(--bg)}
