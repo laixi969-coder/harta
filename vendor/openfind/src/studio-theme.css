@@ -36,3 +36,19 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 
 :is(.filter-tabs button,.workflow-steps button,.platform-tab,.source-tag,.hot-badge,.agent-badge,.followup-due,.sparkle-box,.platform-symbol){border-radius:2px}
 :is(.gallery-thumbs button,.gallery-open>span){border-radius:2px}
 .gallery-open>span{background:color-mix(in srgb,var(--ink-1) 78%,transparent);color:var(--bg)}
+
+/* Result panels contain direct labels and nested disclosure panels, not only padded toolbars. */
+.results-box>label{display:flex;align-items:center;gap:12px;min-height:44px;margin:0 18px 14px}
+.results-box>label>select{flex:1;min-width:0}
+.results-box>details.panel{padding:0 16px;margin:0 18px 14px}
+.results-box>details.panel>summary{min-height:44px;align-content:center}
+.results-box>p{margin-left:18px;margin-right:18px}
+@media(max-width:680px){
+  .results-box>label{align-items:flex-start;flex-direction:column;gap:6px;margin:0 12px 12px}
+  .results-box>label>select{width:100%}
+  .results-box>details.panel{padding:0 12px;margin:0 12px 12px}
+  .results-box>p{margin-left:12px;margin-right:12px}
+}
+.filter-tabs button{min-height:44px;padding:8px 10px}
+.filter-tabs button.active:after{display:none}
+:is(.xhs-icon,.platform-status .xhs-icon,.platform-choice .xhs-icon){width:auto;min-width:44px;height:26px;padding:3px 6px;border-radius:2px;line-height:1.2;white-space:nowrap}
