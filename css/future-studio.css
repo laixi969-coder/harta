@@ -1,6 +1,6 @@
 /* finesse · register=product · A=darkroom+constructivist-duotone · B=600/400+mono-meta · C=top-nav-contact-sheet · D=css-feedback · E=film-contact-sheet+print-geometry · shell=top-nav · SOUL=8 SPECTACLE=2 DENSITY=7 */
 /* Future Studio: task-first product UI. One horizontal navigation, two acquisition paths, real evidence only. */
-@import url("./studio-tokens.css?v=20261031-darkroom-print-details");
+@import url("./studio-tokens.css?v=20261031-constructivist-fields");
 body[data-shell="future-studio"]{background:var(--page);color:var(--ink-1);font-family:var(--font-ui)}
 body[data-shell="future-studio"]::before{content:"";display:block;position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23808080' filter='url(%23n)' opacity='.7' d='M0 0h160v160H0z'/%3E%3C/svg%3E")}
 body .shell{display:block;max-width:none;margin:0;min-height:100dvh;border:0;border-radius:0;overflow:visible}
@@ -218,7 +218,7 @@ body .rail a:hover,body .rail-more summary:hover{background:var(--accent-soft);c
 .cm-content-library>.cm-row{border-radius:3px}
 .cm-next.studio-action-strip,[data-theme="light"] .cm-next.studio-action-strip{border-radius:3px;box-shadow:none}
 .studio-paths{gap:18px;margin-bottom:20px}
-.studio-lane{position:relative;padding:22px;border:1px solid var(--rule);border-radius:2px;box-shadow:var(--shadow);overflow:hidden}
+.studio-lane{position:relative;padding:20px;border:1px solid var(--rule);border-radius:2px;box-shadow:var(--shadow);overflow:hidden}
 .studio-lane header{padding-bottom:12px;border-bottom:1px solid var(--border)}
 .cm-root .studio-lane h2{font-size:22px;font-weight:600;letter-spacing:-.025em}
 .studio-path-symbol{display:grid;place-items:center;width:40px;height:40px;flex:0 0 40px;background:var(--accent);color:var(--on-accent);font-size:21px;border-radius:2px}
@@ -232,7 +232,7 @@ body .rail a:hover,body .rail-more summary:hover{background:var(--accent-soft);c
 .studio-path-stats>div:first-child{padding-left:0;border-left:0}
 .studio-path-stats dt{font-size:11px;line-height:1.5}
 .studio-path-stats dd{font-size:24px;font-weight:500}
-.studio-demand-list,.studio-recent-works{min-height:126px;padding:14px 0}
+.studio-demand-list,.studio-recent-works{min-height:118px;padding:12px 0}
 .studio-demand{padding:10px 0;margin:0;border-top:1px solid var(--border)}
 .studio-demand>span,.studio-demand>small{font-family:var(--font-meta)}
 .studio-demand blockquote{font-size:13px;line-height:1.75}
@@ -370,4 +370,29 @@ body[data-shell="future-studio"] :is(#owned-today .plat,#plats .plat){padding:20
 @media(max-width:860px){
   body[data-shell="future-studio"] .cm-content-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
   body[data-shell="future-studio"] .cm-content-tabs [role=tab]{min-width:0;padding:12px 8px;text-align:center}
+}
+
+/* Large constructivist colour fields belong to real business results. */
+.studio-lane-active .studio-path-result,
+.studio-lane-content .studio-path-result{min-height:80px;margin:10px 0;padding:12px 18px;box-shadow:none}
+.studio-lane-active .studio-path-result{background:var(--construction-blue);color:var(--on-blue)}
+.studio-lane-content .studio-path-result{background:var(--accent);color:var(--on-accent)}
+.studio-lane-active .studio-path-result>strong,
+.studio-lane-content .studio-path-result>strong{color:inherit;font-size:46px}
+.studio-lane-active .studio-path-result>span,
+.studio-lane-content .studio-path-result>span,
+.studio-lane-active .studio-path-result small,
+.studio-lane-content .studio-path-result small{color:inherit}
+.studio-lane-active .studio-path-result small,
+.studio-lane-content .studio-path-result small{opacity:.82}
+.studio-lane-content .studio-week-plan{margin-top:4px;padding:10px 14px;border:1px solid var(--film);background:var(--film);color:var(--on-ink)}
+.studio-lane-content .studio-week-plan h3,
+.studio-lane-content .studio-week-plan p{color:var(--on-ink)}
+.studio-lane-content .studio-week-plan .btn{background:var(--bg);color:var(--ink-1);border-color:var(--bg)}
+.studio-lane-content .studio-week-plan .btn:hover{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+@media(max-width:860px){
+  .studio-lane-active .studio-path-result,
+  .studio-lane-content .studio-path-result{min-height:88px;padding:12px 16px}
+  .studio-lane-active .studio-path-result>strong,
+  .studio-lane-content .studio-path-result>strong{font-size:46px}
 }

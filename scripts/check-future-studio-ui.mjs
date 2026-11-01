@@ -47,7 +47,7 @@ async function contrastCheck(page,label,selector){
     const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});canvas.width=canvas.height=1;
     const rgba=value=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=value;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].map((x,i)=>i===3?x/255:x);};
     const lum=color=>color.slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
-    return [...document.querySelectorAll(selector||'.studio-primary-nav a,.studio-lane h2,.studio-path-result strong,.studio-path-result small,.studio-lane footer .btn,.studio-path-stats dt,.studio-entry strong,.studio-entry small,#cm-content-home h1,#content-library h2,#content-library .meta,.cm-content-toolbar .btn,.cm-content-tabs [role=tab],#mast-date')].filter(el=>el.getClientRects().length).map(el=>{
+    return [...document.querySelectorAll(selector||'.studio-primary-nav a,.studio-lane h2,.studio-path-result strong,.studio-path-result small,.studio-lane footer .btn,.studio-path-stats dt,.studio-entry strong,.studio-entry small,#cm-content-home h1,#content-library h2,#content-library .meta,.cm-content-toolbar .btn,.cm-content-tabs [role=tab],#mast-date,.studio-week-plan h3,.studio-week-plan p,.studio-week-plan .btn')].filter(el=>el.getClientRects().length).map(el=>{
       const layers=[];let parent=el;while(parent){layers.unshift(rgba(getComputedStyle(parent).backgroundColor));parent=parent.parentElement;}
       const bg=layers.reduce((under,c)=>c.slice(0,3).map((v,i)=>v*c[3]+under[i]*(1-c[3])),[255,255,255]);
       const color=rgba(getComputedStyle(el).color),ink=color.slice(0,3).map((v,i)=>v*color[3]+bg[i]*(1-color[3]));
