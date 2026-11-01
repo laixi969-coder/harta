@@ -26,3 +26,4 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
 
 .landing-registration{height:auto;min-height:100svh}.landing-registration .landing-login{margin-bottom:40px}.form input::placeholder{color:#6e667e;opacity:1}
+.landing-brand .brand-logo{display:block;width:132px;height:auto;max-height:40px;object-fit:contain}

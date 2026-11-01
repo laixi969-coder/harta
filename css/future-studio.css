@@ -522,3 +522,5 @@ body[data-shell="future-studio"] .cm-calendar-date small { color: var(--ink-2); 
   body[data-shell="future-studio"] .cm-calendar-date { min-height: 48px; padding: 4px; font-size: 12px; }
   body[data-shell="future-studio"] .cm-calendar-date span { overflow-wrap: anywhere; }
 }
+[data-theme="dark"] .rail .brand .logo{filter:brightness(0) invert(1)}
+[data-theme="light"] .rail .brand .logo{filter:none}
