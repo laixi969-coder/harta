@@ -52,3 +52,11 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 
 .filter-tabs button{min-height:44px;padding:8px 10px}
 .filter-tabs button.active:after{display:none}
 :is(.xhs-icon,.platform-status .xhs-icon,.platform-choice .xhs-icon){width:auto;min-width:44px;height:26px;padding:3px 6px;border-radius:2px;line-height:1.2;white-space:nowrap}
+
+/* Acquisition uses the same blue field as business and connection routes. */
+.page-heading{padding:16px 18px;background:var(--construction-blue);color:var(--on-blue);border:1px solid var(--construction-blue);border-radius:2px}
+.page-heading :is(h1,p){color:inherit}
+.page-heading .btn{background:var(--bg);color:var(--ink-1);border-color:var(--bg)}
+.results-heading{background:var(--film);color:var(--on-ink)}
+.results-heading :is(h2,span){color:inherit}
+.results-heading .btn{background:var(--bg);color:var(--ink-1);border-color:var(--bg)}

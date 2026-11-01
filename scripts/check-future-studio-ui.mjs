@@ -47,11 +47,11 @@ async function contrastCheck(page,label,selector){
     const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});canvas.width=canvas.height=1;
     const rgba=value=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=value;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].map((x,i)=>i===3?x/255:x);};
     const lum=color=>color.slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
-    return [...document.querySelectorAll(selector||'.studio-primary-nav a,.studio-lane h2,.studio-path-result strong,.studio-path-result small,.studio-lane footer .btn,.studio-path-stats dt,.studio-entry strong,.studio-entry small,#cm-content-home h1,#content-library h2,#content-library .meta,.cm-content-toolbar .btn,.cm-content-tabs [role=tab],#mast-date,.studio-week-plan h3,.studio-week-plan p,.studio-week-plan .btn')].filter(el=>el.getClientRects().length).map(el=>{
+    return [...document.querySelectorAll(selector||'.studio-primary-nav a,.studio-lane h2,.studio-path-result strong,.studio-path-result small,.studio-lane footer .btn,.studio-path-stats dt,.studio-entry strong,.studio-entry small,#cm-content-home h1,#content-library h2,#content-library .meta,.cm-content-toolbar .btn,.cm-content-tabs [role=tab],#mast-date,.studio-week-plan h3,.studio-week-plan p,.studio-week-plan .btn,.hook h1,.hook p,.cm-heading h1,.cm-heading p,.acq-priority h2,.acq-priority p,.agent-heading h2,.cm-panel>h2:first-child,.cm-panel>summary:first-child,.cm-panel>.cm-form>h2:first-child')].filter(el=>el.getClientRects().length).map(el=>{
       const layers=[];let parent=el;while(parent){layers.unshift(rgba(getComputedStyle(parent).backgroundColor));parent=parent.parentElement;}
       const bg=layers.reduce((under,c)=>c.slice(0,3).map((v,i)=>v*c[3]+under[i]*(1-c[3])),[255,255,255]);
       const color=rgba(getComputedStyle(el).color),ink=color.slice(0,3).map((v,i)=>v*color[3]+bg[i]*(1-color[3]));
-      const a=lum(ink),b=lum(bg);return {text:el.textContent.trim().slice(0,25),ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
+      const a=lum(ink),b=lum(bg);return {text:el.textContent.trim().slice(0,25),ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),color:getComputedStyle(el).color,background:bg};
     });
   },selector);
   assert.ok(results.length>5);assert.deepEqual(results.filter(r=>r.ratio<4.5),[],label+' visible text contrast');
@@ -164,7 +164,7 @@ try{
     await more.locator('summary').click();await more.locator(`[data-nav="${route}"]`).click();await page.locator(`[data-view="${route}"]`).waitFor({state:'visible'});assert.equal(await more.evaluate(el=>el.open),false);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,route+' desktop overflow');
     await page.locator(`[data-view="${route}"] details`).evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);
-    spacingFindings.push(...await spacingIssues(page,route+' light'));
+    spacingFindings.push(...await spacingIssues(page,route+' light'));await contrastCheck(page,route+' light');
     await page.screenshot({path:path.join(output,route+'-light.png'),fullPage:true});
   }
   await page.locator('[data-nav=conversations]').click();await page.locator('[data-view=conversations]').waitFor({state:'visible'});await page.locator('[data-view=conversations] details').evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);spacingFindings.push(...await spacingIssues(page,'conversations light'));await page.screenshot({path:path.join(output,'conversations-light.png'),fullPage:true});
@@ -182,7 +182,7 @@ try{
     await more.locator('summary').click();await more.locator(`[data-nav="${route}"]`).click();await page.locator(`[data-view="${route}"]`).waitFor({state:'visible'});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,route+' dark desktop overflow');
     await page.locator(`[data-view="${route}"] details`).evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);
-    spacingFindings.push(...await spacingIssues(page,route+' dark'));
+    spacingFindings.push(...await spacingIssues(page,route+' dark'));await contrastCheck(page,route+' dark');
     await page.screenshot({path:path.join(output,route+'-dark.png'),fullPage:true});
   }
   await page.locator('[data-nav=conversations]').click();await page.locator('[data-view=conversations]').waitFor({state:'visible'});await page.locator('[data-view=conversations] details').evaluateAll(els=>els.forEach(el=>el.open=true));await page.waitForTimeout(100);spacingFindings.push(...await spacingIssues(page,'conversations dark'));await page.screenshot({path:path.join(output,'conversations-dark.png'),fullPage:true});
