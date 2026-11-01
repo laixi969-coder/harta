@@ -24,7 +24,7 @@ try {
  const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});const context=await browser.newContext(),origin=`http://127.0.0.1:${port}`;
  assert.equal((await context.request.post(origin+'/api/login',{data:{email,password:'fixture-password-123'}})).status(),200);
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(origin+'/');await page.locator('#cm-workbench h1').waitFor();
- assert.match(await page.locator('#acq-today').textContent(),/1 条线索待回复/);
+ const today=await page.locator('#acq-today').textContent();assert.match(today,/先处理 另一账号待回复 的咨询/);assert.doesNotMatch(today,/先处理 已回复访客/);const active=page.locator('.studio-lane-active');const pending=active.locator('dl div').filter({has:page.getByText('待回复联系人',{exact:true})});assert.equal((await pending.locator('dd').innerText()).trim(),'1');
  await page.locator('[data-nav=conversations]').click();await page.locator('#cm-conversations .cm-support > summary').click();await page.getByRole('button',{name:'未关联需求的历史会话',exact:true}).click();
  await page.locator('[data-acq-stage]').selectOption('reply');
  const list=await page.locator('#acq-leads').textContent();assert.match(list,/另一账号待回复/);assert.doesNotMatch(list,/已回复访客/);

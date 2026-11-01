@@ -535,6 +535,26 @@
 
           <h1 id="settings-line"></h1>
         </div>
+        <section class="card form settings-section" id="platform-data-settings" aria-label="平台数据源设置">
+          <h2>平台数据源</h2>
+          <p class="meta">为当前业务分别配置小红书和抖音的数据源。密钥加密保存在 Harta 服务端，测试会调用供应商并可能计费。</p>
+          <div id="platform-data-config"></div>
+        </section>
+        <details class="card form settings-section" id="settings-help">
+          <summary>使用帮助与平台连接</summary>
+          <h3>作品和效果导入</h3>
+          <p>在「内容创作 → 账号复盘」登记发布账号并批量导入自有作品；在「内容创作 → 选题与雷达」导入参考作品或 MediaCrawler 结果目录，也可从数据接口读取。先预览并核对，效果数据需填写统计窗口和来源。</p>
+          <button type="button" class="btn ghost" data-help-nav="content-home">打开内容创作</button>
+          <h3>小红书和抖音</h3>
+          <p>在上方按业务选择 TikHub 或 RedFox 并保存 API Key。手动连接测试会调用服务商并可能计费。当前 RedFox 抖音接入支持作品搜索与详情，评论可使用 TikHub 或浏览器方式。连接成功仍需到主动截流核对实际读取结果。抖音官方账号作品同步需在「平台账号」勾选作品列表权限，并使用已获批 video.list 的应用重新授权；公开状态未知的作品须人工核对。</p>
+          <h3>微信公众号</h3>
+          <p>在「工作空间 → 平台账号」绑定公众号 AppID 和 AppSecret。同步失败时请核对公众号接口权限及服务器公网 IP 白名单；已同步的素材库文章不自动认定为已发表。</p>
+          <button type="button" class="btn ghost" data-help-nav="connections">打开平台账号</button>
+          <h3>TikTok</h3>
+          <p>支持手工导入作品及数据、参考和账号复盘；尚未接入 TikTok 登录、搜索、同步或原生发布制作。</p>
+          <h3>账号、模型与团队</h3>
+          <p>管理员在本页管理账号与模型；密钥留空会保留已保存的值。团队概览和账号权限按当前工作空间生效。</p>
+        </details>
         <details class="card form settings-section">
           <summary>修改密码</summary>
           <label for="old-pass">旧密码</label>
@@ -574,7 +594,7 @@
           <label for="image-model-request-mode">请求参数</label><select id="image-model-request-mode"><option value="auto">自动选择</option><option value="minimal">精简参数</option><option value="legacy">兼容旧版参数</option><option value="dashscope">阿里云百炼原生接口</option></select>
           <p class="meta">自动选择会按模型名称选择参数；若服务商报参数不支持，可按其接口说明切换。每次点击只发起一次出图请求。</p>
           <label for="image-model-key">出图密钥</label><input id="image-model-key" type="password" maxlength="4096" autocomplete="new-password" placeholder="留空保留已保存密钥">
-          <label><input type="checkbox" id="image-model-clear">清除已保存密钥</label>
+          <label class="settings-check"><input type="checkbox" id="image-model-clear">清除已保存密钥</label>
           <div class="acts"><button type="button" class="btn" id="image-model-save">保存出图设置</button></div><p class="meta" id="image-model-status" role="status"></p>
         </details>
         <div id="llm-box"></div>

@@ -1,5 +1,10 @@
 import type { Comment, Job } from '../shared/types.ts';
 export type CommentScope = 'note' | 'job' | 'all';
+export function commentDate(value: string | null | undefined, dateOnly = false) {
+  if (!value || !Number.isFinite(Date.parse(value))) return '评论时间未知';
+  const date = new Date(value);
+  return `评论时间：${dateOnly ? date.toLocaleDateString('zh-CN') : date.toLocaleString('zh-CN', { hour12: false })}`;
+}
 export function scopedComments(
   comments: Comment[],
   noteId: string,

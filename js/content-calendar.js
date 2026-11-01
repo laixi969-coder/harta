@@ -13,6 +13,27 @@ export function calendarWeek(date = new Date(), offset = 0) {
   return Array.from({length:7}, (_, i) => { const d = new Date(start); d.setDate(start.getDate()+i); return localDay(d); });
 }
 
+// Calendar arithmetic uses local dates; UTC day numbers avoid DST-length weeks.
+export function calendarMonth(date = new Date(), offset = 0) {
+  const first=new Date(date.getFullYear(),date.getMonth()+offset,1),last=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
+  const leading=(first.getDay()+6)%7;
+  return {year:first.getFullYear(),month:first.getMonth()+1,days:[...Array(leading).fill(null),...Array.from({length:last},(_,i)=>localDay(new Date(first.getFullYear(),first.getMonth(),i+1)))]};
+}
+export function calendarWeekOffset(day, today = new Date()) {
+  if(typeof day!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(day))return null;
+  const [y,m,d]=day.split('-').map(Number),date=new Date(y,m-1,d,12);
+  if(localDay(date)!==day)return null;
+  const monday=s=>{const [year,month,date]=s.split('-').map(Number);return Date.UTC(year,month-1,date);};
+  return Math.round((monday(calendarWeek(date)[0])-monday(calendarWeek(today)[0]))/604800000);
+}
+
+// A past plan is a reminder to check, not proof the post was never published.
+export function pastPlannedPosts(items = [], today = new Date()) {
+  const todayKey=localDay(today);
+  return items.filter(item=>item.kind==='post'&&['pending','selected'].includes(item.status)&&typeof item.date==='string'&&item.date<todayKey&&calendarWeekOffset(item.date,today)!==null)
+    .sort((a,b)=>b.date.localeCompare(a.date));
+}
+
 // Existing field-level plans can differ. Keep each group separate instead of
 // silently moving or unpublishing other fields of the same post.
 export function calendarItems(customer, states = {}) {

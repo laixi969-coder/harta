@@ -34,6 +34,7 @@ try {
   put('jobs',{id:'job-'+id,type:'search',status:'completed',source:'live',platform,keyword,resultIds:[platform+':'+id],count:1,pages:1,logs:[],createdAt:new Date().toISOString()});
  }
  put('comments',{id:'xhs:topic-fixture',noteId:'xiaohongshu:a',platform:'xiaohongshu',source:'live',author:'样例访客',authorId:'topic-user',body:'家具尺寸应该怎么测？',createdAt:new Date().toISOString(),region:'',parentId:null,likes:0});
+ put('comments',{id:'xhs:unknown-date-fixture',noteId:'xiaohongshu:a',platform:'xiaohongshu',source:'live',author:'样例访客二',authorId:'unknown-date-user',body:'请问在哪里看款式？',createdAt:'',region:'',parentId:null,likes:0});
  db.close();
  page=await context.newPage();const view=page.frameLocator('#cm-openfind iframe');const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin+'/openfind?customerId=c1#settings');
@@ -100,6 +101,9 @@ try {
  await picker.getByLabel('作品平台').selectOption('xiaohongshu');
  await picker.locator('#comment-note').selectOption('xiaohongshu:a');
  await view.locator('.filter-tabs').getByRole('button',{name:'全部',exact:true}).click();
+ await view.getByLabel('评论时间').selectOption('all');
+ assert.ok(await view.getByText('评论时间未知',{exact:true}).count());
+ assert.equal(await view.getByText('Invalid Date').count(),0);
  await view.getByRole('button',{name:'家具尺寸应该怎么测？'}).click();
  await view.getByRole('button',{name:'提炼为内容选题'}).click();
  const topicEditor=page.locator('#cm-review [data-cm-form=demand-topic]');await topicEditor.locator('[name=topic]').fill('家具尺寸如何测量');await topicEditor.locator('[name=confirmed]').check();

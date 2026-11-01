@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { commentJob, scopedComments, withinCommentWindow } from '../src/comment-scope.ts';
+import { commentDate, commentJob, scopedComments, withinCommentWindow } from '../src/comment-scope.ts';
 import type { Comment, Job } from '../shared/types.ts';
 const comments = [
   { id: 'a1', noteId: 'a' },
@@ -30,6 +30,11 @@ const jobs = [
     resultIds: ['b1'],
   },
 ] as Job[];
+test('missing and malformed platform dates stay visibly unknown', () => {
+  assert.equal(commentDate(''), '评论时间未知');
+  assert.equal(commentDate('not a date'), '评论时间未知');
+  assert.match(commentDate('2026-10-18T14:00:00Z'), /^评论时间：/);
+});
 test('switching target cannot display an unrelated task; saved scope includes earlier collections', () => {
   assert.equal(commentJob(jobs, 'a', '')?.id, 'new');
   assert.equal(commentJob(jobs, 'a', 'other'), undefined);

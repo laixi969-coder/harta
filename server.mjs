@@ -1,4 +1,6 @@
 import {topicBoardAction} from './lib/topic-board.mjs';
+import {benchmarkGroupAction} from './lib/benchmark-groups.mjs';
+import {recordAccountAudience} from './lib/account-audience.mjs';
 import {wechatWorkspace} from './lib/wechat-workspace.mjs';
 import { reviewStudioText } from './lib/studio-standard-review.mjs';
 import { hasContentJobs } from './lib/workspace.mjs';
@@ -9,6 +11,8 @@ import { withModelAccount } from './lib/model-spend.mjs';
 import { publicImageConfig, saveImageConfig, generateCover } from './lib/image-generation.mjs';
 import { generateRadarHook, saveRadarHook } from './lib/radar-hook.mjs';
 import { registerOwnedPublication, correctOwnedPublication, recordOwnedPublicationOutcome, importOwnedPublicationOutcomes, adoptAccountReviewMemory } from './lib/account-review.mjs';
+import {previewWorkImport,importWorks} from './lib/work-bulk-import.mjs';
+import {fetchWorkSource} from './lib/work-source-fetch.mjs';
 import { saveProductionAssets, readProductionAsset, exportProductionAssets } from './lib/production-assets.mjs';
 import { withBusinessModelBudget } from './lib/model-budget.mjs';
 import { acquireDataLock } from './lib/data-lock.mjs';
@@ -17,13 +21,13 @@ import { openFindRoute, proxyOpenFind } from './lib/openfind-proxy.mjs';
 import { openFind } from './lib/openfind-live.mjs';
 import { serveWorkMedia } from './lib/openfind-work-media.mjs';
 import {hostedBrowser} from './lib/hosted-browser.mjs';
-import { platformAuthState, startPlatformAuth, pollPlatformAuth, cancelPlatformAuth, removePlatformAuth, completeDouyinAuth } from './lib/platform-auth.mjs';
+import { platformAuthState, startPlatformAuth, pollPlatformAuth, cancelPlatformAuth, removePlatformAuth, completeDouyinAuth, syncDouyinVideos } from './lib/platform-auth.mjs';
 import { uploadDeliveryAsset, deliveryAsset, deliveryState, bindDeliveryIdentity, queueDelivery, cancelDelivery, claimDelivery, authorizeDelivery, completeDelivery, saveReplyRule, replyMonitors, receiveBrowserEvents, monitorError } from './lib/browser-delivery.mjs';
 import { issuePairing, redeemPairing, authenticateConnector, connections, revokeConnection, queueCollection, cancelCollection, connectorJobs, claimCollection, completeCollection, contactHandoff } from './lib/platform-connector.mjs';
 import { commerceWorkspace, commerceAction, startOutreachDraft } from './lib/commerce-workspace.mjs';
 import { importOpenFind } from './lib/openfind-import.mjs';
 import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, validHost, sameOriginMutation, sessionCookie, readJsonBody } from './lib/request-guard.mjs';
-import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, attributeSignalPublication, saveAccount, preparePublication, confirmPublication, recordPublicationReview, recordInquiry, correctInquiryPublicationSource, correctInquiryLiveSource, saveDemandTopic, reviseDemandTopic, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
+import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, attributeSignalPublication, saveAccount, preparePublication, confirmPublication, recordPublicationReview, recordInquiry, createManualContact, correctInquiryPublicationSource, correctInquiryLiveSource, saveDemandTopic, reviseDemandTopic, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
 import { agentWorkspace, createAgent, saveAgent, agentAction, startAgentTrial } from './lib/business-agents.mjs';
 import { proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, reviewProductionFacts, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
 import { expandKeywordsForCustomer, aggregatePains, teardownForCustomer, teardownAccountForCustomer, rebuildPlaybook, topicPoolFor, decideTopic, decideRadarWork, importRadarSamples, refreshPlaybookAfterFeedback, calibrateHuntFor } from './lib/research-tools.mjs';
@@ -278,6 +282,7 @@ async function handleApi(req, res, url) {
       }
       if (req.method === 'POST') {
         const action = url.pathname.slice('/api/platform-auth/'.length);
+        if (action === 'sync-videos') {const result=await syncDouyinVideos(user.email,await readBody(req));return json(res,200,{...result,workspace:publicWorkspace(result.workspace)});}
         const handler = { start: startPlatformAuth, poll: pollPlatformAuth, cancel: cancelPlatformAuth, disconnect: removePlatformAuth }[action];
         if (action === 'start' && !rateLimit(req, 'platform-auth-start', 10, 600000, user.email)) return json(res, 429, {error:'连接尝试过于频繁，请稍后重试'});
         if (handler) return json(res, 200, await handler(user.email, await readBody(req), session));
@@ -370,8 +375,10 @@ async function handleApi(req, res, url) {
       if (match[2] === '/harta/contacts') return json(res, 200, openFindContacts(readWorkspace(user.email), customerId));
       if (match[2] === '/harta/handoff') return json(res, 200, await openFind.handoff(user.email, customerId, await readBody(req)));
       if (req.method === 'POST' && (/^\/workflows\/[^/]+\/pause$/.test(match[2]) || /^\/jobs\/[^/]+\/stop$/.test(match[2]))) openFind.suspendSchedule(user.email, customerId);
-      const endpoint = await openFind.endpoint(user.email, customerId, { activate: req.method !== 'GET' });
-      return await proxyOpenFind(req, res, endpoint, match[2] + url.search, securityHeaders());
+      const settingsOnly=/^\/(xhs-data|douyin-data)(?:\/test)?$/.test(match[2]);
+      const endpoint = await openFind.acquireEndpoint(user.email, customerId, { activate: !settingsOnly && req.method !== 'GET', settingsOnly });
+      try { return await proxyOpenFind(req, res, endpoint, match[2] + url.search, securityHeaders()); }
+      finally { await openFind.releaseEndpoint(user.email,customerId); }
     } catch (error) { return json(res, 400, { error: error.message || 'Harta 操作失败' }); }
   }
   if (url.pathname === '/api/openfind' && ['GET', 'POST'].includes(req.method)) {
@@ -403,7 +410,7 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const action = url.pathname.slice('/api/acquisition/'.length);
-    const handlers = { commerce: commerceAction, import: importSignals, stop: stopSearch, review: reviewSignal, 'signal-publication':attributeSignalPublication, account: saveAccount, 'prepare-publication': preparePublication, publication: confirmPublication, 'publication-review':recordPublicationReview, inquiry: recordInquiry, 'publication-source':correctInquiryPublicationSource, 'live-source':correctInquiryLiveSource, 'demand-topic':saveDemandTopic, 'demand-topic-revise':reviseDemandTopic, lead: leadAction, 'agent-create': createAgent, 'agent-save': saveAgent, 'agent-action': agentAction };
+    const handlers = { commerce: commerceAction, import: importSignals, stop: stopSearch, review: reviewSignal, 'signal-publication':attributeSignalPublication, account: saveAccount, 'prepare-publication': preparePublication, publication: confirmPublication, 'publication-review':recordPublicationReview, inquiry: recordInquiry, 'manual-contact':createManualContact, 'publication-source':correctInquiryPublicationSource, 'live-source':correctInquiryLiveSource, 'demand-topic':saveDemandTopic, 'demand-topic-revise':reviseDemandTopic, lead: leadAction, 'agent-create': createAgent, 'agent-save': saveAgent, 'agent-action': agentAction };
     const body = await readBody(req, action === 'openfind-import' ? 2 * 1024 * 1024 : MAX_BODY);
     try {
       if (action === 'openfind-import') return json(res, 200, { workspace: publicWorkspace(importOpenFind(user.email, body)) });
@@ -528,7 +535,7 @@ async function handleApi(req, res, url) {
     return result.error ? json(res, 400, result) : json(res, 200, publicWorkspace(result.workspace));
   }
 
-  if (req.method === "POST" && ["/api/keywords/expand", "/api/pain-clusters", "/api/benchmark/teardown", "/api/benchmark/account", "/api/writing-playbook", "/api/topic-pool", "/api/topic-decide", "/api/radar-decision", "/api/radar-import", "/api/hunt-calibration"].includes(url.pathname)) {
+  if (req.method === "POST" && ["/api/keywords/expand", "/api/pain-clusters", "/api/benchmark/teardown", "/api/benchmark/account", "/api/benchmark/group", "/api/account-audience", "/api/writing-playbook", "/api/topic-pool", "/api/topic-decide", "/api/radar-decision", "/api/radar-import", "/api/hunt-calibration"].includes(url.pathname)) {
     const user = requireUser(req, res);
     if (!user) return;
     try {
@@ -538,6 +545,8 @@ async function handleApi(req, res, url) {
         "/api/pain-clusters": () => aggregatePains(user.email, body),
         "/api/benchmark/teardown": () => teardownForCustomer(user.email, body),
         "/api/benchmark/account": () => teardownAccountForCustomer(user.email, body),
+        "/api/benchmark/group": () => benchmarkGroupAction(user.email, body),
+        "/api/account-audience": () => recordAccountAudience(user.email, body),
         "/api/writing-playbook": () => rebuildPlaybook(user.email, body),
         "/api/topic-pool": () => topicPoolFor(user.email, body),
         "/api/topic-decide": () => decideTopic(user.email, body),
@@ -782,6 +791,15 @@ async function handleApi(req, res, url) {
     try{validateStudioSource(user.email,await readBody(req));return json(res,200,{ok:true});}catch(error){return json(res,400,{error:error.message||'交接校验失败'});}
   }
 
+  if(req.method==='POST' && url.pathname==='/api/works-source-read') {
+    const user=requireUser(req,res);if(!user)return;
+    if(!rateLimit(req,'works-source-read',10,60000,user.email))return json(res,429,{error:'读取过于频繁，请稍后重试'});
+    try{const body=await readBody(req);const text=await fetchWorkSource(body,{allowLocal:isAdmin(user)});return json(res,200,{text});}catch(error){return json(res,400,{error:error.message||'读取失败'});}
+  }
+  if(req.method==='POST' && url.pathname==='/api/works-bulk') {
+    const user=requireUser(req,res);if(!user)return;
+    try{const body=await readBody(req,3*1024*1024);if(body.action==='preview')return json(res,200,previewWorkImport(readWorkspace(user.email),body));if(body.action==='import'){const result=importWorks(user.email,body);return json(res,200,{workspace:publicWorkspace(result.workspace),count:result.count});}throw new Error('请选择预览或导入');}catch(error){return json(res,400,{error:error.message||'导入失败'});}
+  }
   if(req.method==='POST' && ['/api/owned-publication','/api/owned-publication-correct','/api/owned-publication-outcome'].includes(url.pathname)) {
     const user=requireUser(req,res);if(!user)return;
     try{const body=await readBody(req),workspace=url.pathname==='/api/owned-publication'?registerOwnedPublication(user.email,body):url.pathname==='/api/owned-publication-correct'?correctOwnedPublication(user.email,body):recordOwnedPublicationOutcome(user.email,body);return json(res,200,publicWorkspace(workspace));}catch(error){return json(res,400,{error:error.message||'记录失败'});}
@@ -1176,7 +1194,10 @@ const server = http.createServer(async (req, res) => {
       try { await withModelAccount(currentUser(req)?.email || 'unauthenticated', () => handleApi(req, res, url)); } finally { release?.(); }
       return;
     }
-    if (!rateLimit(req, "static", 600, 60 * 1000)) {
+    // A full workspace loads many local modules. Keep their budget separate
+    // from document requests so normal navigation cannot prevent bootstrapping.
+    const assetRequest = /\.(?:js|css|svg|png|jpe?g|webp|woff2?)$/i.test(url.pathname);
+    if (!rateLimit(req, assetRequest ? "static-assets" : "static", assetRequest ? 2400 : 600, 60 * 1000)) {
       res.writeHead(429, {
         "content-type": "text/plain; charset=utf-8",
         ...securityHeaders(),

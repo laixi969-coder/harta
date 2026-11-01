@@ -19,8 +19,8 @@ export function previewAccountCsv(text,publications,customerId) {
   const seen=new Set();
   return rows.map((row,i)=>{
     const errors=[];if(row.length!==headers.length)errors.push('列数与表头不一致');
-    const get=k=>(row[index[k]]||'').trim(),rawPlatform=get('platform').toLowerCase(),platform=({douyin:'抖音','抖音':'抖音',xhs:'小红书',xiaohongshu:'小红书','小红书':'小红书','视频号':'视频号',wechat_channels:'视频号',wechat_official_account:'公众号','公众号':'公众号'})[rawPlatform];
-    const url=get('url');if(!platform)errors.push('平台需为抖音、小红书、视频号或公众号');if(!/^https?:\/\//i.test(url))errors.push('作品链接无效');
+    const get=k=>(row[index[k]]||'').trim(),rawPlatform=get('platform').toLowerCase(),platform=({douyin:'抖音','抖音':'抖音',xhs:'小红书',xiaohongshu:'小红书','小红书':'小红书','视频号':'视频号',wechat_channels:'视频号',wechat_official_account:'公众号','公众号':'公众号',tiktok:'TikTok'})[rawPlatform];
+    const url=get('url');if(!platform)errors.push('平台需为抖音、小红书、视频号、公众号或 TikTok');if(!/^https?:\/\//i.test(url))errors.push('作品链接无效');
     const identity=platform?publicationIdentity(platform,url):'',matches=publications.filter(p=>isRealEvidence(p)&&p.customerId===customerId&&p.status==='published'&&p.platform===platform&&publicationIdentity(platform,p.url)===identity);
     if(matches.length!==1)errors.push(matches.length?'链接匹配多条作品':'没有匹配的已登记发布作品');
     if(matches.length===1){if(seen.has(matches[0].id))errors.push('同一作品在文件中重复');seen.add(matches[0].id);}

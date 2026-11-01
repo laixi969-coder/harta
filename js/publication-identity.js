@@ -16,6 +16,10 @@ export function publicationIdentity(platform, raw) {
       const match=/^\/(?:video|note|share\/video)\/(\d{3,40})\/?$/.exec(u.pathname);
       if(match)return `douyin:${match[1]}`;
     }
+    if(platform==='TikTok' && domain('tiktok.com')) {
+      const match=/^\/@[^/]+\/video\/(\d{3,40})\/?$/.exec(u.pathname);
+      if(match)return `tiktok:${match[1]}`;
+    }
     return u.href;
   }catch{return String(raw || '');}
 }

@@ -1,4 +1,5 @@
 import { creationIntentLabel } from './creation-intent.js';
+import { initPlatformDataSettings, openPlatformDataSettings } from './platform-data-settings.js';
 import { openAcquisitionPage, acquisitionActiveSection, resumeAcquisitionRoute } from './openfind-workbench.js';
 import { installCommerceUI, renderCommerceUI, resumeOpenFindHandoff, setContentWorkspaceTab, contentWorkspaceTab, preserveCommerceDrafts } from './commerce-ui.js';
 import { installResponsiveNavigation } from './responsive-navigation.js';
@@ -722,6 +723,7 @@ function nav(view) {
   preserveCommerceDrafts();
   if(view==='account-review'){setContentWorkspaceTab('review');view='content-home';}
   if (view === 'crew') void loadCrew();
+  if (view === 'settings') void openPlatformDataSettings();
   if (view === 'prospecting') { openAcquisitionPage('discover'); return; }
   if (view !== 'openfind' && new URLSearchParams(location.search).has('acqPage')) history.replaceState(null, '', '/');
   state.view = view;
@@ -1879,6 +1881,12 @@ function bind() {
       });
       return;
     }
+    const helpNav = e.target.closest('[data-help-nav]');
+    if (helpNav) {
+      if (helpNav.dataset.helpNav === 'content-home') setContentWorkspaceTab('library');
+      nav(helpNav.dataset.helpNav);
+      return;
+    }
     const navEl = e.target.closest("[data-nav]");
     if (navEl) {
       e.preventDefault();
@@ -2410,6 +2418,7 @@ async function boot() {
   if (space.status === 401) { location.href = "/login.html"; return; }
   if (!space.ok) throw new Error(space.status===429?"请求过于频繁，请稍候再试。":"无法读取工作台，请检查服务连接后重试。");
   state.workspace = await space.json();
+  initPlatformDataSettings({getWorkspace:()=>state.workspace,getBusiness:()=>usingCustomer()?.id||''});
   await refreshAcquisition();
   bindEyes();
   renderToday();

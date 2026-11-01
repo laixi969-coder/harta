@@ -1,6 +1,6 @@
 import { CollectedWorkPicker } from './CollectedWorkPicker';
 import { WorkSource } from './WorkSource';
-import { commentJob, scopedComments, withinCommentWindow, type CommentScope } from '../comment-scope';
+import { commentDate, commentJob, scopedComments, withinCommentWindow, type CommentScope } from '../comment-scope';
 import { hartaHandoff } from '../api';
 import { SalesWorkbench, SalesMetrics } from './SalesWorkbench';
 import { AssessmentDetails } from './AssessmentDetails';
@@ -522,7 +522,7 @@ export function Comments() {
                         {view==='terminal'?`[${c.parentId?'REPLY':'ROOT'}]`:c.parentId?'楼中楼回复':'一级评论'}
                       </b>
                       <time>
-                        {new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false })}
+                        {commentDate(c.createdAt)}
                       </time>
                     </span>
                     <button className="comment-user" onClick={() => setFocused(c)}>
@@ -606,7 +606,7 @@ export function Comments() {
                 {data.comments.find((c) => c.id === focused.parentId)?.body || focused.parentId}
               </p>
             )}
-            <p className="field-hint">评论时间：{focused.createdAt ? new Date(focused.createdAt).toLocaleString('zh-CN') : '未知'} · 规则排序 {assessment(focused).score}（不是购买概率）</p>
+            <p className="field-hint">{commentDate(focused.createdAt)} · 规则排序 {assessment(focused).score}（不是购买概率）</p>
             <AssessmentDetails assessment={assessment(focused)} />
             <div className="modal-action-row">
               <button
@@ -850,7 +850,7 @@ export function Leads() {
                         <Flame size={13} />
                         <b>{l.score}</b>
                       </div>
-                      <small className="muted">{l.commentCreatedAt ? new Date(l.commentCreatedAt).toLocaleDateString() : '评论日期未知'}</small>
+                      <small className="muted">{commentDate(l.commentCreatedAt, true)}</small>
                     </td>
                     <td>
                       {embedded ? <span className="source-tag">{contactsLoaded ? contactFor(l)?.stage || '待核实' : '读取中'}</span> : <select
@@ -929,7 +929,7 @@ export function Leads() {
               key={focused.noteId}
               note={data.notes.find((n) => n.id === focused.noteId)}
             />
-            <p className="field-hint">评论时间：{focused.commentCreatedAt ? new Date(focused.commentCreatedAt).toLocaleString('zh-CN') : '未知'}</p>
+            <p className="field-hint">{commentDate(focused.commentCreatedAt)}</p>
             {focused.assessment ? <AssessmentDetails assessment={focused.assessment} /> : <p>{focused.reason}</p>}
             {embedded && <button className="btn primary" onClick={()=>void hartaHandoff(focused.noteId,focused.commentId).catch(e=>notify(e.message,true))}>{contactFor(focused) ? '打开客户档案' : '核实这条需求'}</button>}
             {!embedded && <SalesWorkbench

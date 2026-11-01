@@ -51,7 +51,7 @@ export function installAcquisitionShell(ctx) {
   window.addEventListener('message',event => {
     const frame = document.querySelector('#cm-openfind iframe');
     if(event.origin !== location.origin || event.source !== frame?.contentWindow || event.data?.customerId !== frame.dataset.customer) return;
-    if(event.data.type === 'harta-acquisition-ready') {frame.dataset.ready='1';frame.contentWindow.postMessage({type:'harta-acquisition-navigate',page,params:routeParams,customerId:frame.dataset.customer},location.origin);deliverProduction(frame);}
+    if(event.data.type === 'harta-acquisition-ready') {frame.dataset.ready='1';frame.parentElement?.querySelector('.cm-acquisition-loading')?.remove();frame.contentWindow.postMessage({type:'harta-acquisition-navigate',page,params:routeParams,customerId:frame.dataset.customer},location.origin);deliverProduction(frame);}
     if(event.data.type === 'harta-acquisition-native' && event.data.view === 'conversations') ctx.nav('conversations');
     if(event.data.type === 'harta-acquisition-dirty') dirty = Boolean(event.data.dirty);
     if(event.data.type === 'harta-acquisition-page' && isAcquisitionPage(event.data.page)) {
@@ -82,8 +82,18 @@ export function mountOpenFindWorkbench(business, customers) {
     frame = document.createElement('iframe');
     frame.title = '获客内容'; frame.dataset.customer = business.id;
     frame.allow = 'clipboard-write'; frame.loading = 'eager';
-    frame.src = '/openfind?' + params;
-    host.append(frame);
+    const loading = document.createElement('div');
+    loading.className = 'cm-acquisition-loading'; loading.setAttribute('role','status');
+    const message = document.createElement('span'); message.textContent = '正在打开获客工作区…';
+    const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'btn ghost'; retry.textContent = '重新加载'; retry.hidden = true;
+    loading.append(message,retry); host.append(loading,frame);
+    let timer;
+    const load = () => {
+      clearTimeout(timer); delete frame.dataset.ready; retry.hidden = true; message.textContent = '正在打开获客工作区…';
+      frame.src = '/openfind?' + params;
+      timer = setTimeout(() => { if (frame.isConnected && !frame.dataset.ready) { message.textContent = '获客工作区暂时没有响应，请检查本地服务后重试。'; retry.hidden = false; } }, 10000);
+    };
+    retry.addEventListener('click',load); load();
     updateRoute(business.id);
   }
   const select = host.querySelector('select'), signature = JSON.stringify(customers.map(c => [c.id,c.name]));
