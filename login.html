@@ -3,40 +3,75 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Harta 将内容创作、主动获客与客户跟进连接起来。为小红书和抖音准备脚本、封面和直播，记录真实咨询与发布效果。">
-  <title>Harta — 让好内容，带来下一位客户</title>
+  <meta name="description" content="Harta 将主动获客、内容创作与客户跟进连接起来，帮助经营者从发现需求走到持续复盘。">
+  <meta property="og:title" content="Harta · 让每一次内容与沟通更接近客户">
+  <meta property="og:description" content="主动发现需求，创作有方向的内容，在同一个工作台跟进和复盘。">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <title>Harta · 让每一次内容与沟通更接近客户</title>
+  <link rel="icon" href="images/harta-mark.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/landing.css">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/landing-page.css">
 </head>
 <body>
-  <a class="skip" href="#login">跳到登录</a>
-  <main class="landing">
-    <div class="landing-background" aria-hidden="true">
-      <video id="hero-video" autoplay muted loop playsinline preload="none" tabindex="-1" data-src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260714_113715_c7e0daa0-8bdd-4486-a2da-040901f8f0ea.mp4"></video>
+  <a class="skip" href="#main">跳到正文</a>
+  <header class="site-header">
+    <nav class="nav" aria-label="首页导航">
+      <a class="brand" href="login.html" aria-label="Harta 首页"><img src="images/harta-mark.svg" width="28" height="28" alt=""><span>harta</span></a>
+      <div class="nav-links"><a href="#paths">获客方式</a><a href="#workflow">如何使用</a><a href="#faq">常见问题</a></div>
+      <a class="nav-login" href="#login">登录 <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+  <main id="main">
+    <div id="intro">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot"></span> 为认真经营客户关系的人而做</p>
+          <h1 class="heading-1" id="hero-title">让好内容与好沟通，<br>带来下一位客户。</h1>
+          <p class="body-3 hero-description">主动发现正在寻找答案的人，也用有方向的内容吸引他们。Harta 把线索、创作、跟进与复盘放在同一个工作台。</p>
+          <a class="primary button-md landing-cta" href="#login">进入工作台 <span aria-hidden="true">↗</span></a>
+          <p class="caption-2 hero-footnote">主动获客 · 内容创作 · 客户跟进</p>
+        </div>
+        <div class="hero-visual" aria-label="Harta 获客工作流程示意">
+          <div class="landscape-scene" aria-hidden="true"><img src="images/landing-landscape.webp" width="1672" height="941" alt="" fetchpriority="high"><span class="landscape-glimmer"></span></div>
+          <div class="visual-top"><span>HARTA / GROWTH STUDIO</span><span>工作流示意</span></div>
+          <div class="visual-body"><div class="visual-label">从一个需求开始 <span>↗</span></div>
+            <div class="signal"><span class="signal-icon">✳</span><div><span class="signal-small">发现需求</span><strong>找到值得回应的问题</strong><p>从评论和内容中发现潜在线索</p></div></div>
+            <div class="connector"><span></span><span></span><span></span></div>
+            <div class="visual-grid"><div class="visual-tile"><span>01 / 主动获客</span><strong>识别线索<br>持续跟进</strong><b>↗</b></div><div class="visual-tile visual-tile-dark"><span>02 / 内容创作</span><strong>找到选题<br>创作与复盘</strong><b>↗</b></div></div>
+          </div><div class="visual-bottom"><span>从发现，到建立连接</span><span>● &nbsp; HARTA</span></div>
+        </div>
+        <button class="landscape-toggle" type="button" aria-pressed="false">暂停背景动效</button>
+      </section>
+      <div class="marquee" aria-label="适用场景"><div class="wrap marquee-inner"><span>面向真实的增长工作</span><strong>发现需求</strong><strong>内容创作</strong><strong>客户跟进</strong><strong>效果复盘</strong></div></div>
+      <section class="section wrap" id="paths" data-reveal>
+        <div class="section-heading"><p class="eyebrow">两条路径，同一个目标</p><h2 class="heading-2">找到客户，<br>也让客户找到你。</h2><p class="body-3">从已有讨论中主动发现机会，或从内容出发建立信任。两条路径在客户跟进与复盘中汇合。</p></div>
+        <div class="paths">
+          <article class="path path-acquisition"><div class="path-top"><span>01 / 主动获客</span><span>↗</span></div><div><h3 class="heading-3">从真实需求<br>开始对话。</h3><p class="body-3">关注平台内容和评论，梳理用户意图，沉淀线索并记录后续跟进，让有价值的需求不被遗漏。</p></div><div class="path-illustration acquisition-illustration" aria-hidden="true"><span class="illustration-orbit orbit-one"></span><span class="illustration-orbit orbit-two"></span><span class="illustration-point point-one"></span><span class="illustration-point point-two"></span><span class="illustration-core">✳</span></div><div class="path-tags"><span>评论洞察</span><span>线索管理</span><span>跟进记录</span></div></article>
+          <article class="path path-content"><div class="path-top"><span>02 / 内容获客</span><span>↗</span></div><div><h3 class="heading-3">让创作有方向，<br>让内容有承接。</h3><p class="body-3">围绕业务、人设与受众生成选题、图文、视频脚本及封面，并结合发布表现调整下一次创作。</p></div><div class="path-illustration content-illustration" aria-hidden="true"><span class="paper-sheet paper-one"><i></i><i></i><i></i></span><span class="paper-sheet paper-two"><i></i><i></i><i></i></span><span class="paper-play">▶</span></div><div class="path-tags"><span>信息流自然与投放</span><span>小红书</span><span>抖音</span></div></article>
+        </div>
+      </section>
+      <section class="stories wrap" aria-label="产品工作方式">
+        <article class="story" data-reveal><div class="story-copy"><p class="eyebrow">主动获客 / 从发现到跟进</p><h2 class="heading-2">一次真实提问，<br>一次连接的开始。</h2><p class="body-3">从平台讨论中发现需求，识别值得跟进的线索，记录每一次沟通，让机会持续向前。</p><p class="caption-2">以下为工作流程示意</p></div><div class="story-visual lead-visual" aria-label="需求信号汇聚为客户线索的动态示意"><img class="story-art" src="images/landing-leads.webp" alt="晨光下溪流汇入湖泊，远处是绿色山丘" width="1536" height="1024" loading="lazy"><span class="visual-caption">需求信号 <span>→</span> 客户线索</span><span class="story-index">01 / DISCOVER</span></div></article>
+        <article class="story story-reverse" data-reveal><div class="story-copy"><p class="eyebrow">内容获客 / 从选题到作品</p><h2 class="heading-2">让每一次创作，<br>都有值得回应的问题。</h2><p class="body-3">为信息流、小红书和抖音准备内容，把选题、图文、视频脚本和封面放在一起构思。</p><p class="caption-2">以下为创作形式示意</p></div><div class="story-visual content-visual" aria-label="一个选题演化为多种内容形式的动态示意"><img class="story-art" src="images/landing-content.webp" alt="暖橙色草地环绕湖面，远处山丘层叠" width="1536" height="1024" loading="lazy"><span class="visual-caption">一个洞察 <span>→</span> 多种表达</span><span class="story-index">02 / CREATE</span></div></article>
+      </section>
+      <section class="statement" data-reveal><canvas class="visual-canvas statement-canvas" data-visual="review" aria-hidden="true"></canvas><div class="wrap"><p class="eyebrow">内容与线索，在这里连接</p><h2 class="heading-2 word-reveal" aria-label="每一个问题，都可能是内容的起点。每一次跟进，都让你更了解客户。"><span>每一个问题，</span><span>都可能是</span><span>内容的起点。</span><br><span>每一次跟进，</span><span>都让你</span><span>更了解客户。</span></h2></div></section>
+      <section class="section wrap workflow" id="workflow" data-reveal><div class="section-heading"><p class="eyebrow">HOW IT WORKS</p><h2 class="heading-2">从想法到行动，<br>一步步走下去。</h2></div><div class="steps"><article><span>01</span><h3 class="heading-5">认识你的业务</h3><p class="body-3">补充业务、产品和人设资料，连接可用的平台数据源，为发现与创作提供上下文。</p></article><article><span>02</span><h3 class="heading-5">发现或创造机会</h3><p class="body-3">从评论中寻找需求，或为信息流、小红书和抖音制作图文与视频内容。</p></article><article><span>03</span><h3 class="heading-5">跟进并持续复盘</h3><p class="body-3">记录客户进展、作品和账号表现，将观察带回下一轮内容与行动。</p></article></div></section>
+      <section class="section wrap faq" id="faq" data-reveal><div><p class="eyebrow">常见问题</p><h2 class="heading-2">开始之前，<br>你可能想知道。</h2></div><div class="faq-list">
+        <details><summary>Harta 适合谁使用？</summary><p>适合希望通过主动发现需求和内容创作获得客户的个人经营者及内容团队。</p></details>
+        <details><summary>支持哪些内容形式？</summary><p>支持信息流内容，以及小红书和抖音的图文、视频创作，也提供脚本、封面和直播相关工作流。</p></details>
+        <details><summary>信息流只支持投放内容吗？</summary><p>不是。信息流创作同时考虑自然分发和付费投放的不同目标。</p></details>
+        <details><summary>如何获取平台评论？</summary><p>在平台账号设置中配置可用的数据源。实际可获取的数据取决于连接状态、平台和数据服务的能力。</p></details>
+        <details><summary>生成的内容可以直接发布吗？</summary><p>请先核对事实、素材及平台要求，再决定如何发布。内容建议不保证流量或转化结果。</p></details>
+        <details><summary>如何开始使用？</summary><p>已有账号可以直接登录；需要注册时，请使用管理员提供的激活码。</p></details>
+      </div></section>
+      <section class="final-cta"><div class="wrap"><p class="eyebrow">下一位客户，从一次发现开始</p><h2 class="heading-2">把增长的每一步，<br>连接起来。</h2><a class="primary button-md" href="#login">进入工作台 <span aria-hidden="true">↗</span></a><p class="caption-2">已有账号即可登录 · 注册需要激活码</p></div></section>
+      <footer class="footer wrap"><a class="brand" href="login.html"><img src="images/harta-mark.svg" width="24" height="24" alt="">harta</a><span>让每一次内容与沟通更接近客户。</span><a href="#main">回到顶部 ↑</a></footer>
     </div>
-    <header class="landing-header">
-      <nav class="landing-nav" aria-label="首页导航">
-        <a class="landing-brand" href="#intro" aria-label="Harta 首页"><svg width="24" height="24" viewBox="0 0 256 256" aria-hidden="true"><path d="M 256 256 L 128 256 L 0 128 L 128 128 Z"/><path d="M 256 128 L 128 128 L 0 0 L 128 0 Z"/></svg><span>Harta</span></a>
-        <a class="landing-about" href="#intro">产品介绍</a>
-        <a href="#login">登录</a>
-        <a href="register.html">注册账号 <span aria-hidden="true">↗</span></a>
-      </nav>
-    </header>
-    <section class="landing-intro" id="intro" aria-labelledby="hero-title">
-      <div class="landing-badge"><span aria-hidden="true">↗</span>内容创作与获客，一起向前</div>
-      <p class="landing-display" lang="en">Make content <em>matter.</em></p>
-      <h1 id="hero-title">让好内容，<br>带来下一位客户。</h1>
-      <p class="landing-subtitle">从小红书、抖音的图文与视频，到脚本、封面与直播。<br class="desktop-break">让创作有方向，让真实咨询得到跟进，在复盘中找到下一步。</p>
-      <a class="landing-cta" href="#login">进入工作台 <span aria-hidden="true">↗</span></a>
-      <p class="landing-caption">内容获客 <span>·</span> 主动获客 <span>·</span> 客户跟进</p>
-    </section>
-    <section class="landing-login" id="login" aria-labelledby="login-title" hidden>
-      <a class="landing-back" href="#intro">← 返回首页</a>
-      <p class="login-wordmark" lang="en">Welcome back.</p>
-      <h1 id="login-title">登录工作台</h1>
-      <p class="login-note">继续你的创作与获客。</p>
+    <section class="login-screen" id="login" aria-labelledby="login-title" hidden>
+      <div class="login-card"><a class="landing-back" href="#intro">← 返回首页</a><p class="eyebrow">HARTA / WORKSPACE</p><h1 class="heading-3" id="login-title">登录工作台</h1><p class="body-3 login-note">继续你的创作与获客。</p>
       <form class="form" id="form">
         <label for="email">邮箱</label>
         <input id="email" name="email" type="email" autocomplete="username" maxlength="254" required>
@@ -51,10 +86,13 @@
       </form>
 
       <p class="login-register">已有激活码？<a href="register.html">注册账号</a></p>
+      </div>
     </section>
-    <footer class="landing-footer"><span>HARTA / 灵鹿增长</span><button type="button" id="video-toggle" aria-pressed="false">播放背景</button><span class="landing-footer-note">让每一次创作，都更接近客户。</span></footer>
   </main>
+  <script src="js/gsap.min.js" defer></script>
   <script type="module" src="js/landing.js"></script>
+  <script type="module" src="js/landing-visuals.js"></script>
+  <script type="module" src="js/landing-depth.js"></script>
   <script type="module">
     import { bindEyes } from "./js/eyes.js?v=20260819r";
     bindEyes();

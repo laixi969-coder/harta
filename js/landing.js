@@ -1,43 +1,53 @@
 const intro = document.getElementById('intro');
 const login = document.getElementById('login');
-const video = document.getElementById('hero-video');
-const toggle = document.getElementById('video-toggle');
-const motion = matchMedia('(prefers-reduced-motion: reduce)');
-let wantsPlayback = !motion.matches && !navigator.connection?.saveData;
-let failed = false;
-
-function syncButton() {
-  toggle.textContent = failed ? '背景暂不可用' : video.paused ? '播放背景' : '暂停背景';
-  toggle.setAttribute('aria-pressed', String(!video.paused));
-  toggle.disabled = failed;
-}
-function syncPlayback() {
-  if (!wantsPlayback || document.hidden || !login.hidden || failed) {
-    video.pause();
-    return;
-  }
-  if (!video.hasAttribute('src')) video.src = video.dataset.src;
-  video.play().catch(() => { syncButton(); });
-}
 function showPage(focus = false) {
   const signingIn = ['#login', '#form'].includes(location.hash);
   intro.hidden = signingIn;
   login.hidden = !signingIn;
-  toggle.hidden = signingIn;
-  if (focus || signingIn) (signingIn ? document.getElementById('email') : document.querySelector('.landing-cta')).focus({preventScroll:true});
-  syncPlayback();
+  document.body.classList.toggle('is-login', signingIn);
+  if (signingIn && (focus || location.hash)) document.getElementById('email').focus({ preventScroll: true });
+  if (focus && !signingIn && location.hash === '#intro') document.querySelector('.landing-cta').focus({ preventScroll: true });
+  if (focus && (signingIn || location.hash === '#intro')) window.scrollTo(0, 0);
 }
-toggle.addEventListener('click', () => {
-  wantsPlayback = video.paused;
-  // The login form stays still; playback resumes after returning to the hero.
-  if (!login.hidden) { location.hash = 'intro'; return; }
-  syncPlayback();
-});
-video.addEventListener('playing', () => { video.classList.add('is-playing'); syncButton(); });
-video.addEventListener('pause', syncButton);
-video.addEventListener('error', () => { failed = true; video.classList.remove('is-playing'); syncButton(); });
-motion.addEventListener('change', () => { wantsPlayback = !motion.matches && !navigator.connection?.saveData; syncPlayback(); });
-document.addEventListener('visibilitychange', syncPlayback);
 window.addEventListener('hashchange', () => showPage(true));
 showPage();
-syncButton();
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+if ('IntersectionObserver' in window && !reduced.matches) {
+  document.documentElement.classList.add('motion-ready');
+  const observer = new IntersectionObserver((entries, obs) => entries.forEach(entry => {
+    if (entry.isIntersecting) { entry.target.classList.add('revealed'); obs.unobserve(entry.target); }
+  }), { threshold: 0.12 });
+  document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
+  const words = new IntersectionObserver((entries, obs) => entries.forEach(entry => {
+    if (entry.isIntersecting) { entry.target.classList.add('active'); obs.unobserve(entry.target); }
+  }), { threshold: 0.5, rootMargin: '0px 0px -15% 0px' });
+  document.querySelectorAll('.word-reveal span').forEach(el => words.observe(el));
+} else document.querySelectorAll('.word-reveal span').forEach(el => el.classList.add('active'));
+
+// Animate the product illustrations only when they enter view.
+if ('IntersectionObserver' in window && !reduced.matches && window.gsap) {
+  const storyObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const items = entry.target.querySelectorAll('.story-node, .format-card');
+      gsap.from(items, { y: 24, autoAlpha: 0, duration: 0.8, stagger: 0.16, ease: 'power3.out', clearProps: 'opacity,visibility,transform' });
+      observer.unobserve(entry.target);
+    });
+  }, { threshold: 0.25 });
+  document.querySelectorAll('.story-visual').forEach(el => storyObserver.observe(el));
+}
+
+const landscapeToggle = document.querySelector('.landscape-toggle');
+if (landscapeToggle) {
+  let paused = reduced.matches;
+  const updateLandscape = () => {
+    document.documentElement.classList.toggle('landscape-paused', paused || reduced.matches);
+    landscapeToggle.textContent = paused || reduced.matches ? '播放背景动效' : '暂停背景动效';
+    landscapeToggle.setAttribute('aria-pressed', String(paused || reduced.matches));
+    landscapeToggle.disabled = reduced.matches;
+    landscapeToggle.title = reduced.matches ? '系统已启用减少动态效果' : '';
+  };
+  landscapeToggle.addEventListener('click', () => { paused = !paused; updateLandscape(); });
+  reduced.addEventListener('change', () => { paused = reduced.matches; updateLandscape(); });
+  updateLandscape();
+}

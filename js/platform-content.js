@@ -21,6 +21,9 @@ export function instructionPhrases() {
   return [...new Set(notes)];
 }
 
+/** 模型生成的可交付内容使用纯文本，不输出星号标记。 */
+export const cleanGeneratedText = text => String(text ?? "").replace(/\*/g, "");
+
 /** 去掉夹在成稿里的写作说明，只留能直接发出去的句子。 */
 export function cleanDeliverable(text) {
   let out = String(text || "");
