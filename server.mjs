@@ -29,7 +29,7 @@ import { importOpenFind } from './lib/openfind-import.mjs';
 import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, validHost, sameOriginMutation, sessionCookie, readJsonBody } from './lib/request-guard.mjs';
 import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, attributeSignalPublication, saveAccount, preparePublication, confirmPublication, recordPublicationReview, recordInquiry, createManualContact, correctInquiryPublicationSource, correctInquiryLiveSource, saveDemandTopic, reviseDemandTopic, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
 import { agentWorkspace, createAgent, saveAgent, agentAction, startAgentTrial } from './lib/business-agents.mjs';
-import { proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, reviewProductionFacts, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
+import { proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, generateProductionReviewed, reviewProductionFacts, reviewProductionCraft, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
 import { expandKeywordsForCustomer, aggregatePains, teardownForCustomer, teardownAccountForCustomer, rebuildPlaybook, topicPoolFor, decideTopic, decideRadarWork, importRadarSamples, refreshPlaybookAfterFeedback, calibrateHuntFor } from './lib/research-tools.mjs';
 import { rewriteOrganicPost } from './lib/generate.mjs';
 import { receiveKeywordBatch, prepareKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
@@ -120,7 +120,7 @@ function rateLimit(req, key, max, windowMs, identity) {
   req.rateRetryAfter = result.retryAfter;
   return result.allowed;
 }
-const EXPENSIVE_ROUTES = new Set(['/api/production-generate', '/api/production-fact-review', '/api/materials/analyze', '/api/keywords/import', '/api/keywords/expand', '/api/pain-clusters', '/api/benchmark/teardown', '/api/writing-playbook', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
+const EXPENSIVE_ROUTES = new Set(['/api/production-generate', '/api/production-fact-review', '/api/production-craft-review', '/api/materials/analyze', '/api/keywords/import', '/api/keywords/expand', '/api/pain-clusters', '/api/benchmark/teardown', '/api/writing-playbook', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
 EXPENSIVE_ROUTES.add('/api/production-cover');
 EXPENSIVE_ROUTES.add('/api/radar-hook-generate');
 EXPENSIVE_ROUTES.add('/api/topic-board/generate');
@@ -835,6 +835,12 @@ async function handleApi(req, res, url) {
     } catch(error){return json(res,error.statusCode||400,{error:error.message||'素材操作失败'});}
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/production-craft-review') {
+    const user=requireUser(req,res);if(!user)return;
+    try { return json(res,200,await reviewProductionCraft(user.email,await readBody(req,512 * 1024))); }
+    catch(error) { return json(res,error.statusCode || 400,{error:error.message || '内容诊断失败'}); }
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/production-fact-review') {
     const user=requireUser(req,res);if(!user)return;
     try { return json(res,200,await reviewProductionFacts(user.email,await readBody(req,512 * 1024))); }
@@ -849,7 +855,7 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/production-generate') {
     const user=requireUser(req,res);if(!user)return;
-    try { return json(res,200,await generateProductionOutline(user.email,await readBody(req,512 * 1024))); }
+    try { return json(res,200,await generateProductionReviewed(user.email,await readBody(req,512 * 1024))); }
     catch(error) { return json(res,error.statusCode || 400,{error:error.message || '脚本生成失败'}); }
   }
 
