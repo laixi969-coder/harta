@@ -26,7 +26,7 @@ try {
   await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw new Error('Server exited');})]);
   const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});
-  const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce'});
+  const context=await browser.newContext({extraHTTPHeaders:{origin},viewport:{width:1440,height:1100},reducedMotion:'reduce'});
   const page=await context.newPage(),errors=[];currentPage=page;page.on('response',async response=>{if(response.url().includes('/api/acquisition')&&response.status()>=400)console.log('Acquisition error',await response.text());});page.on('pageerror',error=>{errors.push(error.message);console.log('PAGE ERROR',error.stack);});
   assert.equal((await context.request.get(`${origin}/api/acquisition`)).status(),401);
   const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);
@@ -42,7 +42,7 @@ try {
   const customerId=(await (await context.request.get(origin+'/api/acquisition')).json()).workspace.customers[0].id;
   assert.equal((await context.request.post(origin+'/api/platform-auth/start',{data:{platform:'douyin',customerId}})).status(),503);
   assert.equal((await context.request.post(origin+'/api/platform-auth/start',{headers:{Origin:'https://evil.test'},data:{platform:'douyin',customerId}})).status(),403);
-  const anonymous=await browser.newContext();assert.equal((await anonymous.request.get(origin+'/api/platform-auth')).status(),401);await anonymous.close();
+  const anonymous=await browser.newContext({extraHTTPHeaders:{origin},extraHTTPHeaders:{origin}});assert.equal((await anonymous.request.get(origin+'/api/platform-auth')).status(),401);await anonymous.close();
   let authorized=false,polls=0;const fixtureId='fixture-auth-flow';
   const flow={id:fixtureId,customerId,platform:'xiaohongshu',name:'小红书测试账号',status:'pending',interval:1,expiresAt:Date.now()+600000};
   await page.route('**/api/platform-auth**',async route=>{

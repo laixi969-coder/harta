@@ -23,10 +23,10 @@ try {
   await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw new Error('Test server exited');})]);
   const chrome=process.env.HARTA_BROWSER_EXECUTABLE||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});
-  const context=await browser.newContext({viewport:{width:1440,height:1000}}),anon=await browser.newContext();
+  const context=await browser.newContext({extraHTTPHeaders:{origin},viewport:{width:1440,height:1000}}),anon=await browser.newContext({extraHTTPHeaders:{origin},extraHTTPHeaders:{origin}});
   assert.equal((await context.request.post(origin+'/api/login',{data:{email:'66445039@qq.com',password:'security-browser-fixture'}})).status(),200);
   const invite=await (await context.request.post(origin+'/api/whitelist',{data:{email:'other+review@example.test'}})).json();
-  const other=await browser.newContext();assert.equal((await other.request.post(origin+'/api/register',{data:{email:'other+review@example.test',password:'other-browser-fixture',activationCode:invite.activationCode}})).status(),200);
+  const other=await browser.newContext({extraHTTPHeaders:{origin},extraHTTPHeaders:{origin}});assert.equal((await other.request.post(origin+'/api/register',{data:{email:'other+review@example.test',password:'other-browser-fixture',activationCode:invite.activationCode}})).status(),200);
   assert.equal((await other.request.get(origin+'/api/reports/p1/preview')).status(),404);
   assert.equal((await other.request.post(origin+'/api/reports/p1/share',{data:{enabled:true}})).status(),404);
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));

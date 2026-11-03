@@ -21,7 +21,7 @@ try {
  const listener=net.createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(r=>listener.close(r));
  server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'fixture-password-123',HARTA_PUBLIC_ORIGIN:'',HARTA_TRUST_PROXY:''},stdio:['ignore','pipe','pipe']});server.stdout.resume();server.stderr.resume();
  await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw Error('测试服务启动失败');})]);
- const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});const context=await browser.newContext(),origin=`http://127.0.0.1:${port}`;
+ const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});const context=await browser.newContext({extraHTTPHeaders:{origin:`http://127.0.0.1:${port}`}}),origin=`http://127.0.0.1:${port}`;
  assert.equal((await context.request.post(origin+'/api/login',{data:{email,password:'fixture-password-123'}})).status(),200);
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(origin+'/');await page.locator('#cm-workbench h1').waitFor();
  const today=await page.locator('#acq-today').textContent();assert.match(today,/先处理 另一账号待回复 的咨询/);assert.doesNotMatch(today,/先处理 已回复访客/);const active=page.locator('.studio-lane-active');const pending=active.locator('dl div').filter({has:page.getByText('待回复联系人',{exact:true})});assert.equal((await pending.locator('dd').innerText()).trim(),'1');

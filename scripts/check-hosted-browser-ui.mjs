@@ -26,7 +26,7 @@ try {
   await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw new Error('Server exited');})]);
   const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});
-  const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce'});
+  const context=await browser.newContext({extraHTTPHeaders:{origin},viewport:{width:1440,height:1100},reducedMotion:'reduce'});
   const page=await context.newPage(),errors=[];currentPage=page;page.on('response',async response=>{if(response.url().includes('/api/acquisition')&&response.status()>=400)console.log('Acquisition error',await response.text());});page.on('pageerror',error=>{errors.push(error.message);console.log('PAGE ERROR',error.stack);});
   assert.equal((await context.request.get(`${origin}/api/acquisition`)).status(),401);
   const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);
@@ -42,7 +42,7 @@ try {
   const customerId=(await (await context.request.get(origin+'/api/acquisition')).json()).workspace.customers[0].id;
   assert.equal((await context.request.post(origin+'/api/hosted-browser/start',{data:{customerId:'other',platform:'抖音'}})).status(),400);
   assert.equal((await context.request.post(origin+'/api/hosted-browser/start',{headers:{Origin:'https://evil.test'},data:{customerId,platform:'抖音'}})).status(),403);
-  const anon=await browser.newContext();assert.equal((await anon.request.get(origin+'/api/hosted-browser')).status(),401);await anon.close();
+  const anon=await browser.newContext({extraHTTPHeaders:{origin},extraHTTPHeaders:{origin}});assert.equal((await anon.request.get(origin+'/api/hosted-browser')).status(),401);await anon.close();
   let row=null,clicked=0,network=false;
   await page.route('**/api/hosted-browser**',async route=>{
     const url=new URL(route.request().url());let body;

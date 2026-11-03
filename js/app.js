@@ -84,7 +84,8 @@ const esc = (v) =>
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 /* 网页链接直接当名字展示时是一整串带追踪参数的长 URL，会把卡片撑到顶边。
  * 列表里只显示主机名加一段路径，完整链接留在 title 和存档数据里。 */
@@ -1079,7 +1080,7 @@ function renderToday() {
   const stillTodo = Boolean(state.workspace.desk?.send?.length || state.workspace.desk?.judge?.some((c) => c.ready));
   if (winLine && !stillTodo && pack?.origin?.mode !== "organic") {
     win.classList.remove("hidden");
-    win.innerHTML = `<b>上次有效</b> · ${winLine}`;
+    win.innerHTML = `<b>上次有效</b> · ${esc(winLine)}`;
   } else {
     win.classList.add("hidden");
     win.textContent = "";
@@ -2290,6 +2291,30 @@ async function loadLlm() {
   }
 }
 
+async function loadAudit(month = "") {
+  const list = document.getElementById("audit-list");
+  const select = document.getElementById("audit-month");
+  if (!list) return;
+  try {
+    const res = await fetch(`/api/audit${month ? `?month=${encodeURIComponent(month)}` : ""}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (select) {
+      const months = data.months?.length ? data.months : [data.month];
+      if (select.options.length !== months.length) select.innerHTML = months.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+      select.value = data.month;
+    }
+    const entries = data.entries || [];
+    list.innerHTML = entries.length
+      ? entries.map((e) => rowCard({
+          title: `${String(e.time || "").replace("T", " ").slice(0, 19)} · ${e.action}`,
+          chips: chip(e.actor, "chip-hot"),
+          meta: esc([e.target, e.detail].filter(Boolean).join(" · ")),
+        })).join("")
+      : `<p class="meta">这个月还没有记录。</p>`;
+  } catch { list.textContent = "审计记录读取失败，请重试。"; }
+}
+
 async function loadUsers() {
   const list = document.getElementById("white-list");
   const res = await fetch("/api/users");
@@ -2387,6 +2412,7 @@ async function boot() {
     : "账号设置";
   if (user.isAdmin) {
     document.getElementById("whitelist-card").classList.remove("hidden");
+    document.getElementById("audit-card")?.classList.remove("hidden");
     document.getElementById("research-settings").classList.remove("hidden");
     try {
       const response = await fetch("/api/research-config");
@@ -2443,6 +2469,7 @@ async function boot() {
     document.getElementById('image-model-settings')?.classList.remove('hidden');
     loadImageModel();
     loadUsers();
+    loadAudit();
     document.getElementById("nav-crew")?.classList.remove("hidden");
     loadCrew();
   }
@@ -2509,6 +2536,9 @@ document.getElementById("add-white")?.addEventListener("click", event => {
   if (!input.value.trim() || !input.reportValidity()) { input.focus(); return; }
   issueActivation("/api/whitelist", input.value.trim(), event.currentTarget);
 });
+
+document.getElementById("audit-refresh")?.addEventListener("click", () => loadAudit(document.getElementById("audit-month")?.value || ""));
+document.getElementById("audit-month")?.addEventListener("change", (event) => loadAudit(event.target.value));
 
 document.getElementById("go-full")?.addEventListener("click", async (e) => {
   const btn = e.currentTarget;

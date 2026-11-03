@@ -71,7 +71,7 @@ try{
   server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'isolated-design-password',HARTA_PUBLIC_ORIGIN:'',HARTA_TRUST_PROXY:''},stdio:['ignore','pipe','pipe']});
   await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw Error('Test server exited');})]);
   const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';browser=await chromium.launch({headless:true,...fs.existsSync(chrome)?{executablePath:chrome}:{}});
-  const context=await browser.newContext({viewport:{width:1440,height:960},reducedMotion:'reduce'});
+  const context=await browser.newContext({extraHTTPHeaders:{origin},viewport:{width:1440,height:960},reducedMotion:'reduce'});
   page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await context.request.post(origin+'/api/login',{data:{email:'66445039@qq.com',password:'isolated-design-password'}});
   await page.goto(origin,{waitUntil:'domcontentloaded'});await page.locator('#cm-workbench h1').waitFor();

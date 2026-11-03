@@ -21,7 +21,7 @@ try{
  server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'browser-only-fixture-password',HARTA_PUBLIC_ORIGIN:'',HARTA_TRUST_PROXY:''},stdio:['ignore','pipe','pipe']});
  await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw new Error('Server exited');})]);
  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
- const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce'}),origin=`http://127.0.0.1:${port}`;
+ const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce',extraHTTPHeaders:{origin:`http://127.0.0.1:${port}`}}),origin=`http://127.0.0.1:${port}`;
  const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);
  const unauth=await browser.newContext();assert.equal((await unauth.request.get(`${origin}/api/openfind?customerId=c1`)).status(),401);await unauth.close();
  page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));

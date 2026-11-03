@@ -17,7 +17,7 @@ try{
   const listener=net.createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(r=>listener.close(r));
   server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'fixture-only-password'},stdio:['ignore','pipe','pipe']});await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw Error('test server exited');})]);
   const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';browser=await chromium.launch({headless:true,...fs.existsSync(chrome)?{executablePath:chrome}:{}});
-  const context=await browser.newContext(),page=await context.newPage();await context.request.post(`http://127.0.0.1:${port}/api/login`,{data:{email:'66445039@qq.com',password:'fixture-only-password'}});
+  const context=await browser.newContext({extraHTTPHeaders:{origin:`http://127.0.0.1:${port}`}}),page=await context.newPage();await context.request.post(`http://127.0.0.1:${port}/api/login`,{data:{email:'66445039@qq.com',password:'fixture-only-password'}});
   let oldRoute,oldReceived;const received=new Promise(resolve=>oldReceived=resolve);
   const pool=(id,n)=>({note:`${id} 的选题`,sources:{痛点:0,对标:0,研究:n,关键词:0},counts:{候选:n,已用:0},topics:Array.from({length:n},(_,i)=>({key:`${id}-${i}`,angle:`${id} 选题 ${i+1}`,source:'研究',alsoFrom:[],status:'候选',why:'',keywords:[],evidence:{}}))});
   await page.route('**/api/topic-pool',async route=>{const data=route.request().postDataJSON();if(data.customerId==='a'){oldRoute=route;oldReceived();}else await route.fulfill({json:{pool:pool('B',14)}});});

@@ -12,11 +12,15 @@ async def main():
     with contextlib.redirect_stdout(sys.stderr):
         from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
         async with AsyncWebCrawler(config=BrowserConfig(headless=True, chrome_channel='chrome', channel='chrome', verbose=False)) as crawler:
-            checked = {}
             async def public_only(route):
                 parsed = urlparse(route.request.url)
                 host = parsed.hostname or ''
-                if host not in checked:
+                # Re-resolve on every request instead of caching by host: Chromium
+                # resolves DNS again after route.continue_(), so a cached verdict
+                # would let a rebinding domain (public at first check, private at
+                # connect) ride the stale "public" result for the whole session.
+                ok = False
+                if parsed.scheme in ('http', 'https') and host:
                     try:
                         records = await asyncio.to_thread(socket.getaddrinfo, host, None)
                         # Some local proxies map public domains to benchmark-range fake IPs.
@@ -24,10 +28,10 @@ async def main():
                         fake = os.environ.get('HARTA_PROXY_FAKE_IP') == '1'
                         try: ipaddress.ip_address(host); domain = False
                         except ValueError: domain = True
-                        checked[host] = bool(records) and all(ipaddress.ip_address(record[4][0]).is_global or (fake and domain and ipaddress.ip_address(record[4][0]) in ipaddress.ip_network('198.18.0.0/15')) for record in records)
+                        ok = bool(records) and all(ipaddress.ip_address(record[4][0]).is_global or (fake and domain and ipaddress.ip_address(record[4][0]) in ipaddress.ip_network('198.18.0.0/15')) for record in records)
                     except Exception:
-                        checked[host] = False
-                if parsed.scheme in ('http', 'https') and checked[host]:
+                        ok = False
+                if ok:
                     await route.continue_()
                 else:
                     await route.abort()

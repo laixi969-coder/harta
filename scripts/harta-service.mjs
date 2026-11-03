@@ -97,4 +97,10 @@ for(const signal of ['SIGTERM','SIGINT'])process.once(signal,async()=>{stopping=
 // Local parent-process control only; no public HTTP maintenance endpoint.
 process.on('message',message=>{if(message?.type==='backup-now')void backup();});
 fs.mkdirSync(data,{recursive:true,mode:0o700});
+// 备份和业务数据在同一块磁盘上时，机器或磁盘故障会把两者一起带走；启动时提醒一次。
+try {
+  const probe=[backupRoot,path.dirname(backupRoot),os.homedir()].find(p=>fs.existsSync(p));
+  if (probe && fs.statfsSync(data).dev === fs.statfsSync(probe).dev)
+    console.error('警告：备份目录与业务数据在同一块磁盘上（'+path.dirname(probe)+'）。整机损坏或磁盘故障会连备份一起丢失，请将 HARTA_BACKUP_DIR 指向外置磁盘或云同步目录。');
+} catch {}
 if(due())await backup();else launch();

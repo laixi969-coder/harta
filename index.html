@@ -578,6 +578,12 @@
           <div id="activation-result" class="hidden" role="status"></div>
           <div id="white-list" class="chase" style="margin-top:14px"></div>
         </details>
+        <details class="card form settings-section hidden" id="audit-card">
+          <summary>操作审计</summary>
+          <p class="meta">账号、分享、导出、删除和模型配置等敏感动作的留痕；只记动作，不记内容与密钥。随每日备份一起留存。</p>
+          <div class="acts"><label for="audit-month">月份</label><select id="audit-month" style="max-width:12em"></select><button class="btn ghost" id="audit-refresh" type="button">刷新</button></div>
+          <div id="audit-list" class="chase" style="margin-top:14px"></div>
+        </details>
         <details class="card form settings-section hidden" id="research-settings">
           <summary>需求研究数据源</summary>
           <p class="meta">密钥保存在服务器，留空不改。</p>

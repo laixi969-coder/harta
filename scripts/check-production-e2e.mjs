@@ -38,7 +38,7 @@ try {
     const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     const executablePath = process.env.HARTA_E2E_CHROME || (fs.existsSync(localChrome) ? localChrome : chromium.executablePath());
     browser = await chromium.launch({ headless: true, executablePath });
-    context = await bounded(browser.newContext({ acceptDownloads: true }), 'browser context'); // Pace real browser requests below the production API budget; do not retry mutations or bypass rate limits.
+    context = await bounded(browser.newContext({ acceptDownloads: true, extraHTTPHeaders: { origin } }), 'browser context'); // Pace real browser requests below the production API budget; do not retry mutations or bypass rate limits.
     let nextBrowserRequest = 0;
     await context.route('**/api/**', async (route) => { const now = Date.now(), delay = Math.max(0, nextBrowserRequest - now); nextBrowserRequest = Math.max(nextBrowserRequest, now) + 350; if (delay)
         await new Promise(resolve => setTimeout(resolve, delay)); await route.fallback(); });

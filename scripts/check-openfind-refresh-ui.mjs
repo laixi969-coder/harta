@@ -26,7 +26,7 @@ try {
   await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw new Error('Server exited');})]);
   const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});
-  const context=await browser.newContext({viewport:{width:1440,height:1100},reducedMotion:'reduce'});
+  const context=await browser.newContext({extraHTTPHeaders:{origin},viewport:{width:1440,height:1100},reducedMotion:'reduce'});
   const page=await context.newPage(),errors=[];currentPage=page;page.on('response',async response=>{if(response.url().includes('/api/acquisition')&&response.status()>=400)console.log('Acquisition error',await response.text());});page.on('pageerror',error=>errors.push(error.message));
   assert.equal((await context.request.get(`${origin}/api/acquisition`)).status(),401);
   const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);

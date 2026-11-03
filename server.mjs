@@ -16,6 +16,7 @@ import {fetchWorkSource} from './lib/work-source-fetch.mjs';
 import { saveProductionAssets, readProductionAsset, exportProductionAssets } from './lib/production-assets.mjs';
 import { withBusinessModelBudget } from './lib/model-budget.mjs';
 import { acquireDataLock } from './lib/data-lock.mjs';
+import { recordAudit, auditMonths, readAudit } from './lib/audit.mjs';
 import { openFindContacts } from './lib/openfind-contacts.mjs';
 import { openFindRoute, proxyOpenFind } from './lib/openfind-proxy.mjs';
 import { openFind } from './lib/openfind-live.mjs';
@@ -247,6 +248,7 @@ async function handleApi(req, res, url) {
       const body = await readBody(req);
       if (typeof body.enabled !== 'boolean') return json(res,400,{error:'请选择开启或撤销分享'});
       if (body.enabled && hasHardBlock(checkPack(found.pack,found.customer.hunt))) return json(res,409,{error:'请先修复报告中的硬风险'});
+      recordAudit(user.email, body.enabled ? 'report.share-on' : 'report.share-off', packId);
       return json(res,200,setReportShare(user.email,packId,body.enabled));
     }
     if (reportAccess[2] === 'preview' && req.method === 'GET') {
@@ -442,6 +444,7 @@ async function handleApi(req, res, url) {
     }
     const result = loginOrBootstrap(body.email, body.password);
     if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    recordAudit(result.user.email, 'user.login', result.user.email);
     const sid = createSession(result.user);
     return json(
       res,
@@ -460,6 +463,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = register(body.email, body.password, body.activationCode);
     if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    recordAudit(result.user.email, 'user.register', result.user.email);
     const sid = createSession(result.user);
     return json(
       res,
@@ -478,6 +482,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = changePassword(user.email, body.oldPassword, body.newPassword);
     if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    recordAudit(user.email, 'user.password-change', user.email);
     const sid = createSession(user);
     return json(res, 200, { ok: true }, { "set-cookie": sessionCookie(sid, req, PUBLIC_ORIGIN) });
   }
@@ -506,6 +511,7 @@ async function handleApi(req, res, url) {
       const customer = readWorkspace(user.email).customers.find(c => c.id === url.searchParams.get("customerId"));
       batch = customer?.keywordLibraries?.find(b => b.id === url.searchParams.get("batchId"));
       if (!batch) return json(res, 404, { error: "没有这批关键词，或不属于当前账号" });
+      recordAudit(user.email, 'keywords.export', batch.id, batch.scope?.name || '');
     }
     res.writeHead(200, { "content-type": "text/csv; charset=utf-8", "content-disposition": attachmentName(batch ? `${batch.scope.name}-整理关键词.csv` : "Harta关键词导入模板.csv"), ...securityHeaders() });
     return res.end(keywordCsv(batch));
@@ -594,6 +600,7 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const body = await readBody(req);
+    recordAudit(user.email, 'materials.clear', String(body.customerId || ''));
     const out = clearCustomerMaterials(user.email, body.customerId);
     if (out.error) return json(res, 400, { error: out.error });
     return json(res, 200, publicWorkspace(out.workspace));
@@ -612,6 +619,7 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const body = await readBody(req);
+    recordAudit(user.email, 'pack.delete', `${String(body.customerId || '')}/${String(body.packId || '')}`);
     const out = removePack(user.email, body.customerId, body.packId);
     if (out.error) return json(res, 400, { error: out.error });
     return json(res, 200, publicWorkspace(out.workspace));
@@ -675,6 +683,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const found = contentPackForUser(user.email, body.packId);
     if (!found) return json(res, 404, { error: "找不到这份内容批次" });
+    recordAudit(user.email, 'content.export', String(body.packId || ''), body.format === "md" ? "md" : "xlsx");
     found.pack.checks = checkPack(found.pack, found.customer.hunt);
     try {
       const file = await exportContentBatch({
@@ -711,6 +720,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const found = customerForUser(user.email, body.customerId);
     if (!found) return json(res, 404, { error: "没有这个客户" });
+    recordAudit(user.email, 'content.export-history', String(body.customerId || ''), body.format === "md" ? "md" : "xlsx");
     const packs = (found.customer.drops || []).map((pack) => ({
       ...pack,
       checks: checkPack(pack, found.customer.hunt),
@@ -754,8 +764,10 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === "/api/research-config" && ["GET", "POST"].includes(req.method)) {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     try {
+      if (req.method === "POST") recordAudit(admin.email, 'research-config.save', '数据源配置', '动作留痕，密钥不记录');
       return json(res, 200, req.method === "GET" ? publicResearchConfig() : saveResearchConfig(await readBody(req)));
     } catch (err) { return json(res, err.statusCode || 400, { error: err.message }); }
   }
@@ -860,9 +872,12 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/image-model' && ['GET','POST'].includes(req.method)) {
-    if (!requireAdmin(req,res)) return;
-    try { return json(res,200,req.method==='GET'?publicImageConfig():await saveImageConfig(await readBody(req))); }
-    catch(error) { return json(res,error.statusCode || 400,{error:error.message || '出图配置保存失败'}); }
+    const admin = requireAdmin(req,res);
+    if (!admin) return;
+    try {
+      if (req.method === 'POST') recordAudit(admin.email, 'image-model.save', 'AI 封面出图配置');
+      return json(res,200,req.method==='GET'?publicImageConfig():await saveImageConfig(await readBody(req)));
+    } catch(error) { return json(res,error.statusCode || 400,{error:error.message || '出图配置保存失败'}); }
   }
   if (req.method === 'POST' && url.pathname === '/api/production-cover') {
     const user=requireUser(req,res);if(!user)return;
@@ -1031,6 +1046,15 @@ async function handleApi(req, res, url) {
     return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist() });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/audit") {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    const months = auditMonths();
+    const requested = url.searchParams.get('month');
+    const month = /^\d{4}-\d{2}$/.test(requested || '') ? requested : months[0] || new Date().toISOString().slice(0, 7);
+    return json(res, 200, { month, months, entries: readAudit(month) });
+  }
+
   // 管理员只读团队概况；成员工作区仍保持隔离
   if (req.method === "GET" && url.pathname === "/api/overview") {
     if (!requireAdmin(req, res)) return;
@@ -1038,10 +1062,12 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/users/reset") {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     const body = await readBody(req);
     const result = resetPassword(body.email);
     if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    recordAudit(admin.email, 'user.password-reset', String(body.email || ''), '会话已全部撤销，激活码私下交接');
     return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist(), activationCode: result.activationCode, activationExpiresAt: result.activationExpiresAt });
   }
 
@@ -1052,17 +1078,21 @@ async function handleApi(req, res, url) {
 
   if (req.method === "POST" && ["/api/whitelist", "/api/users/activation"].includes(url.pathname)) {
     if (!requireAdmin(req, res)) return;
+    const admin = requireUser(req, res);
     const body = await readBody(req);
     const result = addToWhitelist(body.email);
     if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    recordAudit(admin?.email || '', 'whitelist.add', String(body.email || ''), result.activationCode ? '签发激活码' : '');
     return json(res, 200, result);
   }
 
   if (req.method === "DELETE" && url.pathname === "/api/whitelist") {
     if (!requireAdmin(req, res)) return;
+    const admin = requireUser(req, res);
     const body = await readBody(req);
     const result = removeFromWhitelist(body.email);
     if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    recordAudit(admin?.email || '', 'whitelist.remove', String(body.email || ''), '会话已全部撤销');
     return json(res, 200, result);
   }
 
@@ -1072,9 +1102,11 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/llm") {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     const body = await readBody(req);
     try {
+      recordAudit(admin.email, 'llm.provider-save', String(body.id || ''), '密钥不记录');
       const config = saveProvider(body.id, body);
       return json(res, 200, config);
     } catch (err) {
@@ -1083,30 +1115,39 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/llm/add") {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     const body = await readBody(req);
     try {
-      return json(res, 200, addCustomProvider(body.name));
+      const config = addCustomProvider(body.name);
+      recordAudit(admin.email, 'llm.provider-add', String(body.name || ''));
+      return json(res, 200, config);
     } catch (err) {
       return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
   if (req.method === "POST" && url.pathname === "/api/llm/remove") {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     const body = await readBody(req);
     try {
-      return json(res, 200, removeProvider(body.id));
+      const config = removeProvider(body.id);
+      recordAudit(admin.email, 'llm.provider-remove', String(body.id || ''));
+      return json(res, 200, config);
     } catch (err) {
       return json(res, err.statusCode || 400, { error: err.message });
     }
   }
 
   if (req.method === "POST" && url.pathname === "/api/llm/active") {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     const body = await readBody(req);
     try {
-      return json(res, 200, setActive(body.id));
+      const config = setActive(body.id);
+      recordAudit(admin.email, 'llm.provider-active', String(body.id || ''));
+      return json(res, 200, config);
     } catch (err) {
       return json(res, err.statusCode || 400, { error: err.message });
     }
@@ -1114,7 +1155,8 @@ async function handleApi(req, res, url) {
 
   /* 模型层的三个动作共用一个口：开关（toggle）、点选用（use）、手动补一个（add） */
   if (req.method === "POST" && url.pathname === "/api/llm/model") {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     const body = await readBody(req);
     try {
       let config;
@@ -1122,6 +1164,7 @@ async function handleApi(req, res, url) {
       else if (body.action === "use") config = useModel(body.id, body.model);
       else if (body.action === "add") config = addModel(body.id, body.model);
       else throw new Error("没有这个操作");
+      recordAudit(admin.email, 'llm.model', String(body.id || ''), `${body.action} ${String(body.model || '')}`);
       return json(res, 200, config);
     } catch (err) {
       return json(res, err.statusCode || 400, { error: err.message });
@@ -1129,10 +1172,13 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/llm/reorder") {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     const body = await readBody(req);
     try {
-      return json(res, 200, reorderProviders(body.ids));
+      const config = reorderProviders(body.ids);
+      recordAudit(admin.email, 'llm.reorder', '渠道排序');
+      return json(res, 200, config);
     } catch (err) {
       return json(res, err.statusCode || 400, { error: err.message });
     }
@@ -1174,6 +1220,7 @@ async function handleApi(req, res, url) {
 const releaseDataLock = acquireDataLock(path.join(process.cwd(), 'data'), 'runtime');
 process.once('exit', releaseDataLock);
 readLlm(); // Migrate plaintext credentials before accepting any requests.
+readResearchConfig(); // Same for research source keys: decrypt and re-encrypt plaintext at boot.
 let maintenance = false, activeRequests = 0;
 const server = http.createServer(async (req, res) => {
   if (maintenance) return json(res,503,{error:"正在备份，请稍后重试"},{"retry-after":"30"});

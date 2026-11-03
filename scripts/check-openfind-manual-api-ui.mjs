@@ -23,7 +23,7 @@ try {
  const origin=`http://127.0.0.1:${port}`;
  const chrome=process.env.HARTA_BROWSER_EXECUTABLE||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
  browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});
- const context=await browser.newContext({viewport:{width:1440,height:1000}});
+ const context=await browser.newContext({extraHTTPHeaders:{origin},viewport:{width:1440,height:1000}});
  assert.equal((await context.request.post(origin+'/api/login',{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}})).status(),200);
  assert.equal((await context.request.post(origin+'/api/openfind',{data:{customerId:'c1',action:'sync'}})).status(),200);
  const scopeDir=path.join(dir,'data/openfind',fs.readdirSync(path.join(dir,'data/openfind'))[0]);

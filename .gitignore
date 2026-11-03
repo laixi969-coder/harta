@@ -16,3 +16,6 @@ output/playwright/
 logs/
 
 .harta-service.pid
+
+# Python bytecode from native tooling
+__pycache__/

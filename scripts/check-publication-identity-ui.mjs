@@ -17,7 +17,7 @@ try {
  const listener=net.createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(r=>listener.close(r));
  server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'fixture-password-123',HARTA_PUBLIC_ORIGIN:'',HARTA_TRUST_PROXY:''},stdio:['ignore','pipe','pipe']});server.stdout.resume();server.stderr.resume();
  await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw Error('测试服务启动失败');})]);
- const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});const context=await browser.newContext(),origin=`http://127.0.0.1:${port}`;
+ const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});const context=await browser.newContext({extraHTTPHeaders:{origin:`http://127.0.0.1:${port}`}}),origin=`http://127.0.0.1:${port}`;
  assert.equal((await context.request.post(origin+'/api/login',{data:{email,password:'fixture-password-123'}})).status(),200);
  const registration={customerId:'c1',accountId:'xhs',title:'小红书主页作品',url:'https://www.xiaohongshu.com/user/profile/user123/abc123?xsec=one',publishedAt:'2026-01-01T10:00:00Z',confirmed:true};
  assert.equal((await context.request.post(origin+'/api/owned-publication',{data:registration})).status(),200);
