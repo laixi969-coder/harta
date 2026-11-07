@@ -353,8 +353,8 @@ export function SettingsPage() {
             <div className="settings-aside-icon">
               <ShieldCheck size={22} />
             </div>
-            <h3>本地优先，由你掌控。</h3>
-            <p>作品、评论、线索、草稿和任务日志存入本机 SQLite 数据库。登录凭证独立加密。</p>
+            <h3>数据存储</h3>
+            <p>业务数据保存在本机，登录凭证独立加密。</p>
             <ul>
               <li>
                 <Check size={13} />
@@ -382,7 +382,7 @@ export function SettingsPage() {
               Cookie；抖音可独立选择浏览器、TikHub、RedFox 或原有高级 HTTP
               适配器。发送与发布由用户自行完成。
             </p>
-            <p className="field-hint">适配器完整字段及调用示例已随项目提供：docs/ADAPTER.md</p>
+
             <button
               className="text-btn"
               onClick={() =>
@@ -581,7 +581,7 @@ export function Guide({ onClose }: { onClose: () => void }) {
           <BookOpen size={24} />
           <div>
             <h3>发现作品 → 筛选爆款 → 创作 / 采集客户</h3>
-            <p>保留视频展示的关键流程，并补充客户管理、草稿持久化和任务历史。</p>
+
           </div>
         </div>
         <div className="coverage-table">

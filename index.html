@@ -62,7 +62,6 @@
       <header class="ui-navigation-heading"><strong>Harta</strong><button class="btn ghost" type="button" data-close-navigation aria-label="关闭导航">关闭 ×</button></header>
       <div class="brand">
         <img class="logo" src="images/harta-logo.png" width="1276" height="386" alt="灵鹿线索 HARTA">
-        <p class="brand-line">助力线索｜引流｜获客</p>
       </div>
       <nav aria-label="工作台">
         <div class="studio-primary-nav">
@@ -127,7 +126,6 @@
         </div>
         <article class="card hidden" id="empty-today">
           <h2>还没有业务资料</h2>
-          <p class="meta">添加业务后开始创作或找客户。</p>
           <div class="acts"><button class="btn" data-cm="go-workbench">添加业务</button></div>
         </article>
         <article class="card" id="desk-card">
@@ -154,13 +152,13 @@
             <div><label for="keyword-scope-name">归属名称</label><select id="keyword-scope-name"></select><div id="keyword-scope-new-wrap" hidden><label for="keyword-scope-new">新增归属名称</label><input id="keyword-scope-new" maxlength="100" placeholder="填写新的名称，已有名称请从上方选择"></div><p class="meta" id="keyword-scope-hint"></p></div>
           </div>
           <label for="keyword-files">关键词文档或表格</label><input id="keyword-files" type="file" multiple accept=".xlsx,.csv,.tsv,.txt,.md,.docx,.pdf">
-          <p class="meta">支持 XLSX、CSV、TSV、TXT、MD、DOCX、文字型 PDF。最多 5 个文件，单个 10 MB、合计 20 MB，每批 3000 条。XLS／DOC 请转换格式。</p>
+          <details class="ui-info"><summary aria-label="文件要求" title="文件要求"><span aria-hidden="true">ⓘ</span></summary><div>支持 XLSX、CSV、TSV、TXT、MD、DOCX、文字型 PDF。最多 5 个文件，单个 10 MB、合计 20 MB，每批 3000 条。XLS／DOC 请转换格式。</div></details>
           <div class="acts"><button class="btn" type="button" id="import-keywords">导入并自动梳理</button><a class="btn ghost" href="/api/keywords/template" download>下载表格模板</a></div>
           <p id="keyword-import-status" class="meta" role="status" aria-live="polite"></p>
           </details>
-          <details class="keyword-intake" id="keyword-expand-panel"><summary>没有词表？从一个词开始扩展</summary>
+          <details class="keyword-intake" id="keyword-expand-panel"><summary>扩展关键词</summary>
           <label for="keyword-seeds">种子词，最多 5 个，用逗号或换行分隔</label><textarea id="keyword-seeds" rows="2" maxlength="300" placeholder="例如：隔音窗，卧室隔音"></textarea>
-          <p class="meta">抓搜索引擎里真实出现过的下拉建议，不需要 5118 密钥，也不含搜索量。会同时标出这些词在你自己的评论和对标正文里出现过几次。</p>
+          <details class="ui-info"><summary aria-label="扩词来源" title="扩词来源"><span aria-hidden="true">ⓘ</span></summary><div>抓搜索引擎里真实出现过的下拉建议，不需要 5118 密钥，也不含搜索量。会同时标出这些词在你自己的评论和对标正文里出现过几次。</div></details>
           <div class="acts"><button class="btn ghost" type="button" id="expand-keywords">扩展并归入词库</button></div>
           <p id="keyword-expand-status" class="meta" role="status" aria-live="polite"></p>
           </details>
@@ -267,7 +265,6 @@
         </article>
         <article class="card hidden" id="questions-card">
           <h2>建议先确认的问题</h2>
-          <p class="meta">补充后可重新生成。</p>
           <div id="questions"></div>
         </article>
         </div>
@@ -347,7 +344,7 @@
         </article>
         <article class="card" id="platform-card">
           <h2>平台适配版本</h2>
-          <p class="meta">各平台的封面、标题和正文分别保存。</p>
+
           <div id="plats" class="field-grid"></div>
         </article>
         <article class="card" id="delivery-card">
@@ -388,7 +385,7 @@
         <div id="customer-list" class="chase"></div>
         <article class="card form customer-create hidden" id="customer-create">
           <details id="customer-create-panel"><summary id="customer-create-title">诊断新客户</summary>
-          <p class="meta" id="customer-create-note">填写客户名称、行业和简介；附件选填。</p>
+
           <div class="customer-create-grid">
           <fieldset class="form-section"><legend>客户与合作信息</legend>
           <label for="hunt">目标行业</label>
@@ -407,13 +404,13 @@
               <span class="choice-note">根据资料生成获客建议报告</span>
             </label>
           </div>
-          <label for="cname">客户名</label>
+          <label for="cname">客户名（必填）</label>
           <input id="cname" required maxlength="80" placeholder="公司 / 机构 / 诊所（最多 80 字）">
-          <label for="city">城市</label>
+          <label for="city">城市（选填）</label>
           <input id="city" maxlength="40" placeholder="广州（最多 40 字）">
-          <label for="pitch">业务简介</label>
+          <label for="pitch">业务简介（必填）</label>
           <textarea id="pitch" class="short-textarea" rows="3" maxlength="300" aria-describedby="pitch-count" placeholder="他们卖什么；可直接粘贴，框会自动换行"></textarea>
-          <p class="field-meta"><span>业务介绍</span><span id="pitch-count" data-char-count="pitch">0 / 300</span></p>
+          <p class="field-meta"><span id="pitch-count" data-char-count="pitch">0 / 300</span></p>
           </fieldset>
           <details class="customer-evidence"><summary>补充现有资料（可选）</summary>
           <div class="material-desk" id="material-desk">
@@ -477,7 +474,6 @@
         <div class="hook">
           <p class="kicker">客户报告</p>
           <h1>交付给客户</h1>
-          <p class="meta">导出 PDF 或可编辑的 Word。</p>
         </div>
         <div id="pack-list" class="chase"></div>
       </section>
@@ -537,7 +533,7 @@
         </div>
         <section class="card form settings-section" id="platform-data-settings" aria-label="平台数据源设置">
           <h2>平台数据源</h2>
-          <p class="meta">为当前业务分别配置小红书和抖音的数据源。密钥加密保存在 Harta 服务端，测试会调用供应商并可能计费。</p>
+          <p class="meta">配置仅用于当前业务，密钥加密保存；连接测试可能计费。</p>
           <div id="platform-data-config"></div>
         </section>
         <details class="card form settings-section" id="settings-help">
@@ -571,7 +567,7 @@
         </details>
         <details class="card form settings-section hidden" id="whitelist-card">
           <summary>账号管理</summary>
-          <p class="meta">将激活码私下发给本人注册。</p>
+          <p class="meta">激活码仅交给注册本人。</p>
           <label for="white-email">邮箱</label>
           <input id="white-email" type="email" maxlength="254" placeholder="name@company.com">
           <div class="acts"><button class="btn" id="add-white" type="button">开通</button></div>
@@ -580,7 +576,7 @@
         </details>
         <details class="card form settings-section hidden" id="audit-card">
           <summary>操作审计</summary>
-          <p class="meta">账号、分享、导出、删除和模型配置等敏感动作的留痕；只记动作，不记内容与密钥。随每日备份一起留存。</p>
+          <p class="meta">记录敏感操作，不含内容与密钥；随每日备份保留。</p>
           <div class="acts"><label for="audit-month">月份</label><select id="audit-month" style="max-width:12em"></select><button class="btn ghost" id="audit-refresh" type="button">刷新</button></div>
           <div id="audit-list" class="chase" style="margin-top:14px"></div>
         </details>
@@ -588,17 +584,17 @@
           <summary>需求研究数据源</summary>
           <p class="meta">密钥保存在服务器，留空不改。</p>
           <p><a href="https://www.5118.com/apistore/detail/8cf3d6ed-2b12-ed11-8da8-e43d1a103141" target="_blank" rel="noopener noreferrer">开通 5118 长尾词 API</a> · <a href="https://api-dashboard.search.brave.com/" target="_blank" rel="noopener noreferrer">开通 Brave Search API</a></p>
-          <div class="research-fields"><div class="research-field"><label for="research-searxng-url">SearXNG 搜索地址</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><p class="meta">SearXNG 需启用 JSON 搜索；留空使用 Brave。</p></div><div class="research-field"><label for="research-rsshub-url">RSSHub 资讯地址</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><p class="meta">按业务词匹配 36 氪最新快讯，不含历史搜索。</p></div><div class="research-field"><label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password"></div><div class="research-field"><label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password"></div></div>
+          <div class="research-fields"><div class="research-field"><label for="research-searxng-url">SearXNG 搜索地址</label><input type="url" id="research-searxng-url" maxlength="500" placeholder="http://127.0.0.1:8080"><details class="ui-info"><summary aria-label="SearXNG 配置说明" title="SearXNG 配置说明"><span aria-hidden="true">ⓘ</span></summary><div>SearXNG 需启用 JSON 搜索；留空使用 Brave。</div></details></div><div class="research-field"><label for="research-rsshub-url">RSSHub 资讯地址</label><input type="url" id="research-rsshub-url" maxlength="500" placeholder="http://127.0.0.1:1200"><details class="ui-info"><summary aria-label="RSSHub 数据范围" title="RSSHub 数据范围"><span aria-hidden="true">ⓘ</span></summary><div>按业务词匹配 36 氪最新快讯，不含历史搜索。</div></details></div><div class="research-field"><label for="research-keyword-key">5118 API Key</label><input type="password" id="research-keyword-key" maxlength="1000" autocomplete="new-password"></div><div class="research-field"><label for="research-search-key">Brave Search API Key</label><input type="password" id="research-search-key" maxlength="1000" autocomplete="new-password"></div></div>
           <div class="acts"><button class="btn" type="button" id="save-research-config">保存数据源</button><button class="btn ghost" type="button" id="test-research-config">测试连接</button></div>
           <p class="meta">测试使用已保存配置，会消耗 API 额度。</p><p class="meta" id="research-config-status" role="status"></p>
         </details>
         <details class="card form settings-section hidden" id="image-model-settings">
           <summary>AI 封面出图</summary>
-          <p class="meta">配置支持 OpenAI 兼容图片生成接口的独立模型。密钥保存在服务器；封面生成会消耗服务商额度。</p>
+          <p class="meta">密钥保存在服务器；封面生成会消耗服务商额度。</p>
           <label for="image-model-url">接口地址</label><input id="image-model-url" type="url" maxlength="2048" placeholder="https://…/v1">
           <label for="image-model-name">出图模型名</label><input id="image-model-name" maxlength="200" placeholder="例如服务商提供的图片模型 ID">
           <label for="image-model-request-mode">请求参数</label><select id="image-model-request-mode"><option value="auto">自动选择</option><option value="minimal">精简参数</option><option value="legacy">兼容旧版参数</option><option value="dashscope">阿里云百炼原生接口</option></select>
-          <p class="meta">自动选择会按模型名称选择参数；若服务商报参数不支持，可按其接口说明切换。每次点击只发起一次出图请求。</p>
+          <details class="ui-info"><summary aria-label="出图参数说明" title="出图参数说明"><span aria-hidden="true">ⓘ</span></summary><div>自动选择会按模型名称选择参数；若服务商报参数不支持，可按其接口说明切换。每次点击只发起一次出图请求。</div></details>
           <label for="image-model-key">出图密钥</label><input id="image-model-key" type="password" maxlength="4096" autocomplete="new-password" placeholder="留空保留已保存密钥">
           <label class="settings-check"><input type="checkbox" id="image-model-clear">清除已保存密钥</label>
           <div class="acts"><button type="button" class="btn" id="image-model-save">保存出图设置</button></div><p class="meta" id="image-model-status" role="status"></p>

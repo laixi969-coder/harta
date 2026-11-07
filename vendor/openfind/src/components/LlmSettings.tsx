@@ -1,3 +1,4 @@
+import { InfoHelp } from './ui';
 import { useEffect, useState } from 'react';
 import type { LlmSettings as Config } from '../../shared/types';
 import { api } from '../api';
@@ -179,13 +180,13 @@ export function LlmSettingsPanel() {
               />
             </label>
           </div>
-          <p className="field-hint">
+          <InfoHelp label="模型时限说明">
             建议单次120秒、整轮900秒；每5条保存一次。超时保留结果，继续时跳过有效缓存。此设置只影响模型，不改变平台验证码、限流或采集间隔。
-          </p>
-          {!form.managedBy && <p className="field-hint">
+          </InfoHelp>
+          {!form.managedBy && <InfoHelp label="模型接口要求">
             支持 OpenAI 兼容的 /models 与 /chat/completions JSON
             接口；同步的是所填服务当前可见列表，不代表每个模型均支持文本生成。列表中保留选中模型，避免自动升级改变判断。
-          </p>}
+          </InfoHelp>}
           {!form.managedBy && form.modelsSyncedAt && (
             <details>
               <summary>

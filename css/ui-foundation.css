@@ -69,3 +69,15 @@ dialog::backdrop { background: var(--ui-overlay); backdrop-filter: blur(3px); }
   .ui-empty { min-height: 200px; padding: 24px 16px; }
   .ui-modal { overscroll-behavior: contain; }
 }
+
+/* Optional field details: native disclosure supports keyboard and touch. */
+.ui-info{position:relative;width:fit-content;margin:6px 0 12px;color:var(--ink-1,inherit)}
+.ui-info>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;width:32px;height:32px;border:1px solid currentColor;border-radius:50%;font-size:18px}
+.ui-info>summary::-webkit-details-marker{display:none}
+.ui-info>summary:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.ui-info[open]{width:100%}
+.ui-info>div{margin-top:8px;padding:12px 16px;border:1px solid currentColor;border-radius:6px;max-width:42rem;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+
+.ui-info:not([open])>div{display:none}
+.ui-info[open]{width:100%;min-width:0;max-width:100%}
+.ui-info>div{box-sizing:border-box;min-width:0;width:100%;max-width:min(42rem,100%)}

@@ -14,8 +14,8 @@ export function productionStudio(o) {
     <details data-production-editor ${o.open?'open':''}>
       <summary>脚本、直播与封面制作</summary>
       <header class="production-studio-head">
-        <div><span class="production-context">${esc(o.platform)} · 制作工作台</span><h3>把想法做成作品</h3></div>
-        <div class="production-save-state"><span data-production-save-state>${o.changed?'有未保存修改':o.version?`已保存草稿 v${o.version}`:'尚未保存制作草稿'}</span><button type="button" class="btn" data-growth-action="production-save" data-version="${o.version}">保存制作草稿</button></div>
+        <div><span class="production-context">${esc(o.platform)}</span><h3>作品制作</h3></div>
+        <div class="production-save-state"><span data-production-save-state>${o.changed?'有未保存修改':o.version?`已保存草稿 v${o.version}`:'尚未保存'}</span><button type="button" class="btn" data-growth-action="production-save" data-version="${o.version}">保存草稿</button></div>
       </header>
       ${o.review}${o.stale?'<p class="cm-notice">原稿已更新，请对照后重新保存制作草稿。</p>':''}
       <div class="production-workspace-bar">
@@ -26,7 +26,7 @@ export function productionStudio(o) {
         <div class="production-edit-area">${Object.keys(panels).map(key=>`<section class="production-panel" id="${id}-${key}" data-production-panel="${key}" role="tabpanel" aria-labelledby="${id}-tab-${key}" tabindex="0" ${active===key?'':'hidden'}>${o[key]}</section>`).join('')}</div>
         <aside class="production-preview" aria-label="当前制作草稿预览">
           <header><strong>草稿预览</strong><span data-production-preview-mode>${esc(modes[o.mode])}</span></header>
-          <div class="production-preview-media"><img data-ai-cover-preview width="900" height="1200" alt="当前制作封面预览" ${o.previewCover?`src="${esc(o.previewCover)}"`:'hidden'}><div class="production-preview-empty"><span aria-hidden="true">▧</span><strong>封面待制作</strong><p>在「封面与图文」中生成，或使用自己的图片。</p></div></div>
+          <div class="production-preview-media"><img data-ai-cover-preview width="900" height="1200" alt="当前制作封面预览" ${o.previewCover?`src="${esc(o.previewCover)}"`:'hidden'}><div class="production-preview-empty"><span aria-hidden="true">▧</span><strong>封面待制作</strong><p>暂无图片。可在「封面与图文」生成或上传。</p></div></div>
           <a data-ai-cover-download class="btn ghost" download="harta-ai-cover.png" ${o.previewCover?`href="${esc(o.previewCover)}"`:'hidden'}>下载当前封面</a>
           <div class="production-preview-copy"><h4 data-production-preview-title>${esc(o.fields.title || '标题待填写')}</h4><p data-production-preview-body>${esc(bodyText(o.fields,o.mode) || '填写正文或生成脚本后，在这里查看当前草稿。')}</p></div>
           <footer>仅展示当前制作输入，尚未发布。</footer>

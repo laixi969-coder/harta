@@ -1633,7 +1633,6 @@ function openCustomerEntry(stage) {
   state.customerStageFilter = stage;
   document.querySelector(`input[name="track"][value="${stage === 'cooperating' ? '存量' : '拓新'}"]`).checked = true;
   document.getElementById('customer-create-title').textContent = stage === 'cooperating' ? '录入已合作客户' : '诊断新客户';
-  document.getElementById('customer-create-note').textContent = stage === 'cooperating' ? '名称与业务简介必填，其他资料选填。' : '填写名称、行业和简介；附件选填。';
   document.getElementById('create-customer').textContent = stage === 'cooperating' ? '保存并补充业务资料' : '开始诊断';
   renderCustomers(); nav('customers');
   document.getElementById('customer-create').classList.remove('hidden');

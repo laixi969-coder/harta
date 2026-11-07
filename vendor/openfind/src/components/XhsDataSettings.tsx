@@ -79,7 +79,7 @@ export function XhsDataSettings() {
       <div className="section-title">
         <h2>小红书 API 数据源</h2>
       </div>
-      <p className="field-hint">通过 TikHub 或 RedFox 采集，无需小红书扫码登录。内容生成、分类和分析保留，发送与发布由你完成。</p>
+      <p className="field-hint">TikHub / RedFox 采集，无需扫码。发送与发布需手动完成。</p>
       <p className="field-hint">切换数据源不会自动回退到模拟浏览，也不会改变抖音设置。</p>
       {form && (
         <>

@@ -43,10 +43,10 @@ try{
   let mediaRequests=0;page.on('request',r=>{if(r.url().endsWith('.mp4'))mediaRequests++;});
   await page.goto(origin,{waitUntil:'domcontentloaded'});
   await page.getByRole('heading',{name:/让好内容/ }).waitFor();
-  assert.equal(await page.locator('#hero-video').getAttribute('src'),null,'Reduced motion must not load video');
+  assert.equal(await page.locator('video[src]').count(),0,'Reduced motion must not load video');
   assert.equal(mediaRequests,0);
   await page.screenshot({path:path.join(output,'landing-desktop.png')});
-  await page.getByRole('link',{name:'进入工作台'}).click();
+  await page.locator('.landing-cta').click();
   await page.waitForFunction(()=>document.activeElement===document.querySelector('#email'));
   await page.locator('#email').fill('66445039@qq.com');await page.locator('#password').fill('isolated-design-password');
   await page.getByRole('button',{name:'显示密码'}).click();assert.equal(await page.locator('#password').getAttribute('type'),'text');
@@ -98,14 +98,17 @@ try{
   await page.locator('#cm-workbench h1').waitFor();assert.equal(await page.locator('#harta-navigation').evaluate(el=>el.open),false);
   await page.goto(origin+'/login.html',{waitUntil:'domcontentloaded'});
   await page.screenshot({path:path.join(output,'landing-mobile.png')});
-  await page.getByRole('link',{name:'进入工作台'}).click();
+  await page.locator('.landing-cta').click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.screenshot({path:path.join(output,'login-mobile.png')});
   await page.getByRole('link',{name:'返回首页'}).click();
-  await page.route('**/*.mp4',r=>r.abort());
-  await page.getByRole('button',{name:'播放背景'}).click();await page.getByRole('button',{name:'背景暂不可用'}).waitFor();
-  assert.equal(await page.locator('#hero-video').evaluate(v=>v.classList.contains('is-playing')),false);
-  assert.equal(await page.getByRole('link',{name:'进入工作台'}).isVisible(),true);
+  assert.equal(await page.locator('.landscape-toggle').isDisabled(),true);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.getByRole('button',{name:'播放背景动效',exact:true}).click();
+  assert.equal(await page.locator('.landscape-toggle').getAttribute('aria-pressed'),'false');
+  await page.getByRole('button',{name:'暂停背景动效',exact:true}).click();
+  assert.equal(await page.locator('.landscape-toggle').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('.landing-cta').isVisible(),true);
   await page.goto(origin+'/register.html',{waitUntil:'domcontentloaded'});
   await page.getByRole('heading',{name:'注册账号',exact:true}).waitFor();
   await page.locator('#email').fill('design-registration@example.invalid');
@@ -118,6 +121,6 @@ try{
   await page.screenshot({path:path.join(output,'register-mobile.png')});
   await page.getByRole('link',{name:'返回登录'}).click();await page.locator('#email').waitFor();
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({passed:true,checks:['reduced motion','login focus and error recovery','password visibility','real isolated login','content library and production navigation','mobile navigation','dark mode and text contrast','video failure fallback','registration validation and return'],output}));
+  console.log(JSON.stringify({passed:true,checks:['reduced motion','login focus and error recovery','password visibility','real isolated login','content library and production navigation','mobile navigation','dark mode and text contrast','background motion controls','registration validation and return'],output}));
 } catch(error){console.error(error);if(page)await page.screenshot({path:path.join(output,'failure.png'),fullPage:true}).catch(()=>{});throw error;}
 finally{server?.kill('SIGTERM');await browser?.close();fs.rmSync(dir,{recursive:true,force:true});}

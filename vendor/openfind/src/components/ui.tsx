@@ -118,3 +118,10 @@ export function ExternalLink({ url, label }: { url?: string; label: string }) {
     <span className="muted">演示内容无原文链接</span>
   );
 }
+
+export function InfoHelp({label, children}: {label: string; children: ReactNode}) {
+  return <details className="workspace-info">
+    <summary aria-label={label} title={label}><span aria-hidden="true">ⓘ</span></summary>
+    <div>{children}</div>
+  </details>;
+}

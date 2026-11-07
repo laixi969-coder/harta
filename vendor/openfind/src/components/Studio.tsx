@@ -548,7 +548,7 @@ export function Editor({
               {preview ? '收起预览' : '预览作品'}
             </button>
           </div>
-          {productionNotes && <details className="panel" aria-label="制作说明"><summary>查看制作说明</summary><p className="muted">来自交接时的制作稿快照，供添加素材时参考，不会进入发布正文。</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{productionNotes}</pre></details>}
+          {productionNotes && <details className="panel" aria-label="制作说明"><summary>查看制作说明</summary><p className="muted">制作参考，不进入发布正文。</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{productionNotes}</pre></details>}
           <label className="field-label" htmlFor="draft-title">
             标题<span>{title.length} / 20</span>
           </label>
@@ -639,7 +639,7 @@ export function Editor({
             <ShieldCheck size={16} />
             <div>
               <b>保存素材，由你手动发布</b>
-              <p>生成和编辑在本机完成。复制文案、下载素材包，再到官方平台自行上传发布。</p>
+              <p>复制文案、下载素材后，到官方平台发布。</p>
             </div>
           </div>
         </section>

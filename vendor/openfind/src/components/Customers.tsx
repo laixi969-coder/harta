@@ -647,7 +647,7 @@ export function Comments() {
               </button>
             </div>
           </div>
-      ) : <div className="comment-inspector-empty"><MessageSquareText size={32}/><h3>先读原话，再判断需求</h3><p>选择一条评论，在这里核对作品语境和判断依据，再决定进入客户跟进，或提炼为创作选题。</p></div>}
+      ) : <div className="comment-inspector-empty"><MessageSquareText size={32}/><h3>先读原话，再判断需求</h3><p>选择评论以核实需求或提炼选题。</p></div>}
         </aside>
         </div>
       </div>

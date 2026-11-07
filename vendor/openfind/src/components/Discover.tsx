@@ -585,7 +585,7 @@ export function Discover() {
               <span>一点小提示</span>
               <Sparkles size={14} />
             </div>
-            <p>越具体的关键词，越容易找到真正有需求的人。</p>
+
             <button
               onClick={() => {
                 setKeyword('装修');
@@ -906,7 +906,7 @@ export function Discover() {
         <span>选中作品后批量操作</span>
       </div>
       {detail && (
-        <Modal title="作品详情" sub="查看内容、互动数据与来源" onClose={() => setDetail(null)} wide>
+        <Modal title="作品详情" onClose={() => setDetail(null)} wide>
           <div className="note-detail">
             <MediaGallery cover={detail.cover} images={detail.images} title={detail.title} video={detail.type === 'video' ? detail.videoUrl : undefined} />
             <div>

@@ -71,10 +71,10 @@ export function Inbox() {
     <div className="inbox-page">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">CONVERSATIONS</p>
+
           <h1>私信工作台</h1>
           <p className="muted">
-            手动同步会话、生成回复草稿，复制后由你在官方平台发送。后台托管与平台发送已取消。
+            回复草稿需复制到官方平台，由你发送。
           </p>
         </div>
       </div>

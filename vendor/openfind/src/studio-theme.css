@@ -60,3 +60,13 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 
 .results-heading{background:var(--film);color:var(--on-ink)}
 .results-heading :is(h2,span){color:inherit}
 .results-heading .btn{background:var(--bg);color:var(--ink-1);border-color:var(--bg)}
+
+.workspace-info{margin:6px 0 12px;color:var(--text,inherit)}
+.workspace-info>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;width:32px;height:32px;border:1px solid currentColor;border-radius:50%;font-size:18px}
+.workspace-info>summary::-webkit-details-marker{display:none}
+.workspace-info>summary:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.workspace-info>div{margin-top:8px;padding:12px 16px;border:1px solid currentColor;border-radius:6px;max-width:42rem;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+
+.workspace-info:not([open])>div{display:none}
+.workspace-info[open]{width:100%;min-width:0;max-width:100%}
+.workspace-info>div{box-sizing:border-box;min-width:0;width:100%;max-width:min(42rem,100%)}
