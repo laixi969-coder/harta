@@ -87,6 +87,9 @@ test('Failed comment step preserves partial evidence, resumes checkpoint without
   const w = createWorkflow({ ...input, keyword: '恢复测试', supplement: false });
   const a = note('resume-a'),
     b = note('resume-b');
+  // This test requires a to finish before b fails. Wall-clock creation order
+  // must not accidentally rank b first when the two fixtures cross a millisecond.
+  b.publishedAt = new Date(Date.parse(a.publishedAt) - 1000).toISOString();
   let fail = true;
   const seen: string[] = [];
   const execute: Parameters<typeof runWorkflow>[1] = async (j) => {

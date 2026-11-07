@@ -35,6 +35,7 @@
     "start": "node scripts/harta-service.mjs",
     "test:openfind-refresh-ui": "node scripts/check-openfind-refresh-ui.mjs",
     "test:wechat-ui": "node scripts/check-wechat-ui.mjs",
+    "test:problem-observation-ui": "node scripts/check-problem-observation-ui.mjs",
     "test:topic-board-ui": "node scripts/check-topic-board-ui.mjs"
   },
   "devDependencies": {

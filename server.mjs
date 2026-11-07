@@ -1,3 +1,4 @@
+import {observationAction} from './lib/problem-observation.mjs';
 import {topicBoardAction} from './lib/topic-board.mjs';
 import {benchmarkGroupAction} from './lib/benchmark-groups.mjs';
 import {recordAccountAudience} from './lib/account-audience.mjs';
@@ -125,6 +126,7 @@ const EXPENSIVE_ROUTES = new Set(['/api/production-generate', '/api/production-f
 EXPENSIVE_ROUTES.add('/api/production-cover');
 EXPENSIVE_ROUTES.add('/api/radar-hook-generate');
 EXPENSIVE_ROUTES.add('/api/topic-board/generate');
+EXPENSIVE_ROUTES.add('/api/problem-observation/discover');
 const JOB_ROUTES = new Set(['/api/customers', '/api/repack', '/api/refill', '/api/today']);
 EXPENSIVE_ROUTES.add('/api/acquisition/suggestion');
 JOB_ROUTES.add('/api/acquisition/search');
@@ -390,6 +392,11 @@ async function handleApi(req, res, url) {
       const state = req.method === 'POST' ? await openFind.action(user.email,input) : await openFind.state(user.email,input.customerId);
       return json(res,200,{state,...(['frame','pointer'].includes(input.action)?{}:{workspace:publicWorkspace(readWorkspace(user.email))})});
     } catch(error) { return json(res,400,{error:error.message||'获客引擎未完成操作'}); }
+  }
+  if (['/api/problem-observation','/api/problem-observation/discover'].includes(url.pathname) && req.method === 'POST') {
+    const user=requireUser(req,res);if(!user)return;
+    try {const input=await readBody(req,MAX_BODY);if((input.action==='discover')!==(url.pathname==='/api/problem-observation/discover'))throw new Error('观察操作入口不正确');const result=await observationAction(user.email,input);return json(res,200,{...result,workspace:publicWorkspace(result.workspace)});}
+    catch(error){return json(res,error.statusCode||400,{error:error.message||'问题观察未完成'});}
   }
   if (['/api/topic-board','/api/topic-board/generate'].includes(url.pathname) && req.method === 'POST') {
     const user=requireUser(req,res);if(!user)return;

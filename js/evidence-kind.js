@@ -6,7 +6,7 @@ export function isRealEvidence(value) {
 // Search snippets need a manually verified source quote before research can
 // treat them as comments. When work records are available, check their origin.
 export function isResearchComment(signal, works = null) {
-  if(!isRealEvidence(signal) || signal.isAuthorReply || signal.status==='excluded')return false;
+  if(!isRealEvidence(signal) || signal.isAuthorReply || signal.researchUse==='exclude' || (signal.status==='excluded' && signal.researchUse!=='include'))return false;
   if(signal.sourceType==='search_summary' && !signal.searchVerification)return false;
   if(works && signal.workId){const work=works.find(w=>w.id===signal.workId && w.customerId===signal.customerId);if(!isRealEvidence(work))return false;}
   return true;
