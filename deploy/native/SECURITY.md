@@ -15,11 +15,13 @@
 - JSON 通常 64KB（事实卡 256KB），仅接受对象和正确媒体类型；超大/损坏/过慢请求分别有 413/400/408。文件上传继续使用原有单文件和总量限制。请求头 15 秒、接收请求 120 秒、空闲 keep-alive 5 秒，最多 256 个连接。接收完的模型处理不受 120 秒上传超时限制。
 - 修改操作检查 Origin/Referer/Fetch Metadata，同站不同子域也不能代操作。仅允许本机 Host 和明确配置的公网 Host，防止本机服务被任意域名 DNS 重绑定访问。无这些浏览器头的受控 CLI 仍可用，但仍须会话认证。
 - 敏感接口、共享内容、下载禁止存储；静态资源 `no-cache` 配合 ETag/Last-Modified/304，部署改动后会重新核对。隐藏文件、未允许文件类型、跨出公开目录的符号链接不会被提供。
-- HTTPS 公网配置自动给会话 Cookie 加 Secure；HttpOnly/SameSite=Lax、禁止嵌入、基础 CSP 和 noindex 响应头默认启用。noindex 是搜索引擎礼貌约定，**不是恶意爬虫认证**。真实业务数据仍以账号权限保护，分享链接应当视作持有者可读取的凭证。
+- HTTPS 公网配置自动给会话 Cookie 加 Secure；HttpOnly/SameSite=Lax、禁止嵌入和基础 CSP 默认启用。工作台、登录、注册、API、分享和错误响应继续使用 noindex；明确配置 HTTPS 公网域名后，仅匿名首页、公开产品与指南页面及公开图片允许索引。本地未配置时保持禁止索引。noindex 是搜索引擎礼貌约定，**不是恶意爬虫认证**。真实业务数据仍以账号权限保护，分享链接应当视作持有者可读取的凭证。
 
 ## 公网反向代理接入
 
 设置 `HARTA_PUBLIC_ORIGIN=https://实际域名`。仅当本机反向代理覆盖 `X-Real-IP` 时才设置 `HARTA_TRUST_PROXY=loopback`；不能从互联网原样透传客户端提供的该头。保持 Node、SearXNG、RSSHub 仅本机可达。启用 TLS，并在确认整个域名只用 HTTPS 后由边缘设置 HSTS。
+
+Harta 正式规范域名为 `https://www.harta.cn`，对应设置 `HARTA_PUBLIC_ORIGIN=https://www.harta.cn`。`harta.cn` 与 HTTP 入口应在反向代理以 301 重定向到该 HTTPS 域名，并保留路径与查询参数；此重定向放在已配置相应证书与域名的边缘层，应用仍拒绝未知 Host。不要在边缘全站追加 `X-Robots-Tag: noindex`，应保留应用按路由返回的索引策略。匿名首页与已登录工作台共用 `/`，必须尊重 `private, no-store` 和 `Vary: Cookie`，不缓存首页文档。`/robots.txt`、`/sitemap.xml`、`/llms.txt`、`/product/` 和 `/guides/` 交给本应用处理；不要用旧的静态目录或 SPA fallback 覆盖。完整上线核验见 [GEO / SEO 记录](../../GEO-AUDIT-REPORT.md)。
 
 下面是给现有 Nginx TLS 配置合并的示例，需要填实际域名/证书并先 `nginx -t`；本轮没有在用户电脑安装或启用 Nginx：
 

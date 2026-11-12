@@ -1,6 +1,8 @@
-import * as THREE from './three/three.module.js';
+let THREE;
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const cleanups = [];
+const syncRenderers = [];
+let suspended = false;
 function mount(section, index) {
   const host = section.querySelector('.story-visual');
   let renderer;
@@ -21,13 +23,53 @@ function mount(section, index) {
   const resize = () => {const {width,height}=host.getBoundingClientRect();if(!width||!height)return;renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();};
   const ro = new ResizeObserver(resize);ro.observe(host);resize();
   let visible=false, frame=0, start=0;
-  function tick(t) {if(!visible||document.hidden||motion.matches)return;if(!start)start=t;const time=(t-start)/1000;particles.rotation.y=Math.sin(time*.15+index)*.18;particles.rotation.z=Math.sin(time*.12)*.035;renderer.render(scene,camera);frame=requestAnimationFrame(tick);}
-  const sync=()=>{cancelAnimationFrame(frame);if(visible&&!document.hidden&&!motion.matches){start=0;frame=requestAnimationFrame(tick);}};
+  function tick(t) {if(!visible||document.hidden||motion.matches||suspended)return;if(!start)start=t;const time=(t-start)/1000;particles.rotation.y=Math.sin(time*.15+index)*.18;particles.rotation.z=Math.sin(time*.12)*.035;renderer.render(scene,camera);frame=requestAnimationFrame(tick);}
+  const sync=()=>{cancelAnimationFrame(frame);if(visible&&!document.hidden&&!motion.matches&&!suspended){start=0;frame=requestAnimationFrame(tick);}};
+  syncRenderers.push(sync);
   const io=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;sync();},{threshold:.05});io.observe(section);document.addEventListener('visibilitychange',sync);motion.addEventListener('change',sync);
   cleanups.push(()=>{cancelAnimationFrame(frame);io.disconnect();ro.disconnect();document.removeEventListener('visibilitychange',sync);motion.removeEventListener('change',sync);geometry.dispose();material.dispose();renderer.dispose();renderer.domElement.remove();});
 }
-if (!motion.matches) document.querySelectorAll('.story').forEach(mount);
-window.addEventListener('pagehide',()=>cleanups.forEach(dispose=>dispose()),{once:true});
+// The decorative WebGL layer is optional. Load it only near a story, keeping
+// the original artwork visible if WebGL or the module request is unavailable.
+let active = true, loading;
+const mounted = new WeakSet();
+const sections = [...document.querySelectorAll('.story')];
+const depthObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting || motion.matches) continue;
+    loading ||= import('./three/three.module.js');
+    loading.then(module => {
+      if (!active || motion.matches || mounted.has(entry.target)) return;
+      THREE = module;
+      mount(entry.target, sections.indexOf(entry.target));
+      mounted.add(entry.target);
+      depthObserver.unobserve(entry.target);
+    }).catch(() => { /* Static artwork remains available. */ });
+  }
+}, { rootMargin: '200px' }) : null;
+const observeDepth = () => {
+  depthObserver?.disconnect();
+  if (!motion.matches && active) sections.forEach(section => {
+    if (!mounted.has(section)) depthObserver?.observe(section);
+  });
+};
+observeDepth();
+motion.addEventListener('change', observeDepth);
+window.addEventListener('pagehide', event => {
+  suspended = true;
+  syncRenderers.forEach(sync => sync());
+  if (event.persisted) return;
+  active = false;
+  depthObserver?.disconnect();
+  motion.removeEventListener('change', observeDepth);
+  cleanups.forEach(dispose => dispose());
+});
+window.addEventListener('pageshow', () => {
+  if (!active) return;
+  suspended = false;
+  observeDepth();
+  syncRenderers.forEach(sync => sync());
+});
 
 // GSAP sequences each full-screen panel once, as it enters the viewport.
 if (!motion.matches && window.gsap && 'IntersectionObserver' in window) {

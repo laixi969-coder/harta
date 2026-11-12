@@ -80,6 +80,7 @@ import { exportContentBatch, exportContentHistory } from "./lib/content-export.m
 import { fieldsFor } from "./lib/platform.mjs";
 import { checkPack, hasHardBlock } from "./lib/check.mjs";
 import { receiveAndAnalyzeMaterials, updateMaterialAnalysis } from "./lib/materials.mjs";
+import { createPublicSite } from './lib/public-site.mjs';
 
 const keywordImports = new Set();
 const PORT = Number(process.env.PORT || 5173);
@@ -115,6 +116,7 @@ const MAX_BODY = 64 * 1024;
 const requestLimits = createRateLimiter();
 const expensiveRequests = createConcurrencyGuard();
 const PUBLIC_ORIGIN = process.env.HARTA_PUBLIC_ORIGIN || '';
+const publicSite = createPublicSite({ root: ROOT, publicOrigin: PUBLIC_ORIGIN });
 // Trust only a loopback reverse proxy explicitly configured to overwrite X-Real-IP.
 const TRUST_PROXY = process.env.HARTA_TRUST_PROXY === 'loopback';
 function rateLimit(req, key, max, windowMs, identity) {
@@ -1266,6 +1268,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: "这个地址只支持读取" }, { allow: 'GET, HEAD' });
+    const publicDocument = publicSite.resolve(url.pathname);
+    if (publicDocument) {
+      if (publicDocument.redirect) {
+        res.writeHead(308, securityHeaders({ location: publicDocument.redirect + url.search }));
+        return res.end();
+      }
+      res.writeHead(200, securityHeaders({
+        ...publicSite.headers,
+        ...publicDocument.headers,
+        'content-type': publicDocument.type,
+      }));
+      return res.end(req.method === 'HEAD' ? undefined : publicDocument.body);
+    }
     // 甲方那一页：不进后台，只凭链接。链接不对就是 404，不提示"存在但没权限"。
     if (url.pathname.startsWith("/p/")) {
       if (!rateLimit(req, 'share', 30, 60 * 1000) || !rateLimit(req, 'share-global', 120, 60 * 1000, 'global')) return json(res, 429, { error: "读取太频繁，请稍后再试" }, { 'retry-after': String(req.rateRetryAfter) });
@@ -1293,9 +1308,12 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/index.html" || url.pathname === "/") {
       const user = currentUser(req);
       if (!user) {
-        res.writeHead(302, { location: "/login.html", ...securityHeaders() });
-        res.end();
-        return;
+        if (url.pathname === '/index.html') {
+          res.writeHead(302, securityHeaders({ location: '/' + url.search, vary: 'Cookie' }));
+          return res.end();
+        }
+        res.writeHead(200, securityHeaders({ ...publicSite.headers, 'content-type': 'text/html; charset=utf-8' }));
+        return res.end(req.method === 'HEAD' ? undefined : publicSite.landing());
       }
     }
     if (url.pathname === '/openfind' || url.pathname === '/openfind/') {
@@ -1317,14 +1335,16 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(file);
     const stat = fs.statSync(file);
     // Assets without content hashes must revalidate, so deployments cannot retain stale scripts/images.
-    const cache = 'no-cache';
+    const cache = ext === '.html' ? 'private, no-store' : 'no-cache';
+    const assetHeaders = ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.ico'].includes(ext) && publicSite.indexable
+      ? { 'x-robots-tag': 'index, follow, max-image-preview:large' } : {};
     const etag = `W/"${stat.size.toString(16)}-${stat.mtimeMs.toString(16)}"`;
     const modified = stat.mtime.toUTCString();
     const candidates = String(req.headers['if-none-match'] || '').split(',').map(value => value.trim());
     const matches = candidates.includes('*') || candidates.some(value => value.replace(/^W\//, '') === etag.replace(/^W\//, ''));
     const since = req.headers['if-modified-since'];
     if (matches || (!req.headers['if-none-match'] && since && Math.floor(stat.mtimeMs / 1000) * 1000 <= Date.parse(since))) {
-      res.writeHead(304, { etag, 'last-modified': modified, ...securityHeaders({ cache }) });
+      res.writeHead(304, { etag, 'last-modified': modified, ...securityHeaders({ cache, ...assetHeaders }), ...(ext === '.html' ? { vary: 'Cookie' } : {}) });
       return res.end();
     }
     res.writeHead(200, {
@@ -1332,7 +1352,8 @@ const server = http.createServer(async (req, res) => {
       'last-modified': modified,
       'content-length': stat.size,
       "content-type": TYPES[ext] || "application/octet-stream",
-      ...securityHeaders({ cache }),
+      ...securityHeaders({ cache, ...assetHeaders }),
+      ...(ext === '.html' ? { vary: 'Cookie' } : {}),
     });
     if (req.method === 'HEAD') return res.end();
     const stream = fs.createReadStream(file);
