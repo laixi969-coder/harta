@@ -532,6 +532,13 @@
 
           <h1 id="settings-line"></h1>
         </div>
+        <details class="card form settings-section" id="account-costs">
+          <summary>套餐与费用</summary>
+          <div class="acts"><a class="btn ghost" href="/pricing/" target="_blank" rel="noopener">查看价格与费用 ↗</a><button class="btn ghost" type="button" id="refresh-account-costs">刷新预留记录</button></div>
+          <p>托管订阅与开通记录请向 Harta 管理员确认；资源费用按约定方式单独结算。</p>
+          <div id="account-costs-body" role="status"></div>
+          <details class="ui-info"><summary aria-label="模型费用预留说明" title="模型费用预留说明"><span aria-hidden="true">ⓘ</span></summary><div>以下为模型调用前按保护上限预留的美元预算，不是已扣款账单或人民币消费。失败、重试也可能占用预留；数据源及其他工具费用未汇入此处。</div></details>
+        </details>
         <section class="card form settings-section" id="platform-data-settings" aria-label="平台数据源设置">
           <h2>平台数据源</h2>
           <p class="meta">配置仅用于当前业务，密钥加密保存；连接测试可能计费。</p>

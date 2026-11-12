@@ -7,6 +7,7 @@
     "test": "vitest run",
     "test:seo": "vitest run lib/public-site.test.mjs lib/public-seo.test.mjs lib/server-security.test.mjs lib/request-guard.test.mjs",
     "test:seo-ui": "node scripts/check-public-seo-ui.mjs",
+    "test:pricing": "vitest run js/pricing-model.test.mjs lib/cost-summary.test.mjs lib/public-site.test.mjs lib/public-seo.test.mjs",
     "test:studio-standards-ui": "node scripts/check-studio-standards-ui.mjs",
     "test:creation-standards-ui": "node scripts/check-creation-standards-ui.mjs",
     "test:creator-profile-ui": "node scripts/check-creator-profile-ui.mjs",

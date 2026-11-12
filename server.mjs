@@ -81,6 +81,7 @@ import { fieldsFor } from "./lib/platform.mjs";
 import { checkPack, hasHardBlock } from "./lib/check.mjs";
 import { receiveAndAnalyzeMaterials, updateMaterialAnalysis } from "./lib/materials.mjs";
 import { createPublicSite } from './lib/public-site.mjs';
+import { readModelSpend } from './lib/model-spend.mjs';
 
 const keywordImports = new Set();
 const PORT = Number(process.env.PORT || 5173);
@@ -443,6 +444,12 @@ async function handleApi(req, res, url) {
     const user = currentUser(req);
     if (!user) return json(res, 401, { error: "请先登录" });
     return json(res, 200, { ...user, isAdmin: isAdmin(user) });
+  }
+  if (req.method === 'GET' && url.pathname === '/api/costs') {
+    const user = requireUser(req, res);
+    if (!user) return;
+    try { return json(res, 200, readModelSpend(user.email)); }
+    catch { return json(res, 503, { error: '暂时无法读取模型预留记录，请稍后重试。实际费用仍以服务商账单为准。' }); }
   }
 
   if (req.method === "POST" && url.pathname === "/api/login") {

@@ -8,6 +8,8 @@
 
 范围：现有落地页、公开路由、抓取策略、产品实体、内容与性能；未改动工作台操作流程。
 
+后续定价实现：已新增 `/pricing/`，当前公开页面与 sitemap 共六页；首发套餐、费用构成与验证见 [定价研究](docs/PRICING-RESEARCH-2026-11-11.md)。下方原始审查测试数保留当时记录，上线时按当前六页核验。
+
 ## 当前结论
 
 本轮代码已完成可抓取与可引用的公开站基础建设。原始落地页内容完整保留，新增产品说明与三篇指南。SEO 配置只对公开页面生效，私有工作台、API 和分享内容保留限制。
@@ -73,7 +75,7 @@
 2. 部署本轮代码，并在服务运行环境设置 `HARTA_PUBLIC_ORIGIN=https://www.harta.cn` 后重启 Harta。新内容由 Node 服务提供，无需生成静态 sitemap 文件。
 3. 在已配置证书的反向代理层，将裸域及 HTTP 入口 301 到 `https://www.harta.cn`，保留路径与查询参数。应用 Host 白名单继续使用该配置，不放宽未知域名。
 4. 让 `/robots.txt`、`/sitemap.xml`、`/llms.txt`、`/product/`、`/guides/` 进入 Node；去掉边缘额外添加的全站 noindex，保留应用按路由返回的策略。首页及带会话请求不缓存，允许真实搜索爬虫访问公开页面；公开文本资源可由现有边缘开启压缩。
-5. 用无登录的浏览器确认五页 200、内容完整、canonical/OG 为 www；robots 与 sitemap 引用同一域名，sitemap 只有五个公开 URL。登录后首页仍是工作台且返回 noindex，报告和 API 不进入索引。
+5. 用无登录的浏览器确认当前六页 200（含 `/pricing/`）、内容完整、canonical/OG 为 www；robots 与 sitemap 引用同一域名，sitemap 只有六个公开 URL。登录后首页仍是工作台且返回 noindex，报告和 API 不进入索引。
 6. 在站点所有者账户验证 Google Search Console 和 Bing Webmaster Tools，提交 `https://www.harta.cn/sitemap.xml` 并检查首页/内页 URL。百度按当前账户开放的普通收录及 sitemap 能力提交。账户权限未提供，本轮未代为提交。
 
 ## 后续 30 天

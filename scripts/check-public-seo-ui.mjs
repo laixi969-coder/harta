@@ -23,7 +23,7 @@ try {
   await Promise.race([once(server.stdout, 'data'), once(server, 'exit').then(() => { throw new Error('UI server exited'); })]);
   browser = await chromium.launch({ headless: true, executablePath: process.env.HARTA_E2E_CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' });
   const errors = [];
-  const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, reducedMotion: 'reduce' });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, reducedMotion: 'reduce', timezoneId: 'America/Los_Angeles' });
   // External fonts are optional; test the actual system-font fallback deterministically.
   await context.route('https://fonts.googleapis.com/**', route => route.abort());
   await context.route('https://fonts.gstatic.com/**', route => route.abort());
@@ -45,12 +45,13 @@ try {
     await page.setViewportSize({ width, height: 960 });
     for (const definition of publicPages) {
       await page.goto(origin + definition.path, { waitUntil: 'networkidle' });
-      assert.equal(await page.locator('h1').innerText(), definition.heading);
+      assert.equal((await page.locator('h1').innerText()).replace(/\s/g, ''), definition.heading.replace(/\s/g, ''));
       assert.equal(await page.locator('link[rel=canonical]').getAttribute('href'), `https://www.harta.cn${definition.path}`);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `Horizontal page overflow: ${definition.path}, ${width}`);
       for (const link of await page.locator('.public-toc a').evaluateAll(links => links.map(a => a.hash))) assert.equal(await page.locator(link).count(), 1);
       const name = definition.path.split('/').filter(Boolean).at(-1);
       await page.screenshot({ path: path.join(output, `${name}-${width}.png`), fullPage: true });
+      if (definition.path === '/pricing/' && width === 1440) await page.screenshot({ path: path.join(output, 'pricing-preview.png') });
     }
     await page.goto(origin, { waitUntil: 'networkidle' });
     await page.locator('footer').scrollIntoViewIfNeeded();
@@ -75,8 +76,54 @@ try {
   await animationPage.locator('.story').first().scrollIntoViewIfNeeded();
   await animationPage.waitForRequest(request => request.url().includes('/three/'), { timeout: 5000 }).catch(() => assert.ok(threeRequests > 0));
   assert.ok(threeRequests > 0, 'Three.js must load when a story approaches');
+
+  // Pricing is a budget worksheet, never a checkout or a budget policy write.
+  const pricingMutations = [];
+  page.on('request', request => { if (request.method() !== 'GET') pricingMutations.push(request.url()); });
+  await page.goto(origin + '/pricing/?plan=solo', { waitUntil: 'networkidle' });
+  assert.equal(await page.locator('#pricing-plan').inputValue(), 'solo');
+  assert.equal(await page.locator('#pricing-total').innerText(), '¥219');
+  await page.locator('#budget-model').fill('0.10');
+  await page.locator('#budget-data').fill('0.20');
+  await page.locator('#budget-image').fill('0');
+  assert.equal(await page.locator('#pricing-total').innerText(), '¥99.3');
+  await page.locator('#budget-model').fill('');
+  assert.equal(await page.locator('#download-pricing').isDisabled(), true);
+  assert.equal(await page.locator('#pricing-total').innerText(), '—');
+  await page.locator('#budget-model').fill('-1');
+  assert.equal(await page.locator('#copy-pricing').isDisabled(), true);
+  await page.locator('#budget-model').fill('50');
+  await page.locator('#budget-data').fill('50');
+  await page.locator('#budget-image').fill('20');
+  await page.locator('[data-plan=studio]').click();
+  assert.equal(await page.locator('#pricing-plan').inputValue(), 'studio');
+  assert.equal(await page.locator('#pricing-total').innerText(), '¥919');
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#download-pricing').click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  const chunks = []; for await (const chunk of stream) chunks.push(chunk);
+  const checklist = Buffer.concat(chunks).toString('utf8');
+  assert.ok(checklist.includes('¥919'));
+  assert.ok(checklist.includes('不会自动提交订单、扣款、续费或开通'));
+  assert.deepEqual(pricingMutations, []);
+
+  // Real authenticated settings view, with no paid external services configured.
+  const loginResponse = await context.request.post(origin + '/api/login', { headers: { origin }, data: { email: '66445039@qq.com', password: 'isolated-public-seo-ui-password' } });
+  assert.equal(loginResponse.status(), 200);
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(origin, { waitUntil: 'networkidle' });
+  await page.locator('[data-nav=settings]').click();
+  await page.locator('#account-costs > summary').click();
+  await page.locator('.account-costs-metrics').waitFor();
+  assert.ok((await page.locator('#account-costs-body').innerText()).includes('US$0.00'));
+  await page.locator('#account-costs').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(output, 'cost-settings-1440.png') });
+  await page.setViewportSize({ width: 390, height: 960 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, 'Cost settings overflow');
+  await page.screenshot({ path: path.join(output, 'cost-settings-390.png') });
   assert.deepEqual(errors, []);
-  console.log('SEO UI passed: desktop/mobile, 5 pages without JS, login navigation, anchors, no overflow, deferred/reduced motion.');
+  console.log(`SEO/pricing UI passed: desktop/mobile, ${publicPages.length + 1} pages without JS, calculator validation, checklist download, no charge requests, real cost settings and deferred/reduced motion.`);
   console.log(`Screenshots: ${output}`);
 } finally {
   await browser?.close();

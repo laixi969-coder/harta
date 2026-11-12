@@ -1,4 +1,5 @@
 import { creationIntentLabel } from './creation-intent.js';
+import { openCostSettings } from './cost-settings.js';
 import { initPlatformDataSettings, openPlatformDataSettings } from './platform-data-settings.js';
 import { openAcquisitionPage, acquisitionActiveSection, resumeAcquisitionRoute } from './openfind-workbench.js';
 import { installCommerceUI, renderCommerceUI, resumeOpenFindHandoff, setContentWorkspaceTab, contentWorkspaceTab, preserveCommerceDrafts } from './commerce-ui.js';
@@ -724,7 +725,7 @@ function nav(view) {
   preserveCommerceDrafts();
   if(view==='account-review'){setContentWorkspaceTab('review');view='content-home';}
   if (view === 'crew') void loadCrew();
-  if (view === 'settings') void openPlatformDataSettings();
+  if (view === 'settings') { void openPlatformDataSettings(); void openCostSettings(); }
   if (view === 'prospecting') { openAcquisitionPage('discover'); return; }
   if (view !== 'openfind' && new URLSearchParams(location.search).has('acqPage')) history.replaceState(null, '', '/');
   state.view = view;

@@ -246,3 +246,5 @@ section[data-view="openfind"]:not(.hidden){display:flex;flex:1;min-height:0;widt
 @media (min-width: 861px) {
   .rail { overflow-y: auto; overscroll-behavior: contain; }
 }
+/* Account protection reservations, kept distinct from provider invoices. */
+.account-costs-metrics{display:flex;flex-wrap:wrap;gap:24px 40px;margin:20px 0}.account-costs-metrics>div{min-width:120px}.account-costs-metrics dt{font-size:13px;opacity:.8}.account-costs-metrics dd{margin:8px 0 0;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}.account-costs-history{padding-left:20px;font-size:14px;line-height:1.8}
