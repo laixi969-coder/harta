@@ -5,6 +5,22 @@ import { referenceOverlaps } from './reference-overlap.js';
 import {shortReferenceNotes,shortTechnique} from './practical-shorts.js';
 import {photoNotes} from './image-pages.js';
 export const PRODUCTION_FIELDS = { script:'口播 / 正文', shots:'画面与分镜 / 图文逐页内容', imagePlan:'图文逐页画面建议（不直接出现在图片上）', pagePhotos:'逐页实拍',shootMaterials:'要拍的物件或场地（每行一项）', title:'发布标题', cover:'封面文字', coverLayout:'封面排版', hook:'视频开场', cta:'视频收尾', liveOpen:'直播开场', liveSegments:'直播段落与证据', liveInteraction:'互动问题', liveOffer:'产品 / 承接', liveClose:'收口', liveSchedule:'直播时间', liveAttendance:'实际进场人数', liveRetained:'留存人数', liveInquiries:'直播咨询人数（手工统计）', liveQualifiedLeads:'有效咨询人数（手工统计）', liveReview:'直播复盘' };
+export const PRODUCTION_COPY_FIELDS = {
+  image: ['title', 'cover', 'coverLayout', 'script', 'shots', 'imagePlan'],
+  video: ['title', 'hook', 'script', 'shots', 'shootMaterials', 'cta', 'cover', 'coverLayout'],
+  article: ['title', 'script', 'cover', 'coverLayout'],
+  live: ['title', 'cover', 'coverLayout', 'liveOpen', 'liveSegments', 'liveInteraction', 'liveOffer', 'liveClose'],
+};
+export const PRODUCTION_COPY_KEYS = [...new Set(Object.values(PRODUCTION_COPY_FIELDS).flat())];
+
+export function productionFieldLabels(format, references = []) {
+  if (format === 'image') return { ...PRODUCTION_FIELDS, script: '发布正文', shots: '逐页上图文字' };
+  if (format === 'article') return { ...PRODUCTION_FIELDS, script: '文章正文' };
+  if (format !== 'video') return PRODUCTION_FIELDS;
+  const visual = Array.isArray(references) && references.some(r => r?.observedAction && shortTechnique(r.shortTechnique));
+  return { ...PRODUCTION_FIELDS, shots: '视频分镜', script: visual ? '逐镜屏幕字 / 口播' : '视频脚本', hook: visual ? '开场画面或声音' : PRODUCTION_FIELDS.hook };
+}
+
 // Shared by direct downloads and saved asset bundles so no production field is
 // silently dropped when the user hands a draft to someone else.
 export function shootingGuide(fields={},assets=[],references=[]) {
@@ -20,12 +36,12 @@ export function shootingGuide(fields={},assets=[],references=[]) {
 }
 export function productionDocument(fields={}, format='video', platform='', assets=[],references=[]) {
   const live=format==='live';
-  const keys=live?['title','liveOpen','liveSegments','liveInteraction','liveOffer','liveClose','liveSchedule','liveAttendance','liveRetained','liveInquiries','liveQualifiedLeads','liveReview']:format==='article'?['title','script','cover','coverLayout']:['title','hook','script','shots','imagePlan','cta','cover','coverLayout'];
+  const keys=live?['title','liveOpen','liveSegments','liveInteraction','liveOffer','liveClose','liveSchedule','liveAttendance','liveRetained','liveInquiries','liveQualifiedLeads','liveReview']:(PRODUCTION_COPY_FIELDS[format] || PRODUCTION_COPY_FIELDS.video).filter(key=>key!=='shootMaterials');
   const label=live?'直播':format==='article'?'公众号长文':format==='image'?'图文':'短视频';
   const extras=Object.keys(PRODUCTION_FIELDS).filter(key=>!['pagePhotos','shootMaterials'].includes(key) && !keys.includes(key) && typeof fields[key]==='string' && fields[key].trim());
   references=Array.isArray(references)?references:[];
-  const visualLabels=format==='video'&&references.some(r=>shortTechnique(r.shortTechnique)&&r.observedAction)?{script:'逐镜屏幕字 / 口播',hook:'开场画面或声音'}:{};
-  const entry=key=>`${visualLabels[key]||PRODUCTION_FIELDS[key]}\n${typeof fields[key]==='string' && fields[key].trim()?fields[key]:'（未填写）'}`;
+  const labels=productionFieldLabels(format,references);
+  const entry=key=>`${labels[key]}\n${typeof fields[key]==='string' && fields[key].trim()?fields[key]:'（未填写）'}`;
   return [`制作类型：${label}`, ...(platform?[`平台：${platform}`]:[]), ...(format==='video'?[shootingGuide(fields,assets,references)]:[]), ...keys.map(entry), ...(format==='image'&&fields.pagePhotos?[photoNotes(fields.pagePhotos)]:[]), ...(extras.length?['其他已填写制作字段',...extras.map(entry)]:[])].join('\n\n');
 }
 // These are production inputs, not claims that the content or facts are valid.

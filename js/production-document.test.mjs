@@ -6,7 +6,9 @@ describe('制作稿交付',()=>{
   for(const text of ['短视频','抖音','先问问题','口播正文','三个镜头','收尾问题','封面','暖色排版'])expect(doc).toContain(text);
  });
  it('图文保留逐页画面建议；直播保留排期、零值、咨询和复盘',()=>{
-  const image=productionDocument({imagePlan:'第一页的画面',liveReview:'历史备注'},'image','小红书');expect(image).toContain('第一页的画面');expect(image).toContain('其他已填写制作字段\n\n直播复盘\n历史备注');
+  const image=productionDocument({script:'量一量',shots:'先关柜门',imagePlan:'第一页的画面',liveReview:'历史备注'},'image','小红书');
+  expect(image).toContain('发布正文\n量一量');expect(image).toContain('逐页上图文字\n先关柜门');expect(image).toContain('第一页的画面');
+  expect(image).not.toContain('视频开场');expect(image).not.toContain('视频收尾');expect(image).toContain('其他已填写制作字段\n\n直播复盘\n历史备注');
   const live=productionDocument({liveSchedule:'2026-01-01T19:00',liveAttendance:'0',liveInquiries:'5',liveReview:'回看备注'},'live');
   for(const text of ['直播时间\n2026-01-01T19:00','实际进场人数\n0','直播咨询人数（手工统计）\n5','直播复盘\n回看备注'])expect(live).toContain(text);
  });
