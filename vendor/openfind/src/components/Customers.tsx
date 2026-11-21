@@ -656,7 +656,7 @@ export function Comments() {
 }
 export function Leads() {
   const { data, refresh, notify, navigate, embedded, setUnsaved } = useWorkspace();
-  const [contacts,setContacts] = useState<{commentId:string;noteId:string;platform:string;stage:string}[]>([]);
+  const [contacts,setContacts] = useState<{commentId:string;noteId:string;platform:string;stage:string;grade:string}[]>([]);
   const [contactsLoaded,setContactsLoaded] = useState(false);
   useEffect(()=>{
     if(!embedded) return;
@@ -666,6 +666,11 @@ export function Leads() {
     return ()=>{alive=false;clearInterval(timer);};
   },[embedded]);
   const contactFor = (lead:Lead)=>contacts.find(c=>c.commentId===lead.commentId&&c.noteId===lead.noteId&&c.platform===(lead.platform||'xiaohongshu'));
+  const contactLabel = (lead:Lead) => {
+    if (!contactsLoaded) return '读取中';
+    const saved = contactFor(lead);
+    return saved ? [saved.stage,saved.grade].filter(Boolean).join(' · ') : '待核实';
+  };
   const [query, setQuery] = useState(''),
     [status, setStatus] = useState('all'),
     [platform, setPlatform] = useState('all'),
@@ -820,7 +825,7 @@ export function Leads() {
                 <tr>
                   <th>客户</th>
                   <th>需求与来源</th>
-                  <th>意向评分</th>
+                  <th>{embedded ? '评论初筛分' : '意向评分'}</th>
                   <th>{embedded ? '核实状态' : '跟进状态'}</th>
                   <th>操作</th>
                 </tr>
@@ -853,7 +858,7 @@ export function Leads() {
                       <small className="muted">{commentDate(l.commentCreatedAt, true)}</small>
                     </td>
                     <td>
-                      {embedded ? <span className="source-tag">{contactsLoaded ? contactFor(l)?.stage || '待核实' : '读取中'}</span> : <select
+                      {embedded ? <span className="source-tag">{contactLabel(l)}</span> : <select
                         aria-label={`${l.name}跟进状态`}
                         value={l.status}
                         disabled={saving}

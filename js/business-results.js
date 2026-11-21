@@ -1,3 +1,5 @@
+import { gradeDistribution, qualificationDirectory } from './lead-qualification.js';
+import { LEAD_INTENTS } from './lead-intent.js';
 import { unansweredMessages, leadNeedsReply } from './conversation-state.js';
 import { pendingPublicationReviews } from './publication-review.js';
 import { isRealEvidence } from './evidence-kind.js';
@@ -17,16 +19,24 @@ export function actionPage(items=[], requested=0, size=12) {
 export function businessResults(acquisition = {}, customerId) {
  const rows = key => (acquisition[key] || []).filter(r=>r.customerId===customerId&&real(r));
  const leads=rows('leads'), opportunities=rows('opportunities').filter(o=>leads.some(l=>l.id===o.leadId));
+ const {contacts}=qualificationDirectory(acquisition,customerId);
  const identity=l=>JSON.stringify(l.authorId&&l.platform?['platform',l.platform,l.authorId]:['record',l.id]);
  const unique = list => new Set(list.map(identity)).size;
  const pathsFor=l=>{const paths=(Array.isArray(l.sourcePaths)?l.sourcePaths:[]).filter(p=>['active','content','unknown'].includes(p));return paths.length?paths:['unknown'];};
  const pathRows=path=>leads.filter(l=>pathsFor(l).includes(path));
- const pathMetrics=list=>({contacts:unique(list),qualified:unique(list.filter(l=>['值得跟进','已联系','沟通中','已成交'].includes(l.stage))),pendingReply:unique(list.filter(l=>!l.doNotContact&&leadNeedsReply(l)))});
+ const pathMetrics=list=>({contacts:unique(list),qualified:unique(list.filter(l=>['值得跟进','已联系','沟通中','已成交'].includes(l.stage))),pendingReply:unique(list.filter(l=>!contacts.get(l.id)?.blocked&&leadNeedsReply(l)))});
  const activeIds=new Set(pathRows('active').map(identity)),contentIds=new Set(pathRows('content').map(identity));
  const paths=Object.fromEntries(['active','content','unknown'].map(path=>[path,pathMetrics(pathRows(path))]));
  const overlapContacts=[...activeIds].filter(id=>contentIds.has(id)).length;
- const intents=Object.fromEntries(['buy','ad','divert'].map(kind=>[kind,{contacts:unique(leads.filter(l=>(l.intentTracks||[]).some(t=>t.kind===kind))),completed:unique(leads.filter(l=>(l.intentTracks||[]).some(t=>t.kind===kind&&t.status==='won')))}]));
- return { paths, overlapContacts, works:rows('works').filter(w=>!w.owned).length, pending:pendingSignals(acquisition,customerId).length,
+ const closedGrades={};
+ for(const op of opportunities){
+   if(!['已成交','已结束'].includes(op.stage))continue;
+   const code=op.gradeAtClose?.code || 'unknown';
+   const tally=closedGrades[code] ||= {won:0,ended:0};
+   tally[op.stage==='已成交'?'won':'ended']++;
+ }
+ const intents=Object.fromEntries(Object.keys(LEAD_INTENTS).map(kind=>[kind,{contacts:unique(leads.filter(l=>(l.intentTracks||[]).some(t=>t.kind===kind))),completed:unique(leads.filter(l=>(l.intentTracks||[]).some(t=>t.kind===kind&&t.status==='won')))}]));
+ return { paths, overlapContacts, closedGrades, grades:gradeDistribution(contacts), works:rows('works').filter(w=>!w.owned).length, pending:pendingSignals(acquisition,customerId).length,
   contacts:unique(leads), qualified:unique(leads.filter(l=>['值得跟进','已联系','沟通中','已成交'].includes(l.stage))),
   contacted:unique(leads.filter(l=>(l.messages||[]).some(sent))), replied:unique(leads.filter(l=>(l.messages||[]).some(m=>m.direction==='inbound'))),
   wonNeeds:opportunities.filter(o=>o.stage==='已成交').length, wonContacts:unique(leads.filter(l=>l.stage==='已成交'||opportunities.some(o=>o.leadId===l.id&&o.stage==='已成交'))),
@@ -35,26 +45,46 @@ export function businessResults(acquisition = {}, customerId) {
 }
 export function businessActions(acquisition = {}, customerId, now=Date.now()) {
  const rows=key=>(acquisition[key]||[]).filter(r=>r.customerId===customerId&&real(r));
- const leads=rows('leads').filter(l=>!l.doNotContact), list=[];
- for(const l of leads){
-  const messages=l.messages||[], unanswered=unansweredMessages(messages);
+ const {contacts}=qualificationDirectory(acquisition,customerId,now), list=[];
+ const due=date=>Number.isFinite(Date.parse(date)) && Date.parse(date)<=now;
+ for (const {lead,scopes,blocked} of contacts.values()) {
+  if (blocked) continue;
+  const messages=(lead.messages||[]).filter(real), unanswered=unansweredMessages(messages);
+  const title=lead.authorName||'客户';
+  const replies=new Set();
   for(const incoming of unanswered){
-   const op=rows('opportunities').find(o=>o.id===incoming.opportunityId&&o.leadId===l.id);
-   const action=op?'open-need':'open-contact-history', id=op?.id||l.id;
-   if(!list.some(item=>item.action===action&&item.id===id))list.push({id,action,title:(l.authorName||'客户')+(op?' · '+op.title:''),note:'查看客户原话并准备回复',label:'待回复',rank:0,time:0});
+   const scope=scopes.find(s=>s.scopeId===incoming.opportunityId && s.opportunity);
+   const id=scope?.scopeId||lead.id;
+   if(replies.has(id))continue;
+   replies.add(id);
+   const service=scope?.code==='service'||(!scope&&scopes.length===1&&scopes[0].code==='service');
+   list.push({id,action:scope?'open-need':'open-contact-history',title:title+(scope?' · '+scope.opportunity.title:''),
+    note:service?'查看客户原话并处理服务事项':'查看客户原话并准备回复',label:'待回复',rank:0,time:0,grade:scope?.code||(!scopes[0].opportunity?scopes[0].code:'pending')});
   }
-  if(!messages.some(m=>m.direction==='inbound')&&l.needsReply)list.push({id:l.id,action:'open-contact',title:l.authorName||'客户',note:'查看客户原话并准备回复',label:'待回复',rank:0,time:0});
-  else if(!unanswered.length&&!['已成交','暂不跟进'].includes(l.stage)&&Number.isFinite(Date.parse(l.nextAt))&&Date.parse(l.nextAt)<=now)list.push({id:l.id,action:'open-contact',title:l.authorName||'客户',note:l.nextStep||'已到跟进时间',label:'联系人跟进到期',rank:1,time:Date.parse(l.nextAt)});
- }
- for(const o of rows('opportunities'))if(!['已成交','已结束'].includes(o.stage)&&!list.some(item=>item.action==='open-need'&&item.id===o.id)&&leads.some(l=>l.id===o.leadId)&&Number.isFinite(Date.parse(o.nextAt))&&Date.parse(o.nextAt)<=now)list.push({id:o.id,action:'open-need',title:o.title,note:o.nextStep||'查看购买需求',label:'购买需求跟进到期',rank:1,time:Date.parse(o.nextAt)});
- for(const o of rows('opportunities'))if(!['已成交','已结束'].includes(o.stage)&&!list.some(a=>a.action==='open-need'&&a.id===o.id)){
-  const l=leads.find(l=>l.id===o.leadId);if(!l)continue;
-  if(!(l.messages||[]).some(m=>m.opportunityId===o.id&&(sent(m)||m.direction==='inbound')))list.push({id:o.id,action:'open-need',title:o.title,note:o.nextStep||'根据原话准备联系草稿',label:'待开场',rank:2,time:0});
+  if(!messages.some(m=>m.direction==='inbound')&&lead.needsReply){
+   replies.add(lead.id);
+   list.push({id:lead.id,action:'open-contact',title,note:'查看客户原话并准备回复',label:'待回复',rank:0,time:0});
+  }
+  const actionable=scopes.some(s=>['A','B','C','pending'].includes(s.code));
+  if(scopes[0].opportunity && actionable && !unanswered.length && !replies.has(lead.id) && !['已成交','暂不跟进'].includes(lead.stage) && due(lead.nextAt))
+   list.push({id:lead.id,action:'open-contact',title,note:lead.nextStep||'已到跟进时间',label:'联系人跟进到期',rank:1,time:Date.parse(lead.nextAt)});
+  for(const scope of scopes){
+   const op=scope.opportunity,item=op||lead,grade=scope.code;
+   if(replies.has(item.id)||!['A','B','C','pending','unfit'].includes(grade))continue;
+   const base={id:item.id,action:op?'open-need':'open-contact',title:op?op.title:title,grade};
+   if(scope.review)list.push({...base,note:scope.next,label:'分级待复核',rank:due(item.nextAt)?1:2,time:Date.parse(item.nextAt)||0});
+   else if(grade==='unfit')continue;
+   else if(due(item.nextAt))list.push({...base,note:item.nextStep||'已到跟进时间',label:op?'购买需求跟进到期':'联系人跟进到期',rank:1,time:Date.parse(item.nextAt)});
+   else if(grade==='A'&&!item.nextAt)list.push({...base,note:item.nextStep||scope.next,label:'A 级待排期',rank:1,time:0});
+   else if(grade==='pending' && !scope.assessment && scope.sources.length && !item.nextAt)list.push({...base,note:'核对客户原话，评定本次需求',label:'线索待评定',rank:2,time:0});
+   else if(op && !item.nextAt && ['pending','B'].includes(grade) && !(lead.messages||[]).some(m=>m.opportunityId===op.id&&(sent(m)||m.direction==='inbound')))list.push({...base,note:op.nextStep||'根据原话准备联系草稿',label:'待开场',rank:2,time:0});
+  }
  }
  const pending=pendingSignals(acquisition,customerId).length;
  if(pending)list.push({id:'',action:'search',title:`${pending} 条需求待核实`,note:'核对原话与业务匹配情况',label:'待核实',rank:2,time:0});
  for(const p of pendingPublicationReviews(acquisition,customerId,now))list.push({id:p.id,action:'open-publication-review',title:p.content?.title || p.content?.cover || '已发布作品',note:`${p.platform} · 发布已满两天，回看评论和咨询；未采集不代表没有需求。`,label:'回看评论',rank:2,time:Date.parse(p.publishedAt)});
  const drafts=rows('publications').filter(p=>p.status==='pending_confirmation').length;
  if(drafts)list.push({id:'',action:'legacy',title:`${drafts} 篇待登记发布`,note:'在平台发布后登记，不自动执行',label:'待发布',rank:3,time:0});
- return list.sort((a,b)=>a.rank-b.rank||a.time-b.time);
+ const priority=code=>({A:0,B:1,C:2})[code]??3;
+ return list.sort((a,b)=>a.rank-b.rank || Number(a.label==='A 级待排期')-Number(b.label==='A 级待排期') || priority(a.grade)-priority(b.grade) || a.time-b.time);
 }

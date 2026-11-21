@@ -248,3 +248,18 @@ section[data-view="openfind"]:not(.hidden){display:flex;flex:1;min-height:0;widt
 }
 /* Account protection reservations, kept distinct from provider invoices. */
 .account-costs-metrics{display:flex;flex-wrap:wrap;gap:24px 40px;margin:20px 0}.account-costs-metrics>div{min-width:120px}.account-costs-metrics dt{font-size:13px;opacity:.8}.account-costs-metrics dd{margin:8px 0 0;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}.account-costs-history{padding-left:20px;font-size:14px;line-height:1.8}
+
+.cm-grade-filters { display:grid; gap:8px; margin-bottom:12px }
+.cm-grade-filters label { display:grid; gap:4px }
+.cm-grade-filters select { width:100%; max-width:100% }
+.cm-grade-rules { display:grid; grid-template-columns:auto 1fr; gap:6px 14px }
+.cm-grade-rules dt { font-weight:650 }
+.cm-grade-rules dd { margin:0 }
+.cm-qualification { border-block-start:1px solid var(--border); margin-block:16px; padding-block-start:12px; overflow-wrap:anywhere }
+.cm-qualification .cm-tag { margin-inline-start:4px }
+.cm-qualification [data-grade-code="A"] { background:var(--feature-bg); color:var(--feature-ink) }
+.cm-qualification [hidden] { display:none }
+@media (max-width:860px) { .cm-grade-filters { grid-template-columns:repeat(2,minmax(0,1fr)) } }
+.cm-grade-outcomes { border-collapse:collapse; width:100%; margin-block:10px }
+.cm-grade-outcomes :is(th,td) { text-align:start; padding:6px 8px; border-bottom:1px solid var(--border) }
+.cm-grade-outcomes caption { text-align:start; color:var(--ink-2) }

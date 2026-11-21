@@ -14,3 +14,8 @@ export function leadNeedsReply(lead = {}) {
   const messages=lead.messages || [];
   return messages.some(m=>m.direction==='inbound') ? unansweredMessages(messages).length>0 : Boolean(lead.needsReply);
 }
+
+export function followupLocalTime(value) {
+  const date=new Date(value);
+  return value && Number.isFinite(date.getTime()) ? new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16) : '';
+}

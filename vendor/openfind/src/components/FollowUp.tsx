@@ -12,6 +12,8 @@ interface Contact {
   noteId: string;
   platform: string;
   stage: string;
+  grade: string;
+  planStage?: string;
   stopped: boolean;
   nextAt: string;
   nextStep: string;
@@ -52,9 +54,8 @@ export function FollowUp() {
     [pendingId, setPendingId] = useState('');
   const lead = data.leads.find((l) => l.id === selected);
   const filteredLeads = data.leads.filter((l) => [l.name, l.content].join(' ').includes(query.trim()));
-  const contact = contacts.find(
-    (c) => c.commentId === lead?.commentId && c.platform === (lead?.platform || 'xiaohongshu'),
-  );
+  const contactFor = (l: typeof lead) => contacts.find(c => c.commentId === l?.commentId && c.noteId === l?.noteId && c.platform === (l?.platform || 'xiaohongshu'));
+  const contact = contactFor(lead);
   const uniqueContacts = [...new Map(contacts.map((c) => [c.id, c])).values()];
   const dueCount = uniqueContacts.filter((c) => followUpPlan(c) === 'due').length;
   const open = (id: string) => {
@@ -93,14 +94,14 @@ export function FollowUp() {
           {uniqueContacts.map((c) => (
             <article key={c.id + ':' + c.commentId}>
               <b>
-                {c.name} · {c.stage}
+                {c.name} · {c.grade || c.stage}
               </b>
               <p>
                 <span className={followUpPlan(c) === 'due' ? 'followup-due' : ''}>
                   {followUpPlan(c) === 'stopped'
                     ? '已停止主动跟进'
                     : followUpPlan(c) === 'closed'
-                      ? '已成交'
+                      ? c.planStage === '已结束' ? '已结束' : '已成交'
                       : followUpPlan(c) === 'invalid'
                         ? '跟进时间无效，请在 Harta 修正'
                         : c.nextAt
@@ -159,7 +160,7 @@ export function FollowUp() {
                 <b>{l.name}</b>
                 <small>
                   {l.platform === 'douyin' ? '抖音' : '小红书'} ·{' '}
-                  {contacts.find((c) => c.commentId === l.commentId)?.stage || '待核实'}
+                  {contactFor(l)?.grade || '待核实'}
                 </small>
                 <span>{l.content}</span>
               </button>
@@ -169,7 +170,7 @@ export function FollowUp() {
           {lead ? (
             <>
               <h2>{lead.name}</h2>
-              {contact && <p className={followUpPlan(contact) === 'due' ? 'followup-due' : 'field-hint'}>{contact.stage} · {followUpPlan(contact) === 'stopped' ? '已停止跟进' : followUpPlan(contact) === 'closed' ? '已成交' : followUpPlan(contact) === 'invalid' ? '跟进时间无效' : contact.nextAt ? `${followUpPlan(contact) === 'due' ? '已到跟进时间' : '计划'} ${new Date(contact.nextAt).toLocaleString()}` : '未安排时间'}</p>}
+              {contact && <p className={followUpPlan(contact) === 'due' ? 'followup-due' : 'field-hint'}>{contact.stage} · {contact.grade} · {followUpPlan(contact) === 'stopped' ? '已停止跟进' : followUpPlan(contact) === 'closed' ? contact.planStage || contact.stage : followUpPlan(contact) === 'invalid' ? '跟进时间无效' : contact.nextAt ? `${followUpPlan(contact) === 'due' ? '已到跟进时间' : '计划'} ${new Date(contact.nextAt).toLocaleString()}` : '未安排时间'}</p>}
               <blockquote>{lead.content}</blockquote>
               {contact?.nextStep && <p className="followup-next-action"><b>下一步</b> {contact.nextStep}</p>}
               <WorkSource
