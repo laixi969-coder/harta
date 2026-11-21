@@ -1136,6 +1136,8 @@ svg {
   position: relative;
   white-space: nowrap;
 }
+.filter-tabs.business-keywords{flex-wrap:wrap;gap:5px;min-width:0}
+.filter-tabs.business-keywords button{white-space:normal;overflow-wrap:anywhere;max-width:100%;text-align:start;line-height:1.35}
 .filter-tabs button.active {
   color: var(--accent);
   font-weight: 600;

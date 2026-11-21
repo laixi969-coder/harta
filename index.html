@@ -154,12 +154,13 @@
           </div>
           <label for="keyword-files">关键词文档或表格</label><input id="keyword-files" type="file" multiple accept=".xlsx,.csv,.tsv,.txt,.md,.docx,.pdf">
           <details class="ui-info"><summary aria-label="文件要求" title="文件要求"><span aria-hidden="true">ⓘ</span></summary><div>支持 XLSX、CSV、TSV、TXT、MD、DOCX、文字型 PDF。最多 5 个文件，单个 10 MB、合计 20 MB，每批 3000 条。XLS／DOC 请转换格式。</div></details>
-          <div class="acts"><button class="btn" type="button" id="import-keywords">导入并自动梳理</button><a class="btn ghost" href="/api/keywords/template" download>下载表格模板</a></div>
-          <p id="keyword-import-status" class="meta" role="status" aria-live="polite"></p>
+          <label for="keyword-method">梳理方式</label><select id="keyword-method"><option value="local">本地提取与分类</option><option value="model">模型辅助（会向已配置的模型发送文件内容）</option></select><div class="acts"><button class="btn" type="button" id="import-keywords">导入并自动梳理</button><a class="btn ghost" href="/api/keywords/template" download>下载表格模板</a></div>
+          <div id="keyword-preview"></div><p id="keyword-import-status" class="meta" role="status" aria-live="polite"></p>
           </details>
           <details class="keyword-intake" id="keyword-expand-panel"><summary>扩展关键词</summary>
+          <label for="keyword-provider">扩词来源</label><select id="keyword-provider"><option value="suggest">搜索下拉建议</option><option value="5118">5118 长尾词 API（使用已开通的查询额度）</option></select>
           <label for="keyword-seeds">种子词，最多 5 个，用逗号或换行分隔</label><textarea id="keyword-seeds" rows="2" maxlength="300" placeholder="例如：隔音窗，卧室隔音"></textarea>
-          <details class="ui-info"><summary aria-label="扩词来源" title="扩词来源"><span aria-hidden="true">ⓘ</span></summary><div>抓搜索引擎里真实出现过的下拉建议，不需要 5118 密钥，也不含搜索量。会同时标出这些词在你自己的评论和对标正文里出现过几次。</div></details>
+          <details class="ui-info"><summary aria-label="扩词来源" title="扩词来源"><span aria-hidden="true">ⓘ</span></summary><div>下拉建议会标出与业务资料的匹配次数。5118 长尾词使用管理员配置的密钥，保留接口返回的原始指数。</div></details>
           <div class="acts"><button class="btn ghost" type="button" id="expand-keywords">扩展并归入词库</button></div>
           <p id="keyword-expand-status" class="meta" role="status" aria-live="polite"></p>
           </details>
@@ -576,6 +577,7 @@
         <details class="card form settings-section hidden" id="whitelist-card">
           <summary>账号管理</summary>
           <p class="meta">激活码仅交给注册本人。</p>
+          <div id="opening-inbox"></div>
           <label for="white-email">邮箱</label>
           <input id="white-email" type="email" maxlength="254" placeholder="name@company.com">
           <div class="acts"><button class="btn" id="add-white" type="button">开通</button></div>

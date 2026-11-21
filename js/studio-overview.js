@@ -1,3 +1,5 @@
+import {GROWTH_GOALS,METRICS,growthGoal} from './growth.js';
+import {latestOutcomes} from './creator-review.js';
 import {businessResults} from './business-results.js';
 import {isRealEvidence} from './evidence-kind.js';
 import {packAsSent} from './pack-edits.js';
@@ -15,6 +17,10 @@ export function studioAcquisitionOverview(customer,acquisition={},contentStates=
   const id=customer.id,r=businessResults(acquisition,id),works=(acquisition.works||[]).filter(w=>w.customerId===id&&isRealEvidence(w)&&!w.owned);
   const signals=(acquisition.signals||[]).filter(s=>s.customerId===id&&isRealEvidence(s)&&s.status==='pending'&&!s.isAuthorReply&&(!s.workId||works.some(w=>w.id===s.workId)));
   const packs=(customer.drops||[]).filter(isRealEvidence),recent=packs.slice(0,2);
+  const goal=growthGoal(customer),metrics=GROWTH_GOALS[goal].metrics||[GROWTH_GOALS[goal].metric];
+  const observations=latestOutcomes(customer).map(item=>item.row).filter(row=>row.goal===goal&&row.start&&row.end&&metrics.some(m=>Number.isFinite(row.metrics?.[m]))).sort((a,b)=>b.end.localeCompare(a.end)||String(b.recordedAt||'').localeCompare(String(a.recordedAt||'')));
+  const result=observations[0];
+  const outcome=result?`<div class="studio-path-result"><strong>${esc(result.metrics[metrics.find(m=>Number.isFinite(result.metrics[m]))])}</strong><span>${esc(METRICS[metrics.find(m=>Number.isFinite(result.metrics[m]))])}</span></div><p class="studio-outcome-source">${metrics.length>1?esc(metrics.map(m=>METRICS[m]+' '+(result.metrics[m]??'未登记')).join(' · '))+'<br>':''}${esc([result.content?.title,result.platform,result.accountName||'账号未登记',result.start+' 至 '+result.end,result.source||'来源未登记'].filter(Boolean).join(' · '))}</p>`:`<p class="studio-lane-empty">${esc(metrics.map(m=>METRICS[m]).join(' / '))}待登记</p>`;
   const coverage=weeklyCalendarCoverage(calendarItems(customer,contentStates).items,calendarWeek()),scheduled=coverage.reduce((sum,row)=>sum+row.image+row.video+row.article+row.live+row.unknown,0);
   return `<p class="studio-evidence-scope">当前业务的已保存记录 <span>两路重叠 ${r.overlapContacts} 位 · 来源未明 ${r.paths.unknown.contacts} 位</span></p>
   <section class="studio-paths" aria-label="两条获客主线">
@@ -27,11 +33,11 @@ export function studioAcquisitionOverview(customer,acquisition={},contentStates=
     </article>
     <article class="studio-lane studio-lane-content">
       <header><h2>内容创作</h2><span class="studio-path-symbol" aria-hidden="true">✳</span></header>
-      <div class="studio-path-result"><strong>${r.paths.content.qualified}</strong><span>位已核实联系人</span></div>
+      ${outcome}
       <dl class="studio-path-stats"><div><dt>内容批次</dt><dd>${packs.length}</dd></div><div><dt>已登记发布</dt><dd>${r.published}</dd></div><div><dt>待回复联系人</dt><dd>${r.paths.content.pendingReply}</dd></div></dl>
       <div class="studio-recent-works"><h3>继续制作</h3>${recent.map(p=>{const preview=studioPackPreview(id,p);return `<button type="button" class="studio-work" data-cm="open-pack" data-id="${esc(p.id)}">${preview.url?`<img src="${esc(preview.url)}" width="60" height="80" alt="${esc(preview.title)}的已保存素材">`:'<span class="studio-no-cover" aria-hidden="true">文稿</span>'}<span><strong>${esc(preview.title)}</strong><small>${esc(preview.platform||'平台待选择')}</small></span><span aria-hidden="true">↗</span></button>`;}).join('')||'<p class="studio-lane-empty">暂无作品。</p>'}</div>
       <div class="studio-week-plan"><h3>本周内容安排</h3><p>${esc(scheduled?weeklyJobSuggestion(coverage):'本周暂无内容排期。')}</p>${action('calendar-home','查看排期')}</div>
-      <footer>${action('go-content-home','创建内容 <span aria-hidden="true">↗</span>','',true)}${action('review-home','查看账号复盘')}</footer>
+      <footer>${action('go-content-home','创建内容 <span aria-hidden="true">↗</span>','',true)}${action('review-home',result?'查看账号复盘':'补录本期效果')}</footer>
     </article>
   </section>`;
 }

@@ -28,7 +28,7 @@ const failedRequests = [];
 try {
     await Promise.race([once(proc.stdout, 'data'), once(proc, 'exit').then(() => { throw Error('server exited'); })]);
     const origin = `http://127.0.0.1:${port}`;
-    const login = await fetch(origin + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: '66445039@qq.com', password: 'test-password-12345' }) });
+    const login = await fetch(origin + '/api/login', { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify({ email: '66445039@qq.com', password: 'test-password-12345' }) });
     if (!login.ok)
         throw Error('login failed ' + login.status);
     const cookie = login.headers.get('set-cookie').split(';')[0];
@@ -57,7 +57,7 @@ try {
     await page.locator('#cm-workbench h1').waitFor();
     await page.locator('[data-nav=settings]').click();
     const imageSettings = page.locator('#image-model-settings');
-    await imageSettings.locator('summary').click();
+    await imageSettings.locator(':scope > summary').click();
     await page.waitForFunction(() => Boolean(document.querySelector('#image-model-status')?.textContent));
     await imageSettings.locator('#image-model-request-mode').selectOption('minimal');
     let imageConfigSaved = page.waitForResponse(r => r.url().endsWith('/api/image-model') && r.request().method() === 'POST');
@@ -67,7 +67,7 @@ try {
     await page.reload();
     await page.locator('#cm-workbench h1').waitFor();
     await page.locator('[data-nav=settings]').click();
-    await page.locator('#image-model-settings summary').click();
+    await page.locator('#image-model-settings > summary').click();
     await page.waitForFunction(() => document.querySelector('#image-model-request-mode')?.value === 'minimal');
     await page.locator('#image-model-request-mode').selectOption('auto');
     imageConfigSaved = page.waitForResponse(r => r.url().endsWith('/api/image-model') && r.request().method() === 'POST');
@@ -875,7 +875,7 @@ try {
     const returned = readWorkspace('66445039@qq.com').customers[0].drops.find(p => p.id === videoPackId), finalPost = packAsSent(returned).shells.抖音[0];
     if (finalPost.title !== '最终视频标题' || finalPost.body !== '视频实际文案第一段\n\n第二段记录尺寸\n\n#厨房 #翻新')
         throw Error('approved studio text differs from final copy');
-    const acqPost = async (action, body) => { const r = await fetch(origin + '/api/acquisition/' + action, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(body) }), result = await r.json(); if (!r.ok)
+    const acqPost = async (action, body) => { const r = await fetch(origin + '/api/acquisition/' + action, { method: 'POST', headers: { origin, cookie, 'content-type': 'application/json' }, body: JSON.stringify(body) }), result = await r.json(); if (!r.ok)
         throw Error(action + ': ' + result.error); return result.workspace; };
     let registered = await acqPost('account', { customerId: 'c1', platform: '抖音', name: '验收发布账号' });
     const pubAccount = registered.acquisition.accounts.find(a => a.name === '验收发布账号').id;
@@ -1119,6 +1119,8 @@ try {
     await page.getByRole('button', { name: '创作新内容' }).click();
     const creation = page.locator('#cm-content-scope [data-cm-form="generate"]');
     await creation.waitFor({ state: 'visible' });
+    const preferences=creation.locator('details[data-cm-detail$=":creation-settings"]');
+    if(!await preferences.evaluate(el=>el.open))await preferences.locator(':scope > summary').click();
     await creation.locator('[name=creationEntry]').selectOption('feed');
     await creation.locator('[name=distributionIntent]').selectOption('paid');
     await creation.locator('[name=creationPlatform]').selectOption('抖音');
@@ -1131,11 +1133,11 @@ try {
     if (requestPayload?.creationEntry !== 'feed' || requestPayload?.distributionIntent !== 'paid' || requestPayload?.creationPlatform !== '抖音' || requestPayload?.creationFormat !== 'image')
         throw Error('creation preferences missing from request');
     const xhsAccounts = await acqPost('account', { customerId: 'c1', platform: '小红书', name: '自有小红书账号' }), xhsAccount = xhsAccounts.acquisition.accounts.find(a => a.name === '自有小红书账号').id;
-    const ownPubResponse = await fetch(origin + '/api/owned-publication', { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ customerId: 'c1', accountId: xhsAccount, title: '自有作品来源', url: 'https://example.com/work', publishedAt: '2026-01-01T12:00:00Z', confirmed: true }) });
+    const ownPubResponse = await fetch(origin + '/api/owned-publication', { method: 'POST', headers: { origin, cookie, 'content-type': 'application/json' }, body: JSON.stringify({ customerId: 'c1', accountId: xhsAccount, title: '自有作品来源', url: 'https://example.com/work', publishedAt: '2026-01-01T12:00:00Z', confirmed: true }) });
     if (!ownPubResponse.ok)
         throw Error('own publication fixture failed ' + await ownPubResponse.text());
     const xhsPub = (await ownPubResponse.json()).acquisition.publications.find(p => p.content.title === '自有作品来源');
-    const incoming = await fetch(origin + '/api/acquisition/import', { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ customerId: 'c1', workId: 'w1', source: '测试导入的真实原文', rows: [{ platform: '小红书', text: '最近想找厨房翻新，杭州怎么报价？', url: 'https://example.com/work', authorName: '测试咨询者', authorId: 'test-person', recordId: 'test-comment', publishedAt: new Date(Date.now() - 120000).toISOString() }] }) });
+    const incoming = await fetch(origin + '/api/acquisition/import', { method: 'POST', headers: { origin, cookie, 'content-type': 'application/json' }, body: JSON.stringify({ customerId: 'c1', workId: 'w1', source: '测试导入的真实原文', rows: [{ platform: '小红书', text: '最近想找厨房翻新，杭州怎么报价？', url: 'https://example.com/work', authorName: '测试咨询者', authorId: 'test-person', recordId: 'test-comment', publishedAt: new Date(Date.now() - 120000).toISOString() }] }) });
     if (!incoming.ok)
         throw Error('import failed ' + await incoming.text());
     await page.reload();
@@ -1216,7 +1218,7 @@ try {
     const searchReview = searchSignal.locator('[data-acq-form=review]');
     await searchReview.locator('[name=note]').fill('已打开来源并核对');
     await searchReview.getByRole('button', { name: '确认值得跟进' }).click();
-    await searchReview.locator('.acq-error').getByText(/搜索摘要不能直接作为线索/).waitFor();
+    await searchReview.locator('.acq-error').filter({hasText:/搜索摘要不能直接作为线索/}).waitFor();
     await searchReview.locator('[name=sourceQuote]').fill('请问厨房翻新怎么报价？');
     await searchReview.locator('[name=sourceAuthorName]').fill('回源访客');
     await searchReview.locator('[name=sourceAuthorId]').fill('verified-person');

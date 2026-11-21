@@ -10,8 +10,8 @@ import { PROFILE_FIELDS, evaluateCreatorProfile } from './creator-profile.js';
 import { renderCreatorProfile, profileAssessmentHtml } from './creator-profile-ui.js';
 import { comparableOutcomes, packOutcomes, accountMemoryCurrent, reviewMetricText, reviewPackText } from './creator-review.js';
 import { CREATOR_PACKS } from './creator-play-packs.js';
-import { PRODUCTION_FIELDS, productionIssues, productionDraft, missingProductionFields, productionDocument } from './production-workflow.js';
-import { makeImagePages, parseImagePages, validateImagePageSet, imagePageSetWarning } from './image-pages.js';
+import { PRODUCTION_FIELDS, productionIssues, productionDraft, productionDraftKey, missingProductionFields, shootingGuide, productionDocument } from './production-workflow.js';
+import { makeImagePages, parseImagePages, pagePhotos, productionInventory, validateImagePageSet, imagePageSetWarning } from './image-pages.js';
 import { packAsSent } from './pack-edits.js';
 import { publicationAttributionCounts } from './publication-attribution.js';
 import { referenceOverlaps } from './reference-overlap.js';
@@ -23,7 +23,15 @@ const input = (name, label, value = '', type = 'text', maxLength = 1000) => `<la
 const postInputs = new Map();
 const outcomeBaselineDrafts = new Map();
 const productionPending = new Map();
+import { savedProductionClaims, openProductionClaims } from './production-claims.js';
 const generationReviews = new Map();
+const recentClaims = new Map();
+function claimControls(claims,fields,basis,facts) {
+  return openProductionClaims(claims,fields,basis,facts).map(c=>`<div class="cm-notice" data-production-claim="${esc(c.id)}" data-field="${esc(c.field)}">
+    <strong>核对${esc(c.category)} · ${esc(PRODUCTION_FIELDS[c.field])}</strong><blockquote>${esc(c.quote)}</blockquote><details><summary>查看核对意见</summary><p>${esc(c.reason)}</p></details>
+    <div class="acts"><button type="button" class="btn ghost" data-growth-action="claim-rewrite">采用改写</button><button type="button" class="btn ghost" data-growth-action="claim-remove">删除原句</button></div><p>${esc(c.replacement)}</p>
+    <details><summary>补充依据，保留原句</summary><label>资料名称<input data-claim-source maxlength="300"></label><label>支持该承诺的原文<textarea data-claim-excerpt maxlength="1500"></textarea></label><button type="button" class="btn" data-growth-action="claim-confirm">确认依据</button></details></div>`).join('');
+}
 const productionSaving = new Set();
 const productionViews = new Map();
 const productionOpened = new Set();
@@ -54,7 +62,7 @@ const rememberInput = field => {
       const preview=box.querySelector('[data-ai-cover-preview]'),link=box.querySelector('[data-ai-cover-download]');
       if(preview)preview.hidden=true;if(link)link.hidden=true;
     }
-    if ((['production-shots','cover-template'].includes(field.name) || (field.name==='production-live' && field.value!=='image')) && generatedPages.has(key)) {
+    if ((['production-pagePhotos','production-shots','cover-template'].includes(field.name) || (field.name==='production-live' && field.value!=='image')) && generatedPages.has(key)) {
       generatedPages.delete(key);const grid=box.querySelector('[data-page-templates]');if(grid)grid.replaceChildren();
     }
   } else {
@@ -109,7 +117,15 @@ export function renderGrowthSettings(customer) {
   <details><summary>核对业务信息（选填）</summary><p class="meta">确认价格、服务范围和承诺，并填写来源。待确认或已停用的资料不会用于创作。</p><button class="btn ghost" type="button" data-growth-action="extract-facts">从已读资料整理待确认事实</button><p class="meta">${esc(customer.factExtraction?.coverage || '')}</p><div data-facts>${(customer.factCards || []).map(factRow).join('')}</div><div class="acts"><button class="btn ghost" type="button" data-growth-action="add-fact">增加事实</button><button class="btn" type="button" data-growth-action="facts">保存事实</button></div></details></div>`;
   container.querySelectorAll(':scope > div > details').forEach((section,index)=>{if(openSections[index])section.open=true;});
 }
-export function renderProduction(customerId, pack, platform, index, packSettings = {}) {
+function photoRows(raw,settings,inventory,plan=''){
+  const pages=String(raw).split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,10),saved=pagePhotos(settings),files=inventory.filter(a=>a.mime?.startsWith('image/'));
+  return pages.map((line,i)=>{
+    const row=saved[i],hint=plan.split(/\r?\n/)[i]||line;
+    const matched=files.find(a=>{const stem=a.originalName.replace(/\.[^.]+$/,'');return stem.length>=2 && (line+' '+hint).includes(stem);});
+    return `<fieldset data-photo-row><legend>第 ${i+1} 页 · ${esc(line.slice(0,24))}</legend><label>画面<select data-photo-id><option value="">文字卡</option>${files.map(a=>`<option value="${esc(a.id)}" ${row?.id===a.id?'selected':''}>${esc(a.originalName)}${matched===a?'（与本页匹配）':''}</option>`).join('')}</select></label>${hint!==line?`<small>${esc(hint.slice(0,150))}</small>`:''}<label>实拍标注<input data-photo-label maxlength="32" value="${esc(row?.label||'')}" placeholder="如：铰链占用的位置"></label><label>标记位置<select data-photo-point>${[['left','左侧'],['center','中间'],['right','右侧']].map(([v,n])=>`<option value="${v}" ${(row?.point||'center')===v?'selected':''}>${n}</option>`).join('')}</select></label></fieldset>`;
+  }).join('');
+}
+export function renderProduction(customerId, pack, platform, index, packSettings = {}, inventory=[],facts=[]) {
   const values = postInputs.get(JSON.stringify([customerId,pack.id,platform,String(index)])) || {};
   const key = `${platform}|${index}`;
   const current = packAsSent(pack).shells?.[platform]?.[index] || {};
@@ -117,7 +133,7 @@ export function renderProduction(customerId, pack, platform, index, packSettings
   const draft = productionDraft(pack,platform,index,mode==='live');
   const stale = draft && JSON.stringify(draft.sourceContent) !== JSON.stringify(current);
   const defaults = {script:current.body || '',shots:current.shots || '',title:current.title || '',cover:current.cover || '',coverLayout:current.coverLayout || '',hook:current.hook || '',cta:current.cta || ''};
-  const productionField = (name,label) => { const v=values[`production-${name}`] ?? draft?.fields?.[name] ?? defaults[name] ?? ''; return ['liveSchedule','liveAttendance','liveRetained','liveInquiries','liveQualifiedLeads'].includes(name) ? `<label>${esc(label)}<input name="production-${name}" type="${name==='liveSchedule'?'datetime-local':'number'}" ${name==='liveSchedule'?'':'min="0" max="100000000" step="1"'} value="${esc(v)}"></label>` : `<label>${esc(label)}<textarea name="production-${name}" maxlength="12000" rows="3">${esc(v)}</textarea></label>`; };
+  const productionField = (name,label) => { const v=values[`production-${name}`] ?? draft?.fields?.[name] ?? defaults[name] ?? ''; if(name==='pagePhotos')return `<input type="hidden" name="production-pagePhotos" value="${esc(v)}">`; return ['liveSchedule','liveAttendance','liveRetained','liveInquiries','liveQualifiedLeads'].includes(name) ? `<label>${esc(label)}<input name="production-${name}" type="${name==='liveSchedule'?'datetime-local':'number'}" ${name==='liveSchedule'?'':'min="0" max="100000000" step="1"'} value="${esc(v)}"></label>` : `<label>${esc(label)}<textarea name="production-${name}" maxlength="12000" rows="3">${esc(v)}</textarea></label>`; };
   const live = mode === 'live';
   // Keep every field in the form so switching or saving cannot lose historical
   // values, while making the current workflow the visible first choice.
@@ -131,22 +147,25 @@ export function renderProduction(customerId, pack, platform, index, packSettings
   const coverLayout=String(values['production-coverLayout'] ?? draft?.fields?.coverLayout ?? defaults.coverLayout ?? '').trim();
   let previewCover=savedCover?.line===coverLine && (savedCover.layout == null || savedCover.layout===coverLayout) && savedCover.source===JSON.stringify(current) ? savedCover.url : '';
   const theme=values['cover-template'] || 'ink', pageInput=String(values['production-shots'] ?? draft?.fields?.shots ?? defaults.shots ?? ''), savedPages=generatedPages.get(coverKey);
-  const pagePreview=savedPages?.input===JSON.stringify([pageInput,theme])?savedPages.pages:[];
+  const photoSettings=values['production-pagePhotos']??draft?.fields?.pagePhotos??'';
+  const pagePreview=savedPages?.input===JSON.stringify([pageInput,theme,photoSettings])?savedPages.pages:[];
   const savedBundle=live ? (pack.productionAssets?.[`${key}|live`] || pack.productionAssets?.[key]) : pack.productionAssets?.[key], bundle=savedBundle && (savedBundle.format==='live')===live ? savedBundle : null, assetUrl=name=>'/api/production-assets?'+new URLSearchParams({customerId,packId:pack.id,platform,index:String(index),bundleId:bundle.id,name}).toString();
   if(!previewCover && bundle && draft && bundle.version===draft.version && !stale && bundle.fields?.cover===coverLine && bundle.fields?.coverLayout===coverLayout && bundle.images.some(image=>image.name==='cover.png'))previewCover=assetUrl('cover.png');
   const returned=pack.studioReturnDrafts?.[key];
   const review=returned?`<section class="cm-notice" data-studio-return-review><h4>工作室文案待核对</h4><p>采用后更新原作品的标题与正文；其他制作字段保留。请确认这与实际准备发布的版本一致。</p><details><summary>查看原作品标题与正文</summary><p class="asis">${esc(current.title || '')}</p><p class="asis">${esc(current.body || '')}</p></details><p><strong>送回的标题</strong></p><p class="asis">${esc(returned.title)}</p><p><strong>送回的正文与话题</strong></p><p class="asis">${esc(returned.body)}</p><button type="button" class="btn" data-growth-action="studio-return-apply" data-draft="${esc(returned.id)}">核对后采用工作室文案</button><button type="button" class="btn ghost" data-growth-action="studio-return-discard" data-draft="${esc(returned.id)}">舍弃送回的文案</button></section>`:'';
   const savedPageWarning=bundle?.format==='image'?imagePageSetWarning(bundle.fields?.shots,(bundle.images||[]).map(i=>i.name).filter(n=>n.startsWith('page-'))):'';
   const savedAssets=bundle?`<section data-saved-production-assets><h4>已保存素材包</h4>${savedPageWarning?`<p class="acq-notice">${esc(savedPageWarning)}</p>`:''}<p class="meta">制作草稿 v${esc(bundle.version)} · ${esc(bundle.createdAt)}${bundle.version!==draft?.version||stale?' · 草稿或原稿已更新，请核对素材是否仍适用':''}</p><div class="production-page-grid">${bundle.images.map(image=>`<figure><img width="900" height="1200" src="${esc(assetUrl(image.name))}" alt="${esc(image.name==='cover.png'?'已保存封面':image.name)}"><figcaption><a class="btn ghost" href="${esc(assetUrl(image.name))}" download="${esc(image.name)}">下载 ${esc(image.name)}</a></figcaption></figure>`).join('')}</div>${bundle.images.some(image=>image.name==='cover.png')?'<button type="button" class="btn ghost" data-growth-action="cover-reuse">沿用已保存封面</button><p class="meta">封面文字和排版未变时，可沿用旧封面并保存到当前草稿。</p>':''}${mode==='image'&&bundle.format==='image'&&bundle.images.some(image=>image.name.startsWith('page-'))?'<button type="button" class="btn ghost" data-growth-action="pages-reuse">沿用已保存图文页</button><p class="meta">逐页内容未变时可原样沿用；请检查保存的图片，当前模板选择不会重新绘制旧图。</p>':''}<a class="btn ghost" href="${esc(assetUrl('bundle'))}" download>下载素材与脚本 ZIP</a></section>`:'';
+  const topic=pack.topicSnapshot?.source;
+  const evidenceView=topic?.problemId?`<details><summary>本篇问题与答案依据</summary><h4>${esc(topic.title)}</h4>${(topic.evidence||[]).map(e=>`<blockquote>${esc(e.quote)}<br><small>${esc(e.origin)}</small></blockquote>`).join('')}${(topic.answerEvidence||[]).map(e=>`<p>${esc(e.origin)} · ${esc(e.quote)}</p>`).join('')}</details>`:'';
   const studioFields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(name=>[name,values[`production-${name}`] ?? draft?.fields?.[name] ?? defaults[name] ?? '']));
   const previousReview=draft?.generationReview,reviewNotice=previousReview?.warnings?.length?`<details class="cm-notice" data-generation-review><summary>生成时的核对提示（${previousReview.warnings.length}）</summary><p class="meta">生成时的辅助意见，请按当前草稿核对。</p>${previousReview.warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</details>`:'';
   return productionStudio({attributes:attrs(customerId,pack,platform,index), key:coverKey, platform, mode,
     job:values['production-job'] ?? draft?.job ?? contentJob(pack.topicSnapshot?.job), jobs:CONTENT_JOBS, playPackId:values['production-playPackId'] ?? draft?.playPackId ?? '', playPacks:[...CREATOR_PACKS,...(packSettings.custom||[])],version:draft?.version || 0, open:Boolean(returned)||productionOpened.has(coverKey), panel:productionViews.get(coverKey)||'script',
     changed:Object.keys(values).some(name=>name.startsWith('production-')&&name!=='production-live'),
-    stale, review, fields:studioFields, previewCover,
+    stale, review:review+evidenceView+'<div data-claim-controls>'+claimControls(savedProductionClaims(pack,productionDraftKey(platform,index,live),draft),studioFields,draft?.basisRevision,pack.productScope?[]:facts)+'</div>', fields:studioFields, previewCover,
     script:`${reviewNotice}<div class="production-ai-actions"><button type="button" class="btn ghost" data-growth-action="production-generate">AI 生成脚本建议</button><button type="button" class="btn ghost" data-growth-action="production-outline">用正文填充脚本</button><button type="button" class="btn ghost" data-growth-action="production-title-ideas">AI 生成标题候选</button></div><div data-title-ideas aria-live="polite"></div><p class="meta">仅补充空白项；生成及事实核对会消耗模型额度，结果需人工确认。打法保存后用于后续生成，不改写已有草稿。</p><details class="production-generation-help"><summary>查看生成依据与使用说明</summary><p class="meta">生成会将业务资料、人设、打法、本批参考作品快照、原稿及当前制作输入发送给配置的文本模型，并另行调用模型核对事实；核对可能产生额外调用，建议仍需人工核实。</p></details>${productionFields}<details class="ui-info"><summary aria-label="直播统计口径" title="直播统计口径"><span aria-hidden="true">ⓘ</span></summary><div>直播字段仅在制作直播时填写；草稿不会自动生成事实。排期保存在本篇，人数由你手工记录；留存与进场需属于同一场次、同一统计人群，并明确留存时点；咨询与有效咨询请按相同去重口径统计。汇总数字不会自动创建联系人。</div></details>`,
-    cover:`${['cover','coverLayout'].map(k=>productionField(k,PRODUCTION_FIELDS[k])).join('')}<label>封面模板<select name="cover-template"><option value="ink" ${theme==='ink'?'selected':''}>深色</option><option value="paper" ${theme==='paper'?'selected':''}>浅色</option><option value="rose" ${theme==='rose'?'selected':''}>玫红</option></select></label><button type="button" class="btn ghost" data-growth-action="cover-download">下载文字封面 PNG</button><label>使用自己的封面背景图<input type="file" data-cover-background accept="image/png,image/jpeg,image/webp"></label><button type="button" class="btn ghost" data-growth-action="cover-photo">用这张图片制作封面</button><p class="meta">PNG / JPEG / WebP，最大 8 MB。本地居中裁切为竖版并叠加文字。</p>${mode==='article'?'':`<button type="button" class="btn ghost" data-growth-action="image-pages">生成图文逐页模板</button><p class="meta">逐页内容每行生成一张图片，1–10 页，每页最多 90 字。请先删除不应出现在图片上的制作说明。</p><div class="production-page-grid" data-page-templates>${pagePreview.map(p=>`<figure><img width="900" height="1200" src="${esc(p.url)}" alt="第${p.number}页预览"><figcaption><a class="btn ghost" download="harta-page-${p.number}.png" href="${esc(p.url)}">下载第 ${p.number} 页</a></figcaption></figure>`).join('')}</div>`}<button type="button" class="btn ghost" data-growth-action="cover-ai" ${coverGenerating.has(coverKey)?'disabled':''}>AI 生成封面背景</button><p class="meta">封面文字与排版说明将发送给出图服务，请确认可外发。</p><button type="button" class="btn ghost" data-growth-action="assets-save">保存当前图片素材包</button><p class="meta">请先保存当前制作草稿。直播封面与图文 / 视频素材分别保存；同一图文草稿版本更新封面或图文页时会保留另一类素材。新草稿版本需要重新保存素材。</p>${savedAssets}`,
-    delivery:`<button type="button" class="btn ghost" data-growth-action="production-check">检查完整度</button><button type="button" class="btn ghost" data-growth-action="production-craft-review">AI 内容诊断</button><button type="button" class="btn ghost" data-growth-action="production-fact-review">AI 核对事实依据</button><details><summary>Harta 内容方法</summary><p class="meta">从读者处境找到切口，用可信依据兑现内容，再选择符合目标的自然行动；发布后按同口径数据验证假设。内容诊断引用当前草稿提出修改方向，不会自动改写，也不能预测流量或成交。</p></details><div data-production-craft-review role="status"></div><p class="meta">会将当前制作内容与业务资料发送给文本模型核对；结果是辅助意见，需人工确认。</p><div data-production-fact-review role="status"></div>${draft && !draft.live ? `<label class="cm-check"><input type="checkbox" data-production-record-play>我确认按本篇所选打法制作，并将它记录到这次作品版本供复盘</label><p class="meta">选中前请明确选择并保存本篇打法；记录是人工确认，不代表效果由打法造成。</p><button type="button" class="btn ghost" data-growth-action="production-apply" data-version="${draft.version}">将已保存草稿采用为作品文案</button>` : ''}<button type="button" class="btn ghost" data-growth-action="production-download">下载脚本</button>${mode==='article'?'<p class="meta">长文可下载后复制到公众号编辑器；不会自动发布。</p>':`<button type="button" class="btn ghost" data-growth-action="production-to-studio">打开素材编辑</button><p class="meta">带入已保存文案、制作说明及图文素材；视频需另行上传。不会自动发布。</p>`}`
+    cover:`${['cover','coverLayout'].map(k=>productionField(k,PRODUCTION_FIELDS[k])).join('')}<label>封面模板<select name="cover-template"><option value="ink" ${theme==='ink'?'selected':''}>深色</option><option value="paper" ${theme==='paper'?'selected':''}>浅色</option><option value="rose" ${theme==='rose'?'selected':''}>玫红</option></select></label><button type="button" class="btn ghost" data-growth-action="cover-download">下载文字封面 PNG</button><label>使用自己的封面背景图<input type="file" data-cover-background accept="image/png,image/jpeg,image/webp"></label><button type="button" class="btn ghost" data-growth-action="cover-photo">用这张图片制作封面</button><p class="meta">PNG / JPEG / WebP，最大 8 MB。本地居中裁切为竖版并叠加文字。</p>${mode==='article'?'':`<details data-photo-editor><summary>逐页实拍与标注</summary><label>添加业务实拍<input type="file" data-upload-page-photo accept="image/png,image/jpeg"></label><div data-photo-rows>${photoRows(pageInput,photoSettings,inventory,studioFields.imagePlan||'')}</div></details><button type="button" class="btn ghost" data-growth-action="image-pages">生成图文逐页模板</button><p class="meta">逐页内容每行生成一张图片，1–10 页，每页最多 90 字。请先删除不应出现在图片上的制作说明。</p><div class="production-page-grid" data-page-templates>${pagePreview.map(p=>`<figure><img width="900" height="1200" src="${esc(p.url)}" alt="第${p.number}页预览"><figcaption><a class="btn ghost" download="harta-page-${p.number}.png" href="${esc(p.url)}">下载第 ${p.number} 页</a></figcaption></figure>`).join('')}</div>`}<button type="button" class="btn ghost" data-growth-action="cover-ai" ${coverGenerating.has(coverKey)?'disabled':''}>AI 生成封面背景</button><p class="meta">封面文字与排版说明将发送给出图服务，请确认可外发。</p><button type="button" class="btn ghost" data-growth-action="assets-save">保存当前图片素材包</button><p class="meta">请先保存当前制作草稿。直播封面与图文 / 视频素材分别保存；同一图文草稿版本更新封面或图文页时会保留另一类素材。新草稿版本需要重新保存素材。</p>${savedAssets}`,
+    delivery:`<pre class="asis" data-shooting-guide ${mode!=='video'?'hidden':''}>${esc(shootingGuide(studioFields,inventory))}</pre><button type="button" class="btn ghost" data-growth-action="production-check">检查完整度</button><button type="button" class="btn ghost" data-growth-action="production-craft-review">AI 内容诊断</button><button type="button" class="btn ghost" data-growth-action="production-fact-review">AI 核对事实依据</button><details><summary>Harta 内容方法</summary><p class="meta">从读者处境找到切口，用可信依据兑现内容，再选择符合目标的自然行动；发布后按同口径数据验证假设。内容诊断引用当前草稿提出修改方向，不会自动改写，也不能预测流量或成交。</p></details><div data-production-craft-review role="status"></div><p class="meta">会将当前制作内容与业务资料发送给文本模型核对；结果是辅助意见，需人工确认。</p><div data-production-fact-review role="status"></div>${draft && !draft.live ? `<label class="cm-check"><input type="checkbox" data-production-record-play>我确认按本篇所选打法制作，并将它记录到这次作品版本供复盘</label><p class="meta">选中前请明确选择并保存本篇打法；记录是人工确认，不代表效果由打法造成。</p><button type="button" class="btn ghost" data-growth-action="production-apply" data-version="${draft.version}">将已保存草稿采用为作品文案</button>` : ''}<button type="button" class="btn ghost" data-growth-action="production-download">下载脚本</button>${mode==='article'?'<p class="meta">长文可下载后复制到公众号编辑器；不会自动发布。</p>':`<button type="button" class="btn ghost" data-growth-action="production-to-studio">打开素材编辑</button><p class="meta">带入已保存文案、制作说明及图文素材；视频需另行上传。不会自动发布。</p>`}`
   });
 }
 export function renderPostGrowth(customerId, pack, platform, index, accounts = [], publications = [], leads = [], outcomeOnly = false, customerGoal = '', signals = [], works = null) {
@@ -178,6 +197,7 @@ export function renderPostGrowth(customerId, pack, platform, index, accounts = [
 </details><p class="meta" data-growth-status role="status"></p></div>`;
 }
 export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
+  const inventories=id=>productionInventory(getWorkspace().customers.find(c=>c.id===id),getWorkspace().acquisition);
   const context = el => { const box = el.closest('[data-growth-customer]'); return { box, customerId: box.dataset.growthCustomer, packId: box.dataset.growthPack, platform: box.dataset.growthPlatform, index: Number(box.dataset.growthIndex) }; };
   document.addEventListener('toggle', event => {
     if(!event.target.matches?.('[data-production-editor]') || !event.target.isConnected)return;
@@ -197,6 +217,32 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
   document.addEventListener('change', event => rememberInput(event.target));
   document.addEventListener('change', event => {
     const field=event.target;
+    if(field.closest?.('[data-production-mode]')){
+      const {box,customerId}=context(field),editor=box.querySelector('[data-photo-rows]');
+      const val=name=>box.querySelector('[name="production-'+name+'"]')?.value||'';
+      const settings=box.querySelector('[name="production-pagePhotos"]');
+      if(field.closest('[data-photo-row]') && settings){
+        const inventory=inventories(customerId);
+        const rows=[...editor.querySelectorAll('[data-photo-row]')].map(row=>{
+          const id=row.querySelector('[data-photo-id]').value,a=inventory.find(a=>a.id===id);
+          return a?{id,name:a.originalName,label:row.querySelector('[data-photo-label]').value.trim(),point:row.querySelector('[data-photo-point]').value}:null;
+        });
+        settings.value=rows.some(Boolean)?JSON.stringify(rows):'';rememberInput(settings);
+      }
+      if(field.matches('[data-upload-page-photo]') && field.files[0]){
+        const form=new FormData();form.append('customerId',customerId);form.append('file',field.files[0]);field.disabled=true;
+        fetch('/api/delivery/asset',{method:'POST',body:form}).then(async r=>{
+          const result=await r.json();if(!r.ok)throw new Error(result.error||'上传实拍失败');
+          const ws=getWorkspace();ws.acquisition||={};ws.acquisition.deliveryAssets||=[];
+          if(!ws.acquisition.deliveryAssets.some(a=>a.id===result.asset.id))ws.acquisition.deliveryAssets.push(result.asset);
+          if(editor?.isConnected)editor.innerHTML=photoRows(val('shots'),val('pagePhotos'),inventories(customerId),val('imagePlan'));
+          toast('实拍已加入当前业务，可按页选择');
+        }).catch(e=>toast(e.message)).finally(()=>{field.value='';field.disabled=false;});
+      }
+      if(editor && ['production-shots','production-imagePlan','production-live'].includes(field.name))editor.innerHTML=photoRows(val('shots'),val('pagePhotos'),inventories(customerId),val('imagePlan'));
+      const guide=box.querySelector('[data-shooting-guide]');
+      if(guide){guide.hidden=val('live')!=='video';guide.textContent=shootingGuide(Object.fromEntries(['shots','hook','script','shootMaterials'].map(k=>[k,val(k)])),inventories(customerId));}
+    }
     if(field.matches?.('[data-cover-background]')) {
       const box=field.closest('[data-growth-customer]'),key=box&&inputKey(box),cover=key&&generatedCovers.get(key);
       if(cover){generatedCovers.delete(key);const preview=box.querySelector('[data-ai-cover-preview]'),link=box.querySelector('[data-ai-cover-download]');if(preview){preview.hidden=true;preview.removeAttribute('src');}if(link){link.hidden=true;link.removeAttribute('href');}}
@@ -215,7 +261,7 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
     postInputs.set(key,pending);
     const customer=getWorkspace().customers.find(c=>c.id===data.customerId),pack=[...(customer?.drops||[]),...(customer?.packs||[])].find(p=>p.id===data.packId);
     if(!pack)return;
-    const template=document.createElement('template'); template.innerHTML=renderProduction(data.customerId,pack,data.platform,data.index,customer.creatorPackSettings).trim();
+    const template=document.createElement('template'); template.innerHTML=renderProduction(data.customerId,pack,data.platform,data.index,customer.creatorPackSettings,productionInventory(customer,getWorkspace().acquisition),customer.factCards).trim();
     const next=template.content.firstElementChild;box.replaceWith(next);next.querySelector('details').open=true;
   });
   document.addEventListener('change', event => {
@@ -276,8 +322,16 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
     if(action==='image-pages') {
       if(value('production-live')!=='image'){toast('请先把制作类型设为图文');return;}
       try {
-        const raw=value('production-shots'),theme=value('cover-template'),pages=makeImagePages(raw,theme),key=inputKey(box),grid=box.querySelector('[data-page-templates]');
-        generatedPages.set(key,{input:JSON.stringify([raw,theme]),pages});while(generatedPages.size>5)generatedPages.delete(generatedPages.keys().next().value);
+        const raw=value('production-shots'),theme=value('cover-template'),settings=value('production-pagePhotos'),key=inputKey(box),grid=box.querySelector('[data-page-templates]');
+        const photos=await Promise.all(pagePhotos(settings).map(async row=>{
+          if(!row)return null;
+          const image=new Image();image.src='/api/production-photo?'+new URLSearchParams({customerId:data.customerId,assetId:row.id});
+          try{await image.decode();}catch{throw new Error('无法读取实拍「'+row.name+'」，请重新选择');}
+          return {...row,image};
+        }));
+        if(!box.isConnected||settings!==value('production-pagePhotos')||raw!==value('production-shots')||theme!==value('cover-template')||value('production-live')!=='image')throw new Error('制作内容已变化，请重新生成');
+        const pages=makeImagePages(raw,theme,undefined,photos);
+        generatedPages.set(key,{input:JSON.stringify([raw,theme,settings]),pages});while(generatedPages.size>5)generatedPages.delete(generatedPages.keys().next().value);
         showProductionPages(grid,pages);
         box.querySelector('[data-production-status]').textContent=`已生成 ${pages.length} 页模板，请逐页核对文字与画面后下载。`;
       } catch(error){box.querySelector('[data-production-status]').textContent=error.message;toast(error.message);}
@@ -288,19 +342,19 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
       box.querySelector('[data-production-status]').textContent=message;toast(message);return;
     }
     if(action==='pages-reuse') {
-      const target=box.querySelector('[data-production-status]'),key=inputKey(box),raw=value('production-shots'),theme=value('cover-template');
+      const target=box.querySelector('[data-production-status]'),key=inputKey(box),raw=value('production-shots'),theme=value('cover-template'),settings=value('production-pagePhotos');
       const findPack=()=>{const c=getWorkspace().customers.find(c=>c.id===data.customerId);return [...(c?.drops||[]),...(c?.packs||[])].find(p=>p.id===data.packId);};
       try {
         if(value('production-live')!=='image')throw new Error('请先选择图文制作');
         const pack=findPack(),bundle=pack?.productionAssets?.[`${data.platform}|${data.index}`];
         if(bundle?.format!=='image' || !Array.isArray(bundle.images))throw new Error('找不到已保存的图文页');
-        if(!raw.trim() || raw.trim()!==String(bundle.fields?.shots||'').trim())throw new Error('逐页内容已变化，请重新制作图文页');
+        if(!raw.trim() || raw.trim()!==String(bundle.fields?.shots||'').trim() || settings!==(bundle.fields?.pagePhotos||''))throw new Error('逐页内容已变化，请重新制作图文页');
         const names=bundle.images.map(i=>i.name).filter(name=>/^page-(0[1-9]|10)\.png$/.test(name)).sort();
         validateImagePageSet(raw,names);
         const source=JSON.stringify(packAsSent(pack).shells?.[data.platform]?.[data.index]);button.disabled=true;target.textContent='正在读取已保存图文页…';
         const pages=await Promise.all(names.map(async (name,i)=>{const query=new URLSearchParams({...data,index:String(data.index),bundleId:bundle.id,name}),response=await fetch('/api/production-assets?'+query);if(!response.ok)throw new Error('读取图文页失败，请刷新后重试');const blob=await response.blob(),url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('读取图文页失败'));reader.readAsDataURL(blob);});if(typeof url!=='string'||!url.startsWith('data:image/png;base64,'))throw new Error('已保存图文页格式不正确');return {number:i+1,url};}));
-        const latest=findPack();if(!box.isConnected || value('production-live')!=='image' || value('production-shots')!==raw || value('cover-template')!==theme || latest?.productionAssets?.[`${data.platform}|${data.index}`]?.id!==bundle.id || !latest || JSON.stringify(packAsSent(latest).shells?.[data.platform]?.[data.index])!==source)throw new Error('读取期间草稿或素材已变化，请重新核对');
-        generatedPages.set(key,{input:JSON.stringify([raw,theme]),pages});while(generatedPages.size>5)generatedPages.delete(generatedPages.keys().next().value);
+        const latest=findPack();if(!box.isConnected || value('production-live')!=='image' || value('production-shots')!==raw || value('cover-template')!==theme || value('production-pagePhotos')!==settings || latest?.productionAssets?.[`${data.platform}|${data.index}`]?.id!==bundle.id || !latest || JSON.stringify(packAsSent(latest).shells?.[data.platform]?.[data.index])!==source)throw new Error('读取期间草稿或素材已变化，请重新核对');
+        generatedPages.set(key,{input:JSON.stringify([raw,theme,settings]),pages});while(generatedPages.size>5)generatedPages.delete(generatedPages.keys().next().value);
         showProductionPages(box.querySelector('[data-page-templates]'),pages);target.textContent='已沿用原图文页，请逐页核对后保存到当前素材包。';
       }catch(error){if(box.isConnected)target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}return;
     }
@@ -330,7 +384,7 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
         const mode=value('production-live'),live=mode==='live',draft=productionDraft(pack,data.platform,data.index,live);
         if(!draft || Boolean(draft.live)!==live || (!live && mode!==(draft.format || pack.origin?.format || (data.platform==='公众号'?'article':'video'))) || Object.keys(PRODUCTION_FIELDS).some(k=>value(`production-${k}`).trim()!==(draft.fields[k] || '').trim()))throw new Error('请先保存当前制作草稿，再保存素材');
         const pages=generatedPages.get(key),cover=generatedCovers.get(key), images=[];
-        if(mode==='image' && pages?.input===JSON.stringify([value('production-shots'),value('cover-template')]))for(const page of pages.pages)images.push({name:`page-${String(page.number).padStart(2,'0')}.png`,data:page.url});
+        if(mode==='image' && pages?.input===JSON.stringify([value('production-shots'),value('cover-template'),value('production-pagePhotos')]))for(const page of pages.pages)images.push({name:`page-${String(page.number).padStart(2,'0')}.png`,data:page.url});
         const source=JSON.stringify(packAsSent(pack).shells?.[data.platform]?.[data.index]);
         if(cover?.line===value('production-cover').trim() && (cover.layout == null || cover.layout===value('production-coverLayout').trim()) && cover.source===source)images.push({name:'cover.png',data:cover.url});
         if(!images.length)throw new Error('请先生成图文页或 AI 封面，再保存素材');
@@ -360,7 +414,7 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
         const latest=getWorkspace().customers.find(c=>c.id===data.customerId),latestPack=[...(latest?.drops||[]),...(latest?.packs||[])].find(p=>p.id===data.packId),latestDraft=latestPack?.productionDrafts?.[`${data.platform}|${data.index}`];
         if(latestDraft?.version!==draft.version || JSON.stringify(latestDraft?.sourceContent)!==JSON.stringify(packAsSent(latestPack).shells?.[data.platform]?.[data.index]) || !box.isConnected || value('production-live')!==mode || Object.keys(PRODUCTION_FIELDS).some(k=>value(`production-${k}`).trim()!==(draft.fields[k] || '').trim()))throw new Error('准备期间草稿或原稿已变化，请重新打开作品');
         const {openStudioWithProduction}=await import('./openfind-workbench.js');
-        if(openStudioWithProduction({customerId:data.customerId,seed:{title:draft.fields.title||'',body:draft.fields.script||'',productionNotes:productionDocument(draft.fields,mode,data.platform),platform:studioPlatform,kind:mode,images,hartaSource}}))toast(bundle && bundle.version!==draft.version?'旧素材包未带入，请在工作室重新添加图片':'正在打开作品草稿，请添加素材并保存');
+        if(openStudioWithProduction({customerId:data.customerId,seed:{title:draft.fields.title||'',body:draft.fields.script||'',productionNotes:productionDocument(draft.fields,mode,data.platform,inventories(data.customerId)),platform:studioPlatform,kind:mode,images,hartaSource}}))toast(bundle && bundle.version!==draft.version?'旧素材包未带入，请在工作室重新添加图片':'正在打开作品草稿，请添加素材并保存');
       }catch(error){if(box.isConnected)target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}
       return;
     }
@@ -375,6 +429,31 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
         for(const issue of result.issues){if(!issue||!Object.hasOwn(PRODUCTION_FIELDS,issue.field)||typeof issue.quote!=='string'||!fields[issue.field].includes(issue.quote)||typeof issue.reason!=='string'||typeof issue.suggestion!=='string')throw new Error('内容诊断结果与当前草稿不符');const row=document.createElement('p');row.textContent=`${PRODUCTION_FIELDS[issue.field]}「${issue.quote}」：${issue.reason} 修改方向：${issue.suggestion}`;target.append(row);}target.dataset.completed='true';
       }catch(error){if(box.isConnected)target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}return;
     }
+    const claimKey=inputKey(box)+'|'+(value('production-live')==='live'?'live':'post');
+    const claimState=()=>{
+      const owner=getWorkspace().customers.find(c=>c.id===data.customerId);
+      const p=[...(owner?.drops||[]),...(owner?.packs||[])].find(p=>p.id===data.packId);
+      const live=value('production-live')==='live',key=productionDraftKey(data.platform,data.index,live),d=productionDraft(p,data.platform,data.index,live);
+      const fields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k=>[k,value('production-'+k)]));
+      const cached=recentClaims.get(claimKey);
+      const claims=[...new Map([...(cached?.claims||[]),...savedProductionClaims(p||{},key,d)].map(c=>[c.id,c])).values()];
+      return {claims,fields,d,basis:cached?.basis||d?.basisRevision,facts:p?.productScope?[]:owner?.factCards};
+    };
+    if(action.startsWith('claim-')){
+      const row=button.closest('[data-production-claim]'),state=claimState(),claim=openProductionClaims(state.claims,state.fields,state.basis,state.facts).find(c=>c.id===row?.dataset.productionClaim);
+      if(!claim)return;
+      try{
+        if(action==='claim-confirm'){
+          if(!state.d || Object.keys(state.fields).some(k=>state.fields[k].trim()!==(state.d.fields[k]||'').trim()))throw new Error('请先保存当前制作草稿');
+          await save('/api/production-claim',{...data,version:state.d.version,live:state.d.live,claimId:claim.id,source:row.querySelector('[data-claim-source]').value,excerpt:row.querySelector('[data-claim-excerpt]').value},()=>recentClaims.delete(claimKey));
+        }else{
+          const input=box.querySelector('[name="production-'+claim.field+'"]');
+          if(!input.value.includes(claim.quote))throw new Error('原句已变化，请核对当前文稿');
+          input.value=input.value.replaceAll(claim.quote,action==='claim-remove'?'':claim.replacement);
+          input.dispatchEvent(new Event('input',{bubbles:true}));row.remove();input.focus();toast('已修改原句，请保存草稿');
+        }
+      }catch(error){toast(error.message);}return;
+    }
     if(action==='production-fact-review') {
       const target=box.querySelector('[data-production-fact-review]'),mode=value('production-live'),fields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k=>[k,value(`production-${k}`)]));
       button.disabled=true;target.dataset.completed='false';target.textContent='正在核对当前内容与业务资料…';
@@ -383,6 +462,7 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
         const result=await response.json();if(!response.ok)throw new Error(result.error||'事实核对失败');
         if(!box.isConnected || value('production-live')!==mode || Object.keys(fields).some(k=>value(`production-${k}`)!==fields[k]))throw new Error('核对期间制作内容已变化，请重新核对');
         if(!Array.isArray(result.issues)||result.issues.some(item=>typeof item!=='string'))throw new Error('事实核对结果格式不正确');
+        recentClaims.set(claimKey,result);box.querySelector('[data-claim-controls]').innerHTML=claimControls(result.claims||[],fields,result.basis,claimState().facts);
         target.replaceChildren();const intro=document.createElement('p');intro.textContent=result.issues.length?`发现 ${result.issues.length} 项需人工核对：`:'AI 未发现本次核对范围内的问题；仍需人工核对事实和发布要求。';target.append(intro);
         if(result.issues.length){const list=document.createElement('ul');for(const issue of result.issues){const item=document.createElement('li');item.textContent=issue;list.append(item);}target.append(list);}target.dataset.completed='true';
       }catch(error){if(box.isConnected)target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}return;
@@ -394,12 +474,12 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
       const title=box.querySelector('[name="production-title"]');title.value=button.dataset.title;title.dispatchEvent(new Event('input',{bubbles:true}));titleIdeaStates.delete(box);box.querySelector('[data-title-ideas]').textContent='已填入标题，请核对并保存制作草稿。';return;
     }
     if(action==='production-title-ideas'){
-      const target=box.querySelector('[data-title-ideas]'),mode=value('production-live'),job=value('production-job'),playPackId=value('production-playPackId'),keys=['script','shots','imagePlan','title','cover','coverLayout','hook','cta','liveOpen','liveSegments','liveInteraction','liveOffer','liveClose'],workingFields=Object.fromEntries(keys.map(k=>[k,value(`production-${k}`)])),input=JSON.stringify([mode,job,playPackId,...keys.map(k=>workingFields[k])]);
+      const target=box.querySelector('[data-title-ideas]'),mode=value('production-live'),job=value('production-job'),playPackId=value('production-playPackId'),keys=['script','shots','shootMaterials','imagePlan','title','cover','coverLayout','hook','cta','liveOpen','liveSegments','liveInteraction','liveOffer','liveClose'],workingFields=Object.fromEntries(keys.map(k=>[k,value(`production-${k}`)])),input=JSON.stringify([mode,job,playPackId,...keys.map(k=>workingFields[k])]);
       const read=()=>JSON.stringify([value('production-live'),value('production-job'),value('production-playPackId'),...keys.map(k=>value(`production-${k}`))]);button.disabled=true;titleIdeaStates.delete(box);target.textContent='正在生成标题候选…';
       try{const owner=getWorkspace().customers.find(c=>c.id===data.customerId),pack=[...(owner?.drops||[]),...(owner?.packs||[])].find(p=>p.id===data.packId);if(!pack)throw new Error('找不到当前作品');const saved=productionDraft(pack,data.platform,data.index,mode==='live');if(job!==(saved?.job??contentJob(pack.topicSnapshot?.job))||playPackId!==(saved?.playPackId||''))throw new Error('请先保存内容任务和本篇打法，再生成标题候选');const ownerBefore=JSON.stringify(owner),response=await fetch('/api/production-generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...data,live:mode==='live',format:mode==='live'?'':mode,workingFields,titleIdeas:true})}),result=await response.json();if(!response.ok)throw new Error(result.error||'标题生成失败');if(!box.isConnected||read()!==input||JSON.stringify(getWorkspace().customers.find(c=>c.id===data.customerId))!==ownerBefore)throw new Error('生成期间内容或业务资料已变化，请重新生成');if(!Array.isArray(result.titles)||!result.titles.length||result.titles.some(t=>typeof t!=='string'||!t.trim()||t.length>200))throw new Error('标题候选格式不正确，请重试');titleIdeaStates.set(box,{keys,input,owner:ownerBefore});target.replaceChildren();const note=document.createElement('p');note.className='meta';note.textContent='选择一条后填入标题；请核对事实并保存草稿。'+(Array.isArray(result.warnings)?result.warnings.filter(w=>typeof w==='string').join(' '):'');target.append(note);for(const text of result.titles){const choice=document.createElement('button');choice.type='button';choice.className='btn ghost';choice.dataset.growthAction='production-title-adopt';choice.dataset.title=text;choice.textContent=text;target.append(choice);}}
       catch(error){if(box.isConnected)target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}return;
     }
-    if (action === 'production-generate') { button.disabled=true;const target=box.querySelector('[data-production-status]'),mode=value('production-live'),job=value('production-job'),playPackId=value('production-playPackId');target.textContent='正在生成建议…';try {const owner=getWorkspace().customers.find(c=>c.id===data.customerId),currentPack=[...(owner?.drops||[]),...(owner?.packs||[])].find(p=>p.id===data.packId);if(!currentPack)throw new Error('找不到当前作品');const savedJob=productionDraft(currentPack, data.platform, data.index, mode==='live')?.job ?? contentJob(currentPack.topicSnapshot?.job);if(job!==savedJob || playPackId!==(productionDraft(currentPack,data.platform,data.index,mode==='live')?.playPackId || ''))throw new Error('请先保存内容任务和本篇打法，再生成脚本建议');const keys=['script','shots','imagePlan','title','cover','coverLayout','hook','cta','liveOpen','liveSegments','liveInteraction','liveOffer','liveClose'],workingFields=Object.fromEntries(keys.map(k=>[k,value(`production-${k}`)]));const res=await fetch('/api/production-generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...data,live:mode==='live',format:mode==='live'?'':mode,workingFields})});const result=await res.json();if(!res.ok)throw new Error(result.error || '生成失败');if(!box.isConnected){toast('页面已变化，请回到作品重新生成');return;}if(value('production-live')!==mode || value('production-job')!==job || value('production-playPackId')!==playPackId || keys.some(k=>value(`production-${k}`)!==workingFields[k]))throw new Error('生成期间制作内容或类型已变化，请重新生成');for(const [k,v] of Object.entries(result.fields || {})){const el=box.querySelector(`[name="production-${k}"]`);if(el && !el.value.trim() && v){el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));}}if(result.factReview&&['completed','unavailable'].includes(result.factReview.status)){const pending={status:result.factReview.status,warnings:(result.warnings||[]).filter(w=>typeof w==='string').slice(0,8).map(w=>w.slice(0,1000))};generationReviews.set(`${inputKey(box)}|${mode==='live'?'live':'post'}`,pending);}const remaining=missingProductionFields(Object.fromEntries(keys.map(k=>[k,value(`production-${k}`)])),mode==='live',mode);let pageWarning='';if(mode==='image' && value('production-shots').trim())try{parseImagePages(value('production-shots'));}catch(error){pageWarning=`图文暂不能出图：${error.message}。`;}target.textContent=(remaining.length?`已填入部分空白项；仍需补充：${remaining.map(k=>PRODUCTION_FIELDS[k]).join('、')}。可再次生成或手工补充，并核对事实。`:'已填入空白项，请检查完整度并核对事实后保存。')+(result.fields?.imagePlan?(result.fields?.shots?' 已提取逐页文字，原始画面建议保存在单独字段，请逐页核对。':' 模型返回的逐页文字无法安全分离；原始建议已保存在画面建议中，请手工整理。'):'')+pageWarning+(result.warnings||[]).map(w=>` ${w}`).join('');}catch(error){target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}return; }
+    if (action === 'production-generate') { button.disabled=true;const target=box.querySelector('[data-production-status]'),mode=value('production-live'),job=value('production-job'),playPackId=value('production-playPackId');target.textContent='正在生成建议…';try {const owner=getWorkspace().customers.find(c=>c.id===data.customerId),currentPack=[...(owner?.drops||[]),...(owner?.packs||[])].find(p=>p.id===data.packId);if(!currentPack)throw new Error('找不到当前作品');const savedJob=productionDraft(currentPack, data.platform, data.index, mode==='live')?.job ?? contentJob(currentPack.topicSnapshot?.job);if(job!==savedJob || playPackId!==(productionDraft(currentPack,data.platform,data.index,mode==='live')?.playPackId || ''))throw new Error('请先保存内容任务和本篇打法，再生成脚本建议');const keys=['script','shots','shootMaterials','imagePlan','title','cover','coverLayout','hook','cta','liveOpen','liveSegments','liveInteraction','liveOffer','liveClose'],workingFields=Object.fromEntries(keys.map(k=>[k,value(`production-${k}`)]));const res=await fetch('/api/production-generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...data,live:mode==='live',format:mode==='live'?'':mode,workingFields})});const result=await res.json();if(!res.ok)throw new Error(result.error || '生成失败');if(!box.isConnected){toast('页面已变化，请回到作品重新生成');return;}if(value('production-live')!==mode || value('production-job')!==job || value('production-playPackId')!==playPackId || keys.some(k=>value(`production-${k}`)!==workingFields[k]))throw new Error('生成期间制作内容或类型已变化，请重新生成');for(const [k,v] of Object.entries(result.fields || {})){const el=box.querySelector(`[name="production-${k}"]`);if(el && !el.value.trim() && v){el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));}}if(result.factReview&&['completed','unavailable'].includes(result.factReview.status)){const pending={status:result.factReview.status,warnings:(result.warnings||[]).filter(w=>typeof w==='string').slice(0,24).map(w=>w.slice(0,1000))};generationReviews.set(`${inputKey(box)}|${mode==='live'?'live':'post'}`,pending);}if(result.claims){recentClaims.set(claimKey,result);box.querySelector('[data-claim-controls]').innerHTML=claimControls(result.claims,claimState().fields,result.basis,claimState().facts);}const remaining=missingProductionFields(Object.fromEntries(keys.map(k=>[k,value(`production-${k}`)])),mode==='live',mode);let pageWarning='';if(mode==='image' && value('production-shots').trim())try{parseImagePages(value('production-shots'));}catch(error){pageWarning=`图文暂不能出图：${error.message}。`;}target.textContent=(remaining.length?`已填入部分空白项；仍需补充：${remaining.map(k=>PRODUCTION_FIELDS[k]).join('、')}。可再次生成或手工补充，并核对事实。`:'已填入空白项，请检查完整度并核对事实后保存。')+(result.fields?.imagePlan?(result.fields?.shots?' 已提取逐页文字，原始画面建议保存在单独字段，请逐页核对。':' 模型返回的逐页文字无法安全分离；原始建议已保存在画面建议中，请手工整理。'):'')+pageWarning+(result.warnings||[]).map(w=>` ${w}`).join('');}catch(error){target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}return; }
     if (action === 'cover-photo') {
       const target=box.querySelector('[data-production-status]'),fileInput=box.querySelector('[data-cover-background]'),file=fileInput?.files?.[0],line=value('production-cover').trim(),mode=value('production-live'),key=inputKey(box);
       const findPack=()=>{const c=getWorkspace().customers.find(c=>c.id===data.customerId);return [...(c?.drops||[]),...(c?.packs||[])].find(p=>p.id===data.packId);};
@@ -452,7 +532,9 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
     }
     if (action === 'production-outline') { const text=value('production-script').trim();if(!text){toast('请先填写或载入正文');return;}let suggestions;if(value('production-live')==='live')suggestions={liveSegments:text,liveOpen:'本场主题：'+(value('production-title').trim() || '请填写主题'),liveInteraction:'你目前最想了解哪一部分？',liveClose:'回顾本场的主要内容。'};else if(value('production-live')==='image'){const lines=text.split(/\n+/).map(s=>s.trim()).filter(Boolean);if(lines.length<1 || lines.length>10){toast('正文需有1至10段，才能按原文填充逐页内容；也可手动填写');return;}suggestions={shots:lines.join('\n')};}else suggestions={shots:'镜头 1：介绍主题\n镜头 2：展示正文中的证据或步骤\n镜头 3：总结与收尾'};for(const [k,v] of Object.entries(suggestions)){const el=box.querySelector(`[name="production-${k}"]`);if(el && !el.value.trim()){el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));}}box.querySelector('[data-production-status]').textContent='已填入空白字段，请核对并保存。';return; }
     if (action === 'production-check') { const fields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k=>[k,value(`production-${k}`)]));const customer=getWorkspace().customers.find(c=>c.id===data.customerId),pack=[...(customer?.drops||[]),...(customer?.packs||[])].find(p=>p.id===data.packId),mode=value('production-live');const issues=productionIssues(fields,mode==='live',data.platform,customer?.creationStandards,mode,pack?.workReferences || []);box.querySelector('[data-production-status]').textContent=issues.length?issues.join('；'):'必填字段已填写；仍需人工核对事实和发布要求。';return; }
-    if (action === 'production-download') { const fields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k=>[k,value(`production-${k}`)]));const text=productionDocument(fields,value('production-live'),data.platform);const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='harta-script.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return; }
+    if (action === 'production-download') { const state=claimState();if(openProductionClaims(state.claims,state.fields,state.basis).length){toast('请先处理已标出的经营承诺');return;}const fields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k=>[k,value(`production-${k}`)]));const mode=value('production-live');
+      try{const response=await fetch('/api/production-download-check',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...data,live:mode==='live',fields})});if(!response.ok)throw new Error((await response.json()).error||'请重新核对制作稿');}catch(error){toast(error.message);return;}
+      const text=productionDocument(fields,mode,data.platform,inventories(data.customerId));const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='harta-script.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return; }
     if (action === 'cover-download') {
       const line=value('production-cover').trim();if(!line || Array.from(line).length>28){toast('请填写 1 至 28 个字的封面文字');return;}
       const canvas=document.createElement('canvas');canvas.width=900;canvas.height=1200;const ctx=canvas.getContext('2d');if(!ctx){toast('浏览器无法制作封面');return;}

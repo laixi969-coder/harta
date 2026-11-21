@@ -24,17 +24,20 @@ import { openFind } from './lib/openfind-live.mjs';
 import { serveWorkMedia } from './lib/openfind-work-media.mjs';
 import {hostedBrowser} from './lib/hosted-browser.mjs';
 import { platformAuthState, startPlatformAuth, pollPlatformAuth, cancelPlatformAuth, removePlatformAuth, completeDouyinAuth, syncDouyinVideos } from './lib/platform-auth.mjs';
-import { uploadDeliveryAsset, deliveryAsset, deliveryState, bindDeliveryIdentity, queueDelivery, cancelDelivery, claimDelivery, authorizeDelivery, completeDelivery, saveReplyRule, replyMonitors, receiveBrowserEvents, monitorError } from './lib/browser-delivery.mjs';
+import { openingRequests,requestOpening,resolveOpening } from './lib/opening-requests.mjs';
+import { ownedProductionPhoto, uploadDeliveryAsset, deliveryAsset, deliveryState, bindDeliveryIdentity, queueDelivery, cancelDelivery, claimDelivery, authorizeDelivery, completeDelivery, saveReplyRule, replyMonitors, receiveBrowserEvents, monitorError } from './lib/browser-delivery.mjs';
 import { issuePairing, redeemPairing, authenticateConnector, connections, revokeConnection, queueCollection, cancelCollection, connectorJobs, claimCollection, completeCollection, contactHandoff } from './lib/platform-connector.mjs';
 import { commerceWorkspace, commerceAction, startOutreachDraft } from './lib/commerce-workspace.mjs';
 import { importOpenFind } from './lib/openfind-import.mjs';
 import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, validHost, sameOriginMutation, sessionCookie, readJsonBody } from './lib/request-guard.mjs';
 import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, attributeSignalPublication, saveAccount, preparePublication, confirmPublication, recordPublicationReview, recordInquiry, createManualContact, correctInquiryPublicationSource, correctInquiryLiveSource, saveDemandTopic, reviseDemandTopic, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
 import { agentWorkspace, createAgent, saveAgent, agentAction, startAgentTrial } from './lib/business-agents.mjs';
-import { proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, generateProductionReviewed, reviewProductionFacts, reviewProductionCraft, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
+import { businessSearchTerms } from './lib/problem-observation-data.mjs';
+import { verifyProductionDownload, recordProductionReview, confirmProductionClaim, proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, generateProductionReviewed, reviewProductionFacts, reviewProductionCraft, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
 import { expandKeywordsForCustomer, aggregatePains, teardownForCustomer, teardownAccountForCustomer, rebuildPlaybook, topicPoolFor, decideTopic, decideRadarWork, importRadarSamples, refreshPlaybookAfterFeedback, calibrateHuntFor } from './lib/research-tools.mjs';
 import { rewriteOrganicPost } from './lib/generate.mjs';
-import { receiveKeywordBatch, prepareKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
+import {recommendedKeywordIds} from './lib/keyword-extraction.mjs';
+import { receiveKeywordBatch, prepareKeywordBatch, selectedKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
 import { saveKeywordLibrary, removeKeywordLibrary } from './lib/workspace.mjs';
 import { crawlerInstalled, readPublicSource, queryRsshub } from "./lib/native-sources.mjs";
 import { publicResearchConfig, saveResearchConfig, readResearchConfig, queryKeywords, queryWeb, querySearxng } from "./lib/research.mjs";
@@ -84,6 +87,7 @@ import { createPublicSite } from './lib/public-site.mjs';
 import { readModelSpend } from './lib/model-spend.mjs';
 
 const keywordImports = new Set();
+const keywordPreviews=new Map();
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = process.cwd();
 
@@ -333,6 +337,12 @@ async function handleApi(req, res, url) {
   if(url.pathname==='/api/delivery'&&req.method==='GET'){
     const user=requireUser(req,res);if(!user)return;return json(res,200,deliveryState(user.email));
   }
+  if(url.pathname==='/api/production-photo' && req.method==='GET'){
+    const user=requireUser(req,res);if(!user)return;
+    try{const {mime,bytes}=await ownedProductionPhoto(user.email,url.searchParams.get('customerId'),url.searchParams.get('assetId'));
+      res.writeHead(200,securityHeaders({'content-type':mime,'content-length':bytes.length,'cache-control':'private, no-store'}));return res.end(bytes);
+    }catch(error){return json(res,404,{error:error.message});}
+  }
   if(url.pathname.startsWith('/api/delivery/')&&req.method==='POST'){
     const user=requireUser(req,res);if(!user)return;
     try{const action=url.pathname.slice('/api/delivery/'.length);if(action==='asset')return json(res,200,{asset:await uploadDeliveryAsset(user.email,req)});
@@ -376,7 +386,7 @@ async function handleApi(req, res, url) {
       if (!customer) return json(res, 404, { error: '找不到当前业务' });
       if (match[2] === '/harta/context') {
         const space=readWorkspace(user.email);
-        return json(res,200,{customerId,name:customer.name,profile:{identity:String(customer.name||'').slice(0,2000),offering:String(customer.pitch||'').slice(0,2000),regions:String(customer.city||'').slice(0,2000),priceRange:'',value:'',proof:''},upstream:'8532f51ec89fefedb5a9eee53703097629f931ae',suggestedKeywords:(space.acquisition?.products||[]).filter(p=>p.customerId===customerId&&p.status==='active').slice(0,8).map(p=>p.name),pitch:customer.pitch||''});
+        return json(res,200,{customerId,name:customer.name,profile:{identity:String(customer.name||'').slice(0,2000),offering:String(customer.pitch||'').slice(0,2000),regions:String(customer.city||'').slice(0,2000),priceRange:'',value:'',proof:''},upstream:'8532f51ec89fefedb5a9eee53703097629f931ae',suggestedKeywords:businessSearchTerms(customer,space.acquisition),pitch:customer.pitch||''});
       }
       if (match[2] === '/harta/standards-review') return json(res,200,reviewStudioText(user.email,customerId,await readBody(req)));
       if (match[2] === '/harta/contacts') return json(res, 200, openFindContacts(readWorkspace(user.email), customerId));
@@ -541,13 +551,27 @@ async function handleApi(req, res, url) {
     let upload;
     try {
       upload = await receiveKeywordBatch(req);
-      const customer = readWorkspace(user.email).customers.find(c => c.id === upload.customerId);
+      const space=readWorkspace(user.email),customer=space.customers.find(c=>c.id===upload.customerId);
       if (!customer) return json(res, 404, { error: "没有这个客户，或不属于当前账号" });
-      const batch = await prepareKeywordBatch(upload.files, upload.scope);
+      const batch = await prepareKeywordBatch(upload.files, upload.scope,upload.localOnly?{modelReady:false}:{});
+      if(upload.preview){
+        const now=Date.now();for(const [email,d] of keywordPreviews)if(d.until<=now)keywordPreviews.delete(email);
+        keywordPreviews.set(user.email,{id:upload.customerId,batch,until:now+30*60000});
+        return json(res,200,{preview:batch,recommendedIds:recommendedKeywordIds(batch,customer,space.acquisition?.products)});
+      }
       const result = saveKeywordLibrary(user.email, upload.customerId, batch);
       return result.error ? json(res, 400, result) : json(res, 200, publicWorkspace(result.workspace));
     } catch (error) { return json(res, 400, { error: [1009, 1015, 1016].includes(error.code) ? "最多5个文件，单个10MB，合计20MB" : error.message || "关键词导入失败" }); }
     finally { upload?.cleanup(); keywordImports.delete(user.email); }
+  }
+  if(req.method==='POST' && url.pathname==='/api/keywords/select'){
+    const user=requireUser(req,res);if(!user)return;
+    const body=await readBody(req,65000),d=keywordPreviews.get(user.email);
+    if(!d||d.id!==body.customerId||d.batch.id!==body.batchId||d.until<=Date.now())return json(res,409,{error:'预览已更新或过期，请重新导入'});
+    try{
+      if(body.discard!==true){const saved=saveKeywordLibrary(user.email,d.id,selectedKeywordBatch(d.batch,body.ids));if(saved.error)throw new Error(saved.error);}
+      keywordPreviews.delete(user.email);return json(res,200,publicWorkspace(readWorkspace(user.email)));
+    }catch(e){return json(res,400,{error:e.message});}
   }
   if (req.method === "POST" && url.pathname === "/api/keywords/remove") {
     const user = requireUser(req, res);
@@ -788,7 +812,7 @@ async function handleApi(req, res, url) {
     } catch (err) { return json(res, err.statusCode || 400, { error: err.message }); }
   }
 
-  if (req.method === "POST" && ['/api/growth-facts/extract', '/api/growth-goal', '/api/production-draft', '/api/live-schedule', '/api/studio-return', '/api/studio-return-action', '/api/production-apply', '/api/creation-standards', '/api/creator-profile', '/api/creator-memory', '/api/creator-packs', '/api/growth-outcomes', '/api/growth-facts', '/api/post-rewrite', '/api/post-version'].includes(url.pathname)) {
+  if (req.method === "POST" && ['/api/growth-facts/extract', '/api/growth-goal', '/api/production-draft', '/api/production-claim', '/api/live-schedule', '/api/studio-return', '/api/studio-return-action', '/api/production-apply', '/api/creation-standards', '/api/creator-profile', '/api/creator-memory', '/api/creator-packs', '/api/growth-outcomes', '/api/growth-facts', '/api/post-rewrite', '/api/post-version'].includes(url.pathname)) {
     const user = requireUser(req, res);
     if (!user) return;
     try {
@@ -796,6 +820,7 @@ async function handleApi(req, res, url) {
       const actions = {
         '/api/growth-facts/extract': () => proposeFactCards(user.email, body),
         '/api/growth-goal': () => saveGrowthSettings(user.email, body),
+        '/api/production-claim': () => confirmProductionClaim(user.email, body),
         '/api/production-draft': () => saveProductionDraft(user.email, body),
         '/api/live-schedule': () => rescheduleLive(user.email, body),
         '/api/studio-return': () => stageStudioReturn(user.email, body),
@@ -871,7 +896,10 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/production-fact-review') {
     const user=requireUser(req,res);if(!user)return;
-    try { return json(res,200,await reviewProductionFacts(user.email,await readBody(req,512 * 1024))); }
+    try {
+      const input=await readBody(req,512 * 1024), result=await reviewProductionFacts(user.email,input);
+      return json(res,200,{...result,...recordProductionReview(user.email,input,input.fields,result.issues)});
+    }
     catch(error) { return json(res,error.statusCode || 400,{error:error.message || '事实核对失败'}); }
   }
 
@@ -881,9 +909,21 @@ async function handleApi(req, res, url) {
     catch(error) {return json(res,error.statusCode || 400,{error:error.message || '开头操作失败'});}
   }
 
+  if(req.method==='POST' && url.pathname==='/api/production-download-check'){
+    const user=requireUser(req,res);if(!user)return;
+    try{verifyProductionDownload(user.email,await readBody(req,512*1024));return json(res,200,{ready:true});}
+    catch(e){return json(res,400,{error:e.message});}
+  }
   if (req.method === 'POST' && url.pathname === '/api/production-generate') {
     const user=requireUser(req,res);if(!user)return;
-    try { return json(res,200,await generateProductionReviewed(user.email,await readBody(req,512 * 1024))); }
+    try {
+      const input=await readBody(req,512 * 1024), result=await generateProductionReviewed(user.email,input);
+      if(result.fields){
+        const fields={...result.fields,...Object.fromEntries(Object.entries(input.workingFields||{}).filter(([,v])=>v?.trim()))};
+        Object.assign(result,recordProductionReview(user.email,input,fields,[...(result.factReview?.issues||[]),...(result.warnings||[])]));
+      }
+      return json(res,200,result);
+    }
     catch(error) { return json(res,error.statusCode || 400,{error:error.message || '脚本生成失败'}); }
   }
 
@@ -1057,9 +1097,14 @@ async function handleApi(req, res, url) {
     return json(res, 200, { ok: true }, { "set-cookie": sessionCookie("", req, PUBLIC_ORIGIN) });
   }
 
+  if(req.method==='POST' && url.pathname==='/api/opening-requests'){
+    if(!rateLimit(req,'opening-request',6,600000))return json(res,429,{error:'申请过于频繁，请稍后重试'});
+    try{requestOpening(await readBody(req,4096));return json(res,202,{received:true});}
+    catch(e){return json(res,400,{error:e.message});}
+  }
   if (req.method === "GET" && url.pathname === "/api/users") {
     if (!requireAdmin(req, res)) return;
-    return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist() });
+    return json(res, 200, { users: listUsersPublic(), whitelist: listWhitelist(), openingRequests:openingRequests() });
   }
 
   if (req.method === "GET" && url.pathname === "/api/audit") {
@@ -1098,6 +1143,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = addToWhitelist(body.email);
     if (result.error) return json(res, result.status || 400, { error: result.error }, result.retryAfter ? { "retry-after": String(result.retryAfter) } : {});
+    if(body.openingId)resolveOpening(body.openingId,String(body.email||'').trim().toLowerCase());
     recordAudit(admin?.email || '', 'whitelist.add', String(body.email || ''), result.activationCode ? '签发激活码' : '');
     return json(res, 200, result);
   }

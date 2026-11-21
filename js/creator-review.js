@@ -4,7 +4,7 @@ import { isRealEvidence } from './evidence-kind.js';
 // Keep the newest observation for each actual publication and exact window.
 // Historical entries without a publication ID are grouped by post + account,
 // and remain labelled as unlinked rather than being treated as verified posts.
-function latestOutcomes(customer = {}) {
+export function latestOutcomes(customer = {}) {
   const result=[],seen=new Set();
   for(const pack of [...(customer.drops || []), ...(customer.packs || [])]) {
     if(!isRealEvidence(pack))continue;

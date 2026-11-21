@@ -1,9 +1,10 @@
+import {useBusinessSearch} from '../business-search';
 import { acquisitionLimits } from '../../shared/collection-limits';
 import { parseWorkLinks } from '../../shared/work-links';
 import { QualificationComparison } from './QualificationComparison';
 import { AssessmentDetails } from './AssessmentDetails';
 import { CollectionBudget } from './CollectionBudget';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Play, Pause, ArrowRight, Download, Workflow, CheckCircle2, Clock } from 'lucide-react';
 import type { AcquisitionWorkflow, Platform } from '../../shared/types';
 import { acquisitionPriority, assessComment } from '../../server/domain';
@@ -25,9 +26,7 @@ export function Acquisition() {
   const [linksText,setLinksText] = useState(initial?.input.links?.join('\n') || '');
   let linkInfo:ReturnType<typeof parseWorkLinks>|undefined;
   try { if(linksText.trim()) linkInfo=parseWorkLinks(linksText); } catch {}
-  const [keyword, setKeyword] = useState(initial?.input.keyword || '');
-  const [suggestions,setSuggestions]=useState<string[]>([]);
-  useEffect(()=>{let alive=true;api<{suggestedKeywords:string[]}>('/harta/context').then(c=>{if(alive){setSuggestions(c.suggestedKeywords);setKeyword(value=>value||c.suggestedKeywords[0]||'');}}).catch(()=>{});return()=>{alive=false;};},[]);
+  const {keyword,setKeyword,suggestions}=useBusinessSearch(data.jobs,platform,data.settings.mode,new URLSearchParams(location.search).has('workflow') ? initial?.input.keyword||'' : '');
   const [searchLimit, setSearchLimit] = useState(10);
   const [noteType, setNoteType] = useState<'all'|'image'|'video'>(initial?.input.noteType || 'all');
   const [maxNotes, setMaxNotes] = useState(3);
@@ -134,7 +133,7 @@ export function Acquisition() {
             void start();
           }}
         >
-          {inputKind==='keyword' && suggestions.length>0 && <div className="filter-tabs">{suggestions.map(s=><button type="button" key={s} onClick={()=>setKeyword(s)}>找 {s} 的需求</button>)}</div>}
+          {inputKind==='keyword' && suggestions.length>0 && <div className="filter-tabs business-keywords" aria-label="业务建议词">{suggestions.map(s=><button type="button" key={s} onClick={()=>setKeyword(s)}>找 {s} 的需求</button>)}</div>}
           <details><summary>业务匹配与排除条件（选填）</summary>{([['serviceArea','服务范围'],['needTerms','需求词（逗号分隔，命中任一）'],['excludeTerms','排除词（逗号分隔）']] as const).map(([key,label])=><label key={key}>{label}<input maxLength={key==='serviceArea'?100:300} value={fit[key]} onChange={e=>setFit({...fit,[key]:e.target.value})}/></label>)}<p>只按评论原文筛选。服务地点未确认时保持待核实，不把 IP 属地当作居住地。</p></details>
           <div className="acquisition-fields">
             <label>
@@ -433,11 +432,13 @@ export function Acquisition() {
                 ))}
               </div>
             ) : (
-              <p className="acquisition-empty">
-                {flow.status === 'completed'
-                  ? '已完成采集，暂无满足近7天明确需求条件的候选。下方可查看原始评论及未入选理由。'
-                  : '符合规则的候选将自动保存到这里，已读评论也会保留。'}
-              </p>
+              <div className="acquisition-empty" role="status">
+                {flow.status==='paused' && /登录|连接|验证/.test(flow.message) ? <><p>{flow.message}</p><button type="button" className="btn" onClick={()=>navigate('settings')}>检查平台连接</button></>
+                  : flow.status!=='completed' ? <p>{flow.message || '读取后可核实候选。'}</p>
+                  : !notes.length || !flow.selectedNoteIds.length ? <><p>这批作品没有可用样本。</p><button type="button" className="btn" onClick={()=>navigate('discover')}>调整搜索词并查看作品</button></>
+                  : !comments.length ? <><p>已选作品尚未取得评论。</p><button type="button" className="btn" onClick={()=>navigate('comments')}>检查评论采样</button></>
+                  : <><p>本次读取 {comments.length} 条评论，未发现近七天的明确需求。</p><button type="button" className="btn" onClick={()=>{const d=document.querySelector<HTMLDetailsElement>('[data-reviewed-comments]');if(d){d.open=true;d.scrollIntoView({block:'start'});}}}>查看原话与未入选理由</button></>}
+              </div>
             )}
             <details className="workflow-details">
               <summary>作品与选样依据（{notes.length}）</summary>
@@ -475,7 +476,7 @@ export function Acquisition() {
                 ))}
               </div>
             </details>
-            <details className="workflow-details">
+            <details className="workflow-details" data-reviewed-comments>
               <summary>原始评论与判断（{comments.length}）</summary>
               <label className="field-label">
                 筛选复核结论

@@ -52,7 +52,7 @@ export function packAsSent(pack) {
           // short-form cleaner collapses blank lines, so retain the article's
           // text when it is read back, edited, restored or published.
           if(plat==='公众号' && f==='body') {
-            const value=pack?.edits?.[key]?.now;item[f]=String(typeof value==='string'&&value?value:item[f]||'').trim();
+            const value=pack?.edits?.[key]?.now;item[f]=String(typeof value==='string'&&(value||pack.edits[key].verbatim)?value:item[f]||'').trim();
           } else item[f]=edited(pack,key,item[f]||'');
         }
       }

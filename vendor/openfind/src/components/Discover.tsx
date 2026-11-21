@@ -33,6 +33,7 @@ import {
   ArrowDownWideNarrow,
   X,
 } from 'lucide-react';
+import { useBusinessSearch } from '../business-search';
 import JSZip from 'jszip';
 import type { Note, Job, SearchInput, Platform } from '../../shared/types';
 import { mediaUrl, hartaHandoff, workbenchLocation, api, shortNum, saveFile, exportUrl, safeUrl, downloadExport } from '../api';
@@ -58,8 +59,8 @@ export function Discover() {
       ? requestedPlatform
       : data.settings.platform || 'xiaohongshu',
   );
-  const [keyword, setKeyword] = useState(initialJob?.keyword || '家居'),
-    [limit, setLimit] = useState(20),
+  const {keyword,setKeyword,suggestions}=useBusinessSearch(data.jobs,platform,data.settings.mode,params.has('job')?initialJob?.keyword || '':'');
+  const [limit, setLimit] = useState(20),
     [sort, setSort] = useState<SearchInput['sort']>(initialJob?.query?.sort || 'latest'),
     [noteType, setNoteType] = useState<SearchInput['noteType']>(
       initialJob?.query?.noteType || 'all',
@@ -408,6 +409,7 @@ export function Discover() {
               />
             </div>
 
+            {suggestions.length>0 && <div className="filter-tabs business-keywords" aria-label="业务建议词">{suggestions.map(term=><button type="button" key={term} onClick={()=>setKeyword(term)}>{term}</button>)}</div>}
             <label className="field-label" htmlFor="search-platform">
               数据平台
             </label>
@@ -830,11 +832,11 @@ export function Discover() {
                 </>
               ) : (
                 <Empty
-                  title={job?.status === 'running' ? '正在发现好内容' : '没有符合条件的作品'}
+                  title={job?.status === 'running' ? '正在发现好内容' : !job && scope==='job' ? '先按当前业务的关键词搜索' : job?.status==='failed' ? '搜索未完成' : '没有符合条件的作品'}
                   sub={
                     job?.status === 'running'
                       ? '结果会随着采集自动出现在这里。'
-                      : '调整关键词、搜索范围或筛选条件后再试试。'
+                      : job?.status==='failed' ? (job.error || '请检查平台连接后重试。') : !job && scope==='job' ? '可以编辑上方建议词，先查看少量相关作品。' : '调整关键词、搜索范围或筛选条件后再试试。'
                   }
                   action={
                     <button

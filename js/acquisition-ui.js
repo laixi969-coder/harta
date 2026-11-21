@@ -3,6 +3,7 @@ import {leadIntentEventLabel} from './lead-intent.js';
 import { isRealEvidence } from './evidence-kind.js';
 import { previewSignalCsv } from './signal-csv.js';
 import { businessResults } from './business-results.js';
+import { GROWTH_GOALS, METRICS } from './growth.js';
 import { leadNeedsReply } from './conversation-state.js';
 import { manualDraftScope } from './draft-scope.js';
 import { installAgentUI, renderAgentUI } from './agent-ui.js';
@@ -21,7 +22,7 @@ const localNow = () => { const d=new Date(); return new Date(d.getTime()-d.getTi
 const options = (rows, chosen) => rows.map(r => {const [value,label] = Array.isArray(r)?r:[r,r];return `<option value="${esc(value)}" ${String(value)===String(chosen)?'selected':''}>${esc(label)}</option>`;}).join('');
 const input = (name,label,{value='',type='text',required=false,max=1000}={}) => `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" maxlength="${max}" ${required?'required':''}></label>`;
 const area = (name,label,{value='',required=false,max=2000,rows=3}={}) => `<label>${label}<textarea name="${name}" rows="${rows}" maxlength="${max}" ${required?'required':''}>${esc(value)}</textarea></label>`;
-const select = (name,label,rows,chosen='') => `<label>${label}<select name="${name}" ${['leadId','publicationId','liveSource','agentId'].includes(name)?'':'required'}>${options(rows,chosen)}</select></label>`;
+const select = (name,label,rows,chosen='') => `<label>${label}<select name="${name}" ${['leadId','publicationId','liveSource','agentId','researchUse'].includes(name)?'':'required'}>${options(rows,chosen)}</select></label>`;
 const button = (action,label,data='',ghost=true) => `<button type="button" class="btn ${ghost?'ghost':''}" data-acq-action="${action}" ${data}>${label}</button>`;
 const badge = value => `<span class="acq-badge">${esc(labels[value]||value)}</span>`;
 const empty = (title,note) => `<div class="acq-empty"><h3>${title}</h3><p>${note}</p></div>`;
@@ -255,9 +256,12 @@ function playbookPanel() {
   const p = business()?.playbook;
   return `<section class="acq-panel"><div class="acq-section-head"><div><h2>写作底稿</h2><p class="meta">改写时参考已有反馈和改稿记录。</p></div>${button('playbook-run', p ? '刷新底稿' : '生成底稿', '', false)}</div>
     ${p ? `<p class="meta">更新于 ${when(p.updatedAt)} · 有回音 ${p.coverage.replied} 篇 · 改稿记录 ${p.coverage.edits} 处 · 覆盖 ${p.coverage.packs} 个批次</p>
-      ${p.evolution ? `<p class="meta">最近一轮变化：新增 ${p.evolution.added.length} 个有效角度${p.evolution.dropped.length ? `，淡出 ${p.evolution.dropped.length} 个` : ''}${p.evolution.retired.length ? `，淘汰 ${p.evolution.retired.length} 个没回音的角度` : ''}</p>` : ''}
-      ${p.retired.length ? `<details><summary>已淘汰的角度 · ${p.retired.length}</summary>${p.retired.map(r => `<p>${esc(r.angle)} <span class="meta">${r.misses} 次没反应</span></p>`).join('')}<p class="meta">两次以上无反馈的角度，不再用于下一篇。</p></details>` : ''}
-      ${p.cards.length ? p.cards.map((c, i) => `<div class="acq-task"><header><strong>${i + 1}. ${esc(c.kind)}</strong><span class="meta">${esc(c.angle || '角度未记录')}</span></header><p>开头：${esc(c.opener || '未记录')}</p>${c.proof ? `<p class="meta">证据：${esc(c.proof)}</p>` : ''}${c.action ? `<p class="meta">行动：${esc(c.action)}</p>` : ''}</div>`).join('') : '<p class="meta">还没有有回音的内容，底稿里只有改稿偏好。</p>'}
+      ${(p.retest||p.retired||[]).length ? `<details><summary>待复测角度</summary>${(p.retest||p.retired).map(r=>`<p>${esc(r.angle)} · ${r.misses} 次没有回音</p>`).join('')}</details>` : ''}
+      ${p.performance?.length ? `<details><summary>发布版本与效果</summary>${p.performance.map(r=>{
+        const metrics=Object.entries(r.metrics||{}).filter(([key,value])=>METRICS[key]&&Number.isFinite(value)).map(([key,value])=>METRICS[key]+' '+value);
+        return `<p>${esc([r.account,r.platform,GROWTH_GOALS[r.goal]?.label,r.start+' 至 '+r.end,r.source].filter(Boolean).join(' · '))}<br>${metrics.length?esc(metrics.join(' · '))+'<br>':''}${esc(r.advice)}</p>`;
+      }).join('')}</details>` : ''}
+      ${p.cards.length ? p.cards.map((c, i) => `<div class="acq-task"><header><strong>${i + 1}. ${esc(c.kind)}</strong><span class="meta">${esc(c.angle || '角度未记录')}</span></header><p>${esc(c.versionSource||'记录版本待核对')} · 开头「${esc(c.opener || '未记录')}」</p>${c.proof ? `<p class="meta">证据：${esc(c.proof)}</p>` : ''}${c.action ? `<p class="meta">行动：${esc(c.action)}</p>` : ''}</div>`).join('') : '<p class="meta">还没有有回音的内容，底稿里只有改稿偏好。</p>'}
       ${p.editRules.length ? `<h3>反复改掉的写法</h3>${p.editRules.map(r => `<p>「${esc(r.was)}」→「${esc(r.now)}」 <span class="meta">${r.count} 次</span></p>`).join('')}` : ''}
       ${p.tone.length ? `<h3>语气样本</h3>${p.tone.map(t => `<p class="acq-quote">${esc(t)}</p>`).join('')}` : ''}
       ${(p.warnings || []).map(w => `<p class="meta">${esc(w)}</p>`).join('')}` : '<p class="meta">暂无底稿。标记发布反馈或保存改稿后生成。</p>'}</section>`;

@@ -63,7 +63,19 @@ try {
   assert.equal(await box.locator('[data-page-templates] img').count(),2);
   await box.locator('[data-growth-action=pages-reuse]').click();await status.getByText('正在读取已保存图文页…').waitFor();await panel('script');await shots.fill(original+'\n已修改');
   await status.getByText('读取期间草稿或素材已变化，请重新核对').waitFor();
-  assert.deepEqual(errors,[]);console.log('PASS: delayed images reserve layout; reuse waits for pending saves; saved pages survive new versions; edits during reads are rejected');
+  await panel('script');await shots.fill('量取柜内净宽\n标出铰链占位');await panel('cover');
+  const photoEditor=box.locator('[data-photo-editor]');await photoEditor.locator('summary').click();
+  const sourcePng=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=120;canvas.height=80;const ctx=canvas.getContext('2d');ctx.fillStyle='#00aa44';ctx.fillRect(0,0,120,80);return canvas.toDataURL().split(',')[1];});
+  const uploaded=page.waitForResponse(r=>r.url().endsWith('/api/delivery/asset'));await photoEditor.locator('[data-upload-page-photo]').setInputFiles({name:'验收铰链.png',mimeType:'image/png',buffer:Buffer.from(sourcePng,'base64')});assert.equal((await uploaded).status(),200);
+  const row=photoEditor.locator('[data-photo-row]').nth(1);await row.locator('[data-photo-id]').selectOption({label:'验收铰链.png'});
+  await row.locator('[data-photo-label]').fill('铰链占位');await row.locator('[data-photo-point]').selectOption('right');
+  await box.locator('[data-growth-action=image-pages]').click();
+  await page.waitForFunction(()=>document.querySelectorAll('[data-page-templates] img').length===2);
+  const matched=await box.locator('[data-page-templates] img').nth(1).evaluate(async img=>{await img.decode();const canvas=document.createElement('canvas');canvas.width=900;canvas.height=1200;const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);return [...ctx.getImageData(330,410,1,1).data];});
+  assert.deepEqual(matched,[0,170,68,255],'The original photo must be visible on the second exported page');
+  await box.locator('[data-growth-action=production-save]').click();await page.waitForFunction(()=>document.querySelector('[data-growth-action=production-save]')?.dataset.version==='3');
+  await panel('cover');const saved=page.waitForResponse(r=>r.url().endsWith('/api/production-assets')&&r.request().method()==='POST');await box.locator('[data-growth-action=assets-save]').click();assert.equal((await saved).status(),200);
+  assert.deepEqual(errors,[]);console.log('PASS: saved photo-backed pages and annotations; delayed images reserve layout; reuse waits for pending saves; saved pages survive new versions; edits during reads are rejected');
 } catch(error){
   console.error('REUSE DIAGNOSTIC',await currentPage?.evaluate(()=>window.productionClicks?.slice(-8)),await currentPage?.locator('[data-production-status]').allTextContents(),await currentPage?.locator('#toast').textContent({timeout:1000}).catch(()=>''));throw error;
 } finally {

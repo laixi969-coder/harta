@@ -22,6 +22,19 @@ function update() {
   }
   status.textContent = '将清单交给账号管理员确认；生成清单不会扣款或开通。';
 }
+const application=document.getElementById('opening'),reply=document.getElementById('opening-status');
+application.addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!estimate){reply.textContent='请先核对套餐和预算';return;}
+  const button=application.querySelector('button');button.disabled=true;
+  const selected=estimate.plan.name;
+  try{
+    const r=await fetch('/api/opening-requests',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:document.getElementById('opening-email').value,plan:estimate.plan.id,budgets:Object.fromEntries(new FormData(form))})});
+    const result=await r.json();if(!r.ok)throw new Error(result.error||'未能提交申请');
+    reply.textContent=selected+'的申请已交给 Harta 管理员，请留意所填邮箱。';application.reset();
+  }catch(e){reply.textContent=e.message||'未能提交，请重试';}
+  finally{button.disabled=false;}
+});
 const initial = new URLSearchParams(location.search).get('plan');
 if (PLANS.some(plan => plan.id === initial)) select.value = initial;
 form.addEventListener('submit', event => event.preventDefault());

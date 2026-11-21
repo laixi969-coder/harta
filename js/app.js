@@ -4,6 +4,7 @@ import { initPlatformDataSettings, openPlatformDataSettings } from './platform-d
 import { openAcquisitionPage, acquisitionActiveSection, resumeAcquisitionRoute } from './openfind-workbench.js';
 import { installCommerceUI, renderCommerceUI, resumeOpenFindHandoff, setContentWorkspaceTab, contentWorkspaceTab, preserveCommerceDrafts } from './commerce-ui.js';
 import { installResponsiveNavigation } from './responsive-navigation.js';
+import {productionInventory} from './image-pages.js';
 import { renderGrowthSettings, renderPostGrowth, renderProduction, installGrowthUI, SIMPLE_GOALS } from './growth-ui.js';
 import { installAcquisitionUI, renderAcquisitionUI, refreshAcquisition, openPublication, openAcquisitionContext } from './acquisition-ui.js';
 import { renderRecommendation, renderMaterialSuggestion, renderCreationPlan } from './content-plan.js';
@@ -1515,7 +1516,7 @@ function renderToday() {
             ${pack.origin?.mode !== "organic" ? `<button type="button" class="verdict ${outcome === "replied" ? "on-yes" : ""}" data-fb="${esc(outcomeKey)}" data-val="replied" aria-pressed="${outcome === "replied"}">有客户反馈</button>
             <button type="button" class="verdict ${outcome === "dead" ? "on-no" : ""}" data-fb="${esc(outcomeKey)}" data-val="dead" aria-pressed="${outcome === "dead"}">没反应</button>` : ""}
             <button type="button" class="textish" data-record-outcome="${esc(outcomeKey)}">记询价 / 成交</button>
-          </div></div>${renderProduction(mine.id,pack,s.name,idx,mine.creatorPackSettings)}${pack.origin?.mode!=='organic'?renderPostGrowth(mine.id,pack,s.name,idx,state.workspace.acquisition?.accounts || [],state.workspace.acquisition?.publications || [],state.workspace.acquisition?.leads || [],true,mine.growthGoal,state.workspace.acquisition?.signals || [],state.workspace.acquisition?.works || []):''}` : ""}</div>`;
+          </div></div>${renderProduction(mine.id,pack,s.name,idx,mine.creatorPackSettings,productionInventory(mine,state.workspace.acquisition),mine.factCards)}${pack.origin?.mode!=='organic'?renderPostGrowth(mine.id,pack,s.name,idx,state.workspace.acquisition?.accounts || [],state.workspace.acquisition?.publications || [],state.workspace.acquisition?.leads || [],true,mine.growthGoal,state.workspace.acquisition?.signals || [],state.workspace.acquisition?.works || []):''}` : ""}</div>`;
       })
       .join("");
     return `<section class="plat ${kind}"${isContentPack ? " data-content-container" : ""}><h3>${esc(s.name)}<span>${kind === "is-main" ? "主平台" : "适配版本"}</span></h3>${items}</section>`;
@@ -2322,6 +2323,8 @@ async function loadUsers() {
   const data = await res.json();
   // 一份名单就够。开通了没注册、和已经在用，是同一个人的两种状态，
   // 不是两张表。原来并排挂两份，谁看都要愣一下。
+  const inbox=document.getElementById('opening-inbox');
+  if(inbox)inbox.innerHTML=(data.openingRequests||[]).length?'<h3>待处理开通申请</h3>'+data.openingRequests.map(r=>`<article><strong>${esc(r.email)}</strong><p>${esc(r.planName)} · 每月预算 ¥${esc((r.totalCents/100).toFixed(2))} · ${esc(r.at.slice(0,10))}</p><p class="meta">模型 ¥${r.costs.model/100} · 数据 ¥${r.costs.data/100} · 出图 ¥${r.costs.image/100}</p><button class="btn ghost" type="button" data-opening="${esc(r.id)}" data-email="${esc(r.email)}">核对后开通</button></article>`).join(''):'';
   const registered = new Map((data.users || []).map((u) => [u.email, u]));
   const adminEmail = (data.users || []).find((u) => u.role === "admin")?.email || "";
   if (list) {
@@ -2518,10 +2521,10 @@ function showActivation(email, data) {
   });
   result.append(message, code, copy);
 }
-async function issueActivation(url, email, button) {
+async function issueActivation(url, email, button, openingId) {
   button.disabled = true;
   try {
-    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
+    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, openingId }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "开通失败，请重试");
     if (data.activationCode) showActivation(email, data);
@@ -3244,6 +3247,8 @@ document.body.addEventListener("click", async (e) => {
 });
 
 document.body.addEventListener("click", async (e) => {
+  const application=e.target.closest('[data-opening]');
+  if(application){await issueActivation('/api/whitelist',application.dataset.email,application,application.dataset.opening);return;}
   const activation = e.target.closest("[data-white-activation]");
   if (activation && !activation.disabled) {
     await issueActivation("/api/users/activation", activation.dataset.whiteActivation, activation);
@@ -3684,6 +3689,35 @@ document.getElementById("test-research-config")?.addEventListener("click", async
 });
 
 let keywordImportBusy = false;
+let keywordPreview=null;
+function showKeywordPreview(){
+  const box=document.getElementById('keyword-preview'),draft=keywordPreview;
+  if(!box)return;
+  if(!draft||draft.customerId!==keywordCustomer()?.id){box.replaceChildren();return;}
+  const {batch,ids,page}=draft,rows=batch.items.slice(page*40,(page+1)*40),pages=Math.ceil(batch.items.length/40);
+  const choices=rows.map(row=>{
+    const source=row.evidence[0],fields=source?.fields||[],excerpt=fields.find(f=>f.name==='原文摘录')?.value;
+    const metric=fields.find(f=>/指数|搜索量|检索量|点击|展示|impressions|clicks/i.test(f.name)&&f.value!=='');
+    const location=[source?.file,source?.sheet,source?.row&&'行'+source.row].filter(Boolean).join(' · ');
+    return `<label class="keyword-choice"><input type="checkbox" data-kw-id="${esc(row.id)}" ${ids.has(row.id)?'checked':''}><span><strong>${esc(row.keyword)}</strong> · ${esc(row.intent)}<small>${esc([location,metric&&metric.name+' '+metric.value].filter(Boolean).join(' · '))}</small>${excerpt?`<small>${esc(excerpt)}</small>`:''}</span></label>`;
+  }).join('');
+  const pager=pages>1?`<div class="acts"><button type="button" data-kw-pick="prev" ${page===0?'disabled':''}>上一页</button><span>${page+1} / ${pages}</span><button type="button" data-kw-pick="next" ${page+1>=pages?'disabled':''}>下一页</button></div>`:'';
+  box.innerHTML=`<fieldset><legend>${esc(batch.scope.name)} · 保留哪些词</legend><div class="acts"><button type="button" data-kw-pick="all">全选</button><button type="button" data-kw-pick="none">全不选</button><output>已选 ${ids.size} 个</output></div>${choices}${pager}<div class="acts"><button class="btn" type="button" data-kw-pick="save">保存选中的词</button><button class="btn ghost" type="button" data-kw-pick="discard">放弃本次导入</button></div></fieldset>`;
+}
+document.getElementById('keyword-preview')?.addEventListener('change',e=>{
+  const id=e.target.dataset.kwId;
+  if(!id||!keywordPreview)return;
+  if(e.target.checked)keywordPreview.ids.add(id);else keywordPreview.ids.delete(id);
+  e.currentTarget.querySelector('output').textContent='已选 '+keywordPreview.ids.size+' 个';
+});
+document.getElementById('keyword-preview')?.addEventListener('click',async e=>{
+  const act=e.target.closest('[data-kw-pick]')?.dataset.kwPick,d=keywordPreview;if(!act||!d||d.customerId!==keywordCustomer()?.id)return;
+  if(act==='all'||act==='none'){d.ids=new Set(act==='all'?d.batch.items.map(r=>r.id):[]);showKeywordPreview();return;}
+  if(act==='prev'||act==='next'){d.page+=act==='next'?1:-1;showKeywordPreview();return;}
+  if(act==='save'&&!d.ids.size){toast('请至少保留一个词，或放弃本次导入');return;}
+  const controls=e.target.closest('fieldset');controls.disabled=true;
+  try{const r=await fetch('/api/keywords/select',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({customerId:d.customerId,batchId:d.batch.id,ids:[...d.ids],discard:act==='discard'})}),result=await r.json();if(!r.ok)throw new Error(result.error);state.workspace=result;keywordPreview=null;showKeywordPreview();renderToday();const message=act==='discard'?'已放弃此次导入':'已保存 '+d.ids.size+' 个关键词';if(keywordCustomer()?.id===d.customerId)document.getElementById('keyword-import-status').textContent=message;toast(message);}catch(err){toast(err.message);}finally{controls.disabled=false;}
+});
 let keywordHunts = [], keywordHuntsLoading = false, keywordHuntsLoaded = false;
 function renderKeywordScope(customer, reset = false) {
   const type = document.getElementById('keyword-scope-type').value;
@@ -3700,10 +3734,10 @@ function renderKeywordScope(customer, reset = false) {
     keywordHunts.forEach(name => add('行业包', name));
     (state.workspace?.customers || []).forEach(c => add('已有客户行业', c.hunt));
   }
-  for (const c of state.workspace?.customers || []) {
-    for (const batch of c.keywordLibraries || []) {
-      if (batch.scope?.type === type) add('已有归属', batch.scope.name);
-    }
+  if(type==='产品品类')for(const p of state.workspace?.acquisition?.products||[])if(p.customerId===customer.id&&p.status==='active')add('本业务产品',p.name);
+  if(type==='品牌')add('当前业务',customer.name);
+  for (const batch of customer.keywordLibraries || []) {
+    if (batch.scope?.type === type) add('已有归属', batch.scope.name);
   }
   const previous = reset ? '' : select.value;
   select.innerHTML = '<option value="">请选择归属名称</option>' + [...groups].map(([group, names]) => `<optgroup label="${esc(group)}">${names.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('')}</optgroup>`).join('') + '<option value="__new__">＋ 新增归属名称</option>';
@@ -3740,6 +3774,7 @@ function renderKeywordLibrary(customer) {
     document.getElementById('keyword-scope-new').value = '';
     document.getElementById('keyword-filter').value = '';
     document.getElementById('keyword-files').value = '';
+    showKeywordPreview();
     if (!keywordImportBusy) document.getElementById('keyword-import-status').textContent = '';
   }
   renderKeywordScope(customer);
@@ -3767,15 +3802,14 @@ document.getElementById('import-keywords')?.addEventListener('click', async even
   if (existing) scopeName = existing.value;
   if (!scopeName || !files.length) { toast('请选择归属名称并选择文件；新增归属需要填写名称'); return; }
   if (files.length > 5 || files.some(f => f.size > 10 * 1024 * 1024) || files.reduce((n,f) => n + f.size, 0) > 20 * 1024 * 1024) { toast('最多5个文件，单个10MB，合计20MB'); return; }
-  const form = new FormData(); form.append('customerId', customer.id); form.append('scopeType', document.getElementById('keyword-scope-type').value); form.append('scopeName', scopeName); files.forEach(f => form.append('files', f));
+  const form = new FormData(); form.append('customerId', customer.id); form.append('scopeType', document.getElementById('keyword-scope-type').value); form.append('scopeName', scopeName);form.append('preview','1');form.append('extraction',document.getElementById('keyword-method').value); files.forEach(f => form.append('files', f));
   const button = event.currentTarget; button.disabled = true; keywordImportBusy = true;
   const status = document.getElementById('keyword-import-status'); status.textContent = '正在读取、去重并梳理需求主题，文档较多时可能需要几分钟…';
   try {
     const response = await fetch('/api/keywords/import', { method: 'POST', body: form }); const data = await response.json();
     if (!response.ok) throw new Error(data.error || '导入失败');
-    state.workspace = data; renderToday();
-    if (keywordCustomer()?.id === customer.id) { document.getElementById('keyword-files').value = ''; status.textContent = '已归入当前业务词库，下一次研究和内容生成会自动参考。'; }
-    toast('关键词已导入并整理');
+    keywordPreview={customerId:customer.id,batch:data.preview,page:0,ids:new Set(data.recommendedIds)};
+    showKeywordPreview();if(keywordCustomer()?.id===customer.id){document.getElementById('keyword-files').value='';status.textContent='已整理 '+data.preview.items.length+' 个候选词，按本业务用词预选 '+data.recommendedIds.length+' 个。';}
   } catch (error) { status.textContent = error.message; toast(error.message); }
   finally { button.disabled = false; keywordImportBusy = false; }
 });
@@ -3788,16 +3822,18 @@ document.getElementById('expand-keywords')?.addEventListener('click', async even
   const scopeSelect = document.getElementById('keyword-scope-name');
   const scopeName = (scopeSelect.value === '__new__' ? document.getElementById('keyword-scope-new').value : scopeSelect.value).trim();
   const button = event.currentTarget; button.disabled = true;
-  status.textContent = '正在取下拉词，并与当前业务资料、真实评论和对标作品比对…';
+  const provider=document.getElementById('keyword-provider').value;
+  status.textContent=provider==='5118'?'正在按种子词查询 5118…':'正在查询下拉建议并比对当前业务资料…';
   try {
-    const response = await fetch('/api/keywords/expand', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ customerId: customer.id, seeds, scopeType: document.getElementById('keyword-scope-type').value, scopeName: scopeName || customer.hunt }) });
+    const response = await fetch('/api/keywords/expand', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ customerId: customer.id, seeds, provider, scopeType: document.getElementById('keyword-scope-type').value, scopeName: scopeName || customer.hunt }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '扩展失败');
     state.workspace = data.workspace; renderToday();
     const batch = data.batch;
     const hit = (batch.items || []).filter(row => row.corpusHit > 0).length;
     status.textContent = `已扩展 ${batch.items.length} 个词并入词库${hit ? `，其中 ${hit} 个在当时业务资料、真实评论或对标作品里出现过` : '，未命中当时的业务资料、真实评论或对标作品'}。${(batch.warnings || []).join(' ')}`;
-    toast('下拉词已归入词库');
+    if(provider==='5118')status.textContent='已从 5118 取得 '+batch.items.length+' 个长尾词。'+(batch.warnings||[]).join(' ');
+    toast('扩展词已归入词库');
   } catch (error) { status.textContent = error.message; toast(error.message); }
   finally { button.disabled = false; }
 });
