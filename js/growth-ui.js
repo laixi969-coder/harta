@@ -1,3 +1,5 @@
+import { comparisonEvidenceView } from './keyword-comparison-ui.js';
+import { alignCraftReview, changeCraftReview, craftKey } from './craft-edits.js';
 import {CONTENT_JOBS,contentJob} from './content-job.js';
 import { productionStudio, updateProductionPreview, showProductionPanel } from './production-studio-ui.js';
 import { renderStandardRules, standardRuleRow, readStandardRules } from './creation-standards-ui.js';
@@ -49,14 +51,29 @@ function showProductionPages(grid,pages) {
 }
 
 const readCards = box => [...box.querySelectorAll('.growth-fact')].map(row => Object.fromEntries(['text','source','scope','status'].map(k => [k,row.querySelector(`[name="fact-${k}"]`).value])));
-const rememberInput = field => {
+const productionValues = box => Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k => [k, box.querySelector(`[name="production-${k}"]`)?.value || '']));
+function craftControls(review,fields,mode,references) {
+  if (!review) return '';
+  const labels=productionFieldLabels(mode,references);
+  const rows=alignCraftReview(review,fields).issues;
+  if (!rows.length) return '<p>本次没有具体修改建议。</p>';
+  return rows.map(issue => {
+    const button=issue.replacement && issue.start>=0 ? `<button type="button" class="btn ghost" data-growth-action="craft-edit" data-review="${esc(review.id)}" data-issue="${esc(issue.id)}" data-edit="${issue.applied?'undo':'apply'}">${issue.applied?'撤回此处':'采用到草稿'}</button>` : '';
+    return `<section class="cm-notice"><strong>${esc(labels[issue.field])}</strong><p>${esc(issue.reason)}</p><p>原文　<q>${esc(issue.quote)}</q></p>${issue.replacement?`<p>改稿　<q>${esc(issue.replacement)}</q></p>${button||'<p>这一处文字已变化，请重新诊断。</p>'}`:`<p>待补资料　${esc(issue.suggestion)}</p>`}</section>`;
+  }).join('');
+}
+const rememberInput = (field,getWorkspace) => {
   const box = field.closest('[data-growth-customer]');
   if (!box || !field.name) return;
   if (box.dataset.growthPack) {
     const key = inputKey(box), values = postInputs.get(key) || {};
     values[field.name] = field.value;
     postInputs.set(key, values);
-    if(field.name.startsWith('production-')){updateProductionPreview(box);const factReview=box.querySelector('[data-production-fact-review]');if(factReview?.dataset.completed==='true'){factReview.textContent='制作内容已变化，请重新进行事实核对。';factReview.dataset.completed='false';}const craftReview=box.querySelector('[data-production-craft-review]');if(craftReview?.dataset.completed==='true'){craftReview.textContent='制作内容已变化，请重新诊断。';craftReview.dataset.completed='false';}}
+    if(field.name.startsWith('production-')){updateProductionPreview(box);const factReview=box.querySelector('[data-production-fact-review]');if(factReview?.dataset.completed==='true'){factReview.textContent='制作内容已变化，请重新进行事实核对。';factReview.dataset.completed='false';}const craftReview=box.querySelector('[data-production-craft-review]');if(craftReview?.dataset.review && field.name!=='production-live' && getWorkspace){
+      const c=getWorkspace().customers.find(c=>c.id===box.dataset.growthCustomer),p=[...(c?.packs||[]),...(c?.drops||[])].find(p=>p.id===box.dataset.growthPack);
+      const mode=box.querySelector('[name="production-live"]').value,review=p?.craftReviews?.[craftKey(box.dataset.growthPlatform,box.dataset.growthIndex,mode)];
+      if(review)craftReview.innerHTML=craftControls(review,productionValues(box),mode,p.workReferences);
+    }else if(craftReview?.dataset.completed==='true'){craftReview.textContent='制作内容已变化，请重新诊断。';craftReview.dataset.completed='false';}}
     if (['production-cover','production-coverLayout'].includes(field.name)){const preview=box.querySelector('[data-ai-cover-preview]'),link=box.querySelector('[data-ai-cover-download]');if(preview)preview.hidden=true;if(link)link.hidden=true;}
     if ((field.name === 'production-cover' && generatedCovers.get(key)?.line !== field.value.trim()) || (field.name === 'production-coverLayout' && generatedCovers.get(key)?.layout != null && generatedCovers.get(key).layout !== field.value.trim()) || (field.name==='cover-template' && generatedCovers.get(key)?.template && generatedCovers.get(key).template!==field.value)) {
       generatedCovers.delete(key);
@@ -152,6 +169,7 @@ export function renderProduction(customerId, pack, platform, index, packSettings
     }
     return `<label>${label}<textarea name="production-${name}" aria-label="${fieldName}" maxlength="12000" rows="3">${esc(value)}</textarea></label>`;
   };
+  const craft=pack.craftReviews?.[craftKey(platform,index,mode)];
   const live = mode === 'live';
   // Keep every field in the form so switching or saving cannot lose historical
   // values, while making the current workflow the visible first choice.
@@ -177,10 +195,10 @@ export function renderProduction(customerId, pack, platform, index, packSettings
   return productionStudio({attributes:attrs(customerId,pack,platform,index), key:coverKey, platform, mode,
     job:values['production-job'] ?? draft?.job ?? contentJob(pack.topicSnapshot?.job), jobs:CONTENT_JOBS, playPackId:values['production-playPackId'] ?? draft?.playPackId ?? '', playPacks:[...CREATOR_PACKS,...(packSettings.custom||[])],version:draft?.version || 0, open:Boolean(returned)||productionOpened.has(coverKey), panel:productionViews.get(coverKey)||'script',
     changed:Object.keys(values).some(name=>name.startsWith('production-')&&name!=='production-live'),
-    stale, review:review+evidenceView+'<div data-claim-controls>'+claimControls(savedProductionClaims(pack,productionDraftKey(platform,index,live),draft),studioFields,draft?.basisRevision,pack.productScope?[]:facts)+'</div>', fields:studioFields, previewCover,
+    stale, review:review+evidenceView+comparisonEvidenceView(pack.productComparison,pack.comparisonStale)+'<div data-claim-controls>'+claimControls(savedProductionClaims(pack,productionDraftKey(platform,index,live),draft),studioFields,draft?.basisRevision,pack.productScope?[]:facts)+'</div>', fields:studioFields, previewCover,
     script:`${reviewNotice}<div class="production-ai-actions"><button type="button" class="btn ghost" data-growth-action="production-generate">AI 生成脚本建议</button><button type="button" class="btn ghost" data-growth-action="production-outline">用正文填充脚本</button><button type="button" class="btn ghost" data-growth-action="production-title-ideas">AI 生成标题候选</button></div><div data-title-ideas aria-live="polite"></div><p class="meta">仅补充空白项；生成及事实核对会消耗模型额度，结果需人工确认。打法保存后用于后续生成，不改写已有草稿。</p><details class="production-generation-help"><summary>查看生成依据与使用说明</summary><p class="meta">生成会将业务资料、人设、打法、本批参考作品快照、原稿及当前制作输入发送给配置的文本模型，并另行调用模型核对事实；核对可能产生额外调用，建议仍需人工核实。</p></details>${productionFields}<details class="ui-info"><summary aria-label="直播统计口径" title="直播统计口径"><span aria-hidden="true">ⓘ</span></summary><div>直播字段仅在制作直播时填写；草稿不会自动生成事实。排期保存在本篇，人数由你手工记录；留存与进场需属于同一场次、同一统计人群，并明确留存时点；咨询与有效咨询请按相同去重口径统计。汇总数字不会自动创建联系人。</div></details>`,
     cover:`${['cover','coverLayout'].map(productionField).join('')}<label>封面模板<select name="cover-template"><option value="ink" ${theme==='ink'?'selected':''}>深色</option><option value="paper" ${theme==='paper'?'selected':''}>浅色</option><option value="rose" ${theme==='rose'?'selected':''}>玫红</option></select></label><button type="button" class="btn ghost" data-growth-action="cover-download">下载文字封面 PNG</button><label>使用自己的封面背景图<input type="file" data-cover-background accept="image/png,image/jpeg,image/webp"></label><button type="button" class="btn ghost" data-growth-action="cover-photo">用这张图片制作封面</button><p class="meta">PNG / JPEG / WebP，最大 8 MB。本地居中裁切为竖版并叠加文字。</p>${mode==='article'?'':`<details data-photo-editor><summary>逐页实拍与标注</summary><label>添加业务实拍<input type="file" data-upload-page-photo accept="image/png,image/jpeg"></label><div data-photo-rows>${photoRows(pageInput,photoSettings,inventory,studioFields.imagePlan||'')}</div></details><button type="button" class="btn ghost" data-growth-action="image-pages">生成图文逐页模板</button><p class="meta">逐页内容每行生成一张图片，1–10 页，每页最多 90 字。请先删除不应出现在图片上的制作说明。</p><div class="production-page-grid" data-page-templates>${pagePreview.map(p=>`<figure><img width="900" height="1200" src="${esc(p.url)}" alt="第${p.number}页预览"><figcaption><a class="btn ghost" download="harta-page-${p.number}.png" href="${esc(p.url)}">下载第 ${p.number} 页</a></figcaption></figure>`).join('')}</div>`}<button type="button" class="btn ghost" data-growth-action="cover-ai" ${coverGenerating.has(coverKey)?'disabled':''}>AI 生成封面背景</button><p class="meta">封面文字与排版说明将发送给出图服务，请确认可外发。</p><button type="button" class="btn ghost" data-growth-action="assets-save">保存当前图片素材包</button><p class="meta">请先保存当前制作草稿。直播封面与图文 / 视频素材分别保存；同一图文草稿版本更新封面或图文页时会保留另一类素材。新草稿版本需要重新保存素材。</p>${savedAssets}`,
-    delivery:`<pre class="asis" data-shooting-guide ${mode!=='video'?'hidden':''}>${esc(shootingGuide(studioFields,inventory,pack.workReferences))}</pre><button type="button" class="btn ghost" data-growth-action="production-check">检查完整度</button><button type="button" class="btn ghost" data-growth-action="production-craft-review">AI 内容诊断</button><button type="button" class="btn ghost" data-growth-action="production-fact-review">AI 核对事实依据</button><details><summary>Harta 内容方法</summary><p class="meta">从读者处境找到切口，用可信依据兑现内容，再选择符合目标的自然行动；发布后按同口径数据验证假设。内容诊断引用当前草稿提出修改方向，不会自动改写，也不能预测流量或成交。</p></details><div data-production-craft-review role="status"></div><p class="meta">会将当前制作内容与业务资料发送给文本模型核对；结果是辅助意见，需人工确认。</p><div data-production-fact-review role="status"></div>${draft && !draft.live ? `<label class="cm-check"><input type="checkbox" data-production-record-play>我确认按本篇所选打法制作，并将它记录到这次作品版本供复盘</label><p class="meta">选中前请明确选择并保存本篇打法；记录是人工确认，不代表效果由打法造成。</p><button type="button" class="btn ghost" data-growth-action="production-apply" data-version="${draft.version}">将已保存草稿采用为作品文案</button>` : ''}<button type="button" class="btn ghost" data-growth-action="production-download">下载脚本</button>${mode==='article'?'<p class="meta">长文可下载后复制到公众号编辑器；不会自动发布。</p>':`<button type="button" class="btn ghost" data-growth-action="production-to-studio">打开素材编辑</button><p class="meta">带入已保存文案、制作说明及图文素材；视频需另行上传。不会自动发布。</p>`}`
+    delivery:`<pre class="asis" data-shooting-guide ${mode!=='video'?'hidden':''}>${esc(shootingGuide(studioFields,inventory,pack.workReferences))}</pre><button type="button" class="btn ghost" data-growth-action="production-check">检查完整度</button><button type="button" class="btn ghost" data-growth-action="production-craft-review">AI 内容诊断</button><button type="button" class="btn ghost" data-growth-action="production-fact-review">AI 核对事实依据</button><details><summary>Harta 内容方法</summary><p class="meta">从读者处境找到切口，用可信依据兑现内容，再选择符合目标的自然行动；发布后按同口径数据验证假设。每条改稿可以单独采用到制作草稿，也可以撤回。</p></details><div data-production-craft-review data-review="${esc(craft?.id)}" role="status">${craftControls(craft,studioFields,mode,pack.workReferences)}</div><p class="meta">会将当前制作内容与业务资料发送给文本模型核对；结果是辅助意见，需人工确认。</p><div data-production-fact-review role="status"></div>${draft && !draft.live ? `<label class="cm-check"><input type="checkbox" data-production-record-play>我确认按本篇所选打法制作，并将它记录到这次作品版本供复盘</label><p class="meta">选中前请明确选择并保存本篇打法；记录是人工确认，不代表效果由打法造成。</p><button type="button" class="btn ghost" data-growth-action="production-apply" data-version="${draft.version}">将已保存草稿采用为作品文案</button>` : ''}<button type="button" class="btn ghost" data-growth-action="production-download">下载脚本</button>${mode==='article'?'<p class="meta">长文可下载后复制到公众号编辑器；不会自动发布。</p>':`<button type="button" class="btn ghost" data-growth-action="production-to-studio">打开素材编辑</button><p class="meta">带入已保存文案、制作说明及图文素材；视频需另行上传。不会自动发布。</p>`}`
   });
 }
 export function renderPostGrowth(customerId, pack, platform, index, accounts = [], publications = [], leads = [], outcomeOnly = false, customerGoal = '', signals = [], works = null) {
@@ -229,8 +247,8 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
     event.preventDefault();const tabs=[...tab.parentElement.querySelectorAll('[data-production-tab]')],i=tabs.indexOf(tab);
     const next=tabs[event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowLeft'?-1:1)+tabs.length)%tabs.length];next.click();next.focus();
   });
-  document.addEventListener('input', event => rememberInput(event.target));
-  document.addEventListener('change', event => rememberInput(event.target));
+  document.addEventListener('input', event => rememberInput(event.target,getWorkspace));
+  document.addEventListener('change', event => rememberInput(event.target,getWorkspace));
   document.addEventListener('change', event => {
     const field=event.target;
     if(field.closest?.('[data-production-mode]')){
@@ -447,7 +465,7 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
         const latest=getWorkspace().customers.find(c=>c.id===data.customerId),latestPack=[...(latest?.drops||[]),...(latest?.packs||[])].find(p=>p.id===data.packId),latestDraft=latestPack?.productionDrafts?.[`${data.platform}|${data.index}`];
         if(latestDraft?.version!==draft.version || JSON.stringify(latestDraft?.sourceContent)!==JSON.stringify(packAsSent(latestPack).shells?.[data.platform]?.[data.index]) || !box.isConnected || value('production-live')!==mode || Object.keys(PRODUCTION_FIELDS).some(k=>value(`production-${k}`).trim()!==(draft.fields[k] || '').trim()))throw new Error('准备期间草稿或原稿已变化，请重新打开作品');
         const {openStudioWithProduction}=await import('./openfind-workbench.js');
-        if(openStudioWithProduction({customerId:data.customerId,seed:{title:draft.fields.title||'',body:draft.fields.script||'',productionNotes:productionDocument(draft.fields,mode,data.platform,inventories(data.customerId),referenceList(data.customerId,data.packId)),platform:studioPlatform,kind:mode,images,hartaSource}}))toast(bundle && bundle.version!==draft.version?'旧素材包未带入，请在工作室重新添加图片':'正在打开作品草稿，请添加素材并保存');
+        if(openStudioWithProduction({customerId:data.customerId,seed:{title:draft.fields.title||'',body:draft.fields.script||'',productionNotes:productionDocument(draft.fields,mode,data.platform,inventories(data.customerId),referenceList(data.customerId,data.packId),pack.productComparison),platform:studioPlatform,kind:mode,images,hartaSource}}))toast(bundle && bundle.version!==draft.version?'旧素材包未带入，请在工作室重新添加图片':'正在打开作品草稿，请添加素材并保存');
       }catch(error){if(box.isConnected)target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}
       return;
     }
@@ -456,12 +474,50 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
       button.disabled=true;target.dataset.completed='false';target.textContent='正在诊断当前内容…';
       try {
         const pack=[...(owner?.drops||[]),...(owner?.packs||[])].find(p=>p.id===data.packId),saved=pack&&productionDraft(pack,data.platform,data.index,mode==='live');if(!pack||job!==(saved?.job??contentJob(pack.topicSnapshot?.job))||play!==(saved?.playPackId||''))throw new Error('请先保存内容任务和本篇打法，再诊断内容');
-        const response=await fetch('/api/production-craft-review',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...data,live:mode==='live',format:mode==='live'?'':mode,fields})}),result=await response.json();if(!response.ok)throw new Error(result.error||'内容诊断失败');
+        const response=await fetch('/api/production-craft-review',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...data,live:mode==='live',format:mode==='live'?'':mode,fields,version:saved?.version||0})}),result=await response.json();if(!response.ok)throw new Error(result.error||'内容诊断失败');
         if(!box.isConnected||value('production-live')!==mode||value('production-job')!==job||value('production-playPackId')!==play||JSON.stringify(getWorkspace().customers.find(c=>c.id===data.customerId))!==ownerBefore||Object.keys(fields).some(k=>value(`production-${k}`)!==fields[k]))throw new Error('诊断期间内容或业务资料已变化，请重新诊断');
+        if(result.review){
+          pack.craftReviews||={};pack.craftReviews[craftKey(data.platform,data.index,mode)]=result.review;
+          target.dataset.review=result.review.id;target.innerHTML=craftControls(result.review,fields,mode,pack.workReferences);return;
+        }
         if(!Array.isArray(result.issues))throw new Error('内容诊断结果格式不正确');target.replaceChildren();const intro=document.createElement('p');intro.textContent=result.issues.length?`建议优先核对 ${result.issues.length} 处：`:'本次未提出具体修改项；仍请结合真实反馈与发布要求核对。';target.append(intro);
         const labels=productionFieldLabels(mode,pack.workReferences);
         for(const issue of result.issues){if(!issue||!Object.hasOwn(PRODUCTION_FIELDS,issue.field)||typeof issue.quote!=='string'||!fields[issue.field].includes(issue.quote)||typeof issue.reason!=='string'||typeof issue.suggestion!=='string')throw new Error('内容诊断结果与当前草稿不符');const row=document.createElement('p');row.textContent=`${labels[issue.field]}「${issue.quote}」：${issue.reason} 修改方向：${issue.suggestion}`;target.append(row);}target.dataset.completed='true';
-      }catch(error){if(box.isConnected)target.textContent=error.message;toast(error.message);}finally{button.disabled=false;}return;
+      }catch(error){
+        if(box.isConnected){
+          const owner=getWorkspace().customers.find(c=>c.id===data.customerId),p=[...(owner?.drops||[]),...(owner?.packs||[])].find(p=>p.id===data.packId);
+          const saved=p?.craftReviews?.[craftKey(data.platform,data.index,mode)];
+          target.innerHTML=craftControls(saved,productionValues(box),mode,p?.workReferences);target.dataset.review=saved?.id||'';
+          const feedback=document.createElement('p');feedback.textContent=error.message;target.prepend(feedback);
+        }
+        toast(error.message);
+      }finally{button.disabled=false;}return;
+    }
+    if(action==='craft-edit'){
+      const mode=value('production-live'),live=mode==='live',fields=productionValues(box),key=inputKey(box);
+      const c=getWorkspace().customers.find(c=>c.id===data.customerId),p=[...(c?.packs||[]),...(c?.drops||[])].find(p=>p.id===data.packId);
+      const draft=productionDraft(p,data.platform,data.index,live),reviewKey=key+'|'+(live?'live':'post'),generationReview=generationReviews.get(reviewKey);
+      const review=p?.craftReviews?.[craftKey(data.platform,data.index,mode)],issue=review?.issues.find(i=>i.id===button.dataset.issue);
+      const changes=Object.fromEntries(Object.entries(fields).map(([k,v])=>['production-'+k,v]));
+      const reconcile= (map,entry) => {
+        const pending=map.get(entry),name='production-'+issue.field,typed=pending?.[name];
+        if(typeof typed==='string' && typed!==changes[name]){
+          try{pending[name]=changeCraftReview(review,{...fields,[issue.field]:typed},issue.id,button.dataset.edit).fields[issue.field];}catch{/* Keep typing that replaced the target itself. */}
+        }
+        clearSaved(map,entry,changes);
+      };
+      button.disabled=true;
+      try {
+        await save('/api/production-craft-edit',{...data,fields,version:draft?.version||0,reviewId:button.dataset.review,issueId:button.dataset.issue,action:button.dataset.edit,live,format:live?'':mode,job:value('production-job'),playPackId:value('production-playPackId'),generationReview},()=>{
+          if(issue){
+            reconcile(productionPending,reviewKey);
+            if((postInputs.get(key)?.['production-live']||mode)===mode)reconcile(postInputs,key);
+          }
+          if(generationReviews.get(reviewKey)===generationReview)generationReviews.delete(reviewKey);
+        });
+        toast(button.dataset.edit==='undo'?'已撤回这处改稿':'这处改稿已保存到制作草稿');
+      }catch(error){toast(error.message);}finally{button.disabled=false;}
+      return;
     }
     const claimKey=inputKey(box)+'|'+(value('production-live')==='live'?'live':'post');
     const claimState=()=>{
@@ -471,7 +527,7 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
       const fields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k=>[k,value('production-'+k)]));
       const cached=recentClaims.get(claimKey);
       const claims=[...new Map([...(cached?.claims||[]),...savedProductionClaims(p||{},key,d)].map(c=>[c.id,c])).values()];
-      return {claims,fields,d,basis:cached?.basis||d?.basisRevision,facts:p?.productScope?[]:owner?.factCards};
+      return {claims,fields,d,comparison:p?.productComparison,basis:cached?.basis||d?.basisRevision,facts:p?.productScope?[]:owner?.factCards};
     };
     if(action.startsWith('claim-')){
       const row=button.closest('[data-production-claim]'),state=claimState(),claim=openProductionClaims(state.claims,state.fields,state.basis,state.facts).find(c=>c.id===row?.dataset.productionClaim);
@@ -568,7 +624,7 @@ export function installGrowthUI({ getWorkspace, setWorkspace, render, toast }) {
     if (action === 'production-check') { const fields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k=>[k,value(`production-${k}`)]));const customer=getWorkspace().customers.find(c=>c.id===data.customerId),pack=[...(customer?.drops||[]),...(customer?.packs||[])].find(p=>p.id===data.packId),mode=value('production-live');const issues=productionIssues(fields,mode==='live',data.platform,customer?.creationStandards,mode,pack?.workReferences || []);box.querySelector('[data-production-status]').textContent=issues.length?issues.join('；'):'必填字段已填写；仍需人工核对事实和发布要求。';return; }
     if (action === 'production-download') { const state=claimState();if(openProductionClaims(state.claims,state.fields,state.basis).length){toast('请先处理已标出的经营承诺');return;}const fields=Object.fromEntries(Object.keys(PRODUCTION_FIELDS).map(k=>[k,value(`production-${k}`)]));const mode=value('production-live');
       try{const response=await fetch('/api/production-download-check',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...data,live:mode==='live',fields})});if(!response.ok)throw new Error((await response.json()).error||'请重新核对制作稿');}catch(error){toast(error.message);return;}
-      const text=productionDocument(fields,mode,data.platform,inventories(data.customerId),referenceList(data.customerId,data.packId));const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='harta-script.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return; }
+      const text=productionDocument(fields,mode,data.platform,inventories(data.customerId),referenceList(data.customerId,data.packId),state.comparison);const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='harta-script.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return; }
     if (action === 'cover-download') {
       const line=value('production-cover').trim();if(!line || Array.from(line).length>28){toast('请填写 1 至 28 个字的封面文字');return;}
       const canvas=document.createElement('canvas');canvas.width=900;canvas.height=1200;const ctx=canvas.getContext('2d');if(!ctx){toast('浏览器无法制作封面');return;}

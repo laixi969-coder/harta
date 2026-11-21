@@ -407,7 +407,7 @@ function contentScope(){
   const c=ctx.getContentCustomer?.()||customer();if(!c)return '';
   const saved=businessId;businessId=c.id;
   const last=(c.drops||[]).find(p=>p.origin?.creationEntry)?.origin||{};
-  const html=`<div class="cm-panel cm-content-scope creation-brief">${c.painClusters?.staleReason?`<p class="cm-notice">${esc(c.painClusters.staleReason)} 旧归集已暂停进入选题池；请在创作方向中检查此前已采用的内容。</p>`:''}${(c.benchmarkTeardowns||[]).some(t=>t.staleReason)?'<p class="cm-notice">部分对标拆解依据已变化，旧拆解已暂停进入选题池；请在创作方向中检查此前已采用的内容。</p>':''}<div class="acts">${button('go-content-home','返回内容获客')}</div><details data-cm-detail="${c.id}:create-content"><summary>${c.drops?.length?'创作新一批内容':'开始创作第一篇内容'}</summary><div class="creation-brief-grid"><header class="creation-brief-intro"><h2>${esc(c.name)}</h2></header>${form('generate',`${creationQuestion(c)}${select('goal','这篇内容希望带来什么？',Object.entries(SIMPLE_GOALS),growthGoal(c))}<details class="cm-optional" data-cm-detail="${c.id}:creation-settings"><summary>平台、形式与传播用途</summary>${select('creationEntry','创作入口',Object.entries(CREATION_ENTRIES),last.creationEntry||'platform')}${select('distributionIntent','传播用途',Object.entries(DISTRIBUTION_INTENTS),last.distributionIntent||'natural')}${select('creationPlatform','发布平台',[['','自动选择'],['小红书','小红书'],['抖音','抖音'],['视频号','视频号'],['朋友圈','朋友圈']],last.requestedPlatform||'')}${select('creationFormat','内容形式',[['','自动选择'],['image','图文'],['video','短视频']],last.requestedFormat||'')}</details><details class="cm-optional" data-cm-detail="${c.id}:content-method"><summary>查看 Harta 内容方法</summary><p class="meta">处境 → 切口 → 兑现 → 承接 → 验证：先弄清读者的问题，用可信依据提供具体价值，再按传播、获客或成交目标设计合适的下一步。发布后用同口径数据检验假设，不保证流量或转化。</p></details><details class="cm-optional" data-cm-detail="${c.id}:content-products"><summary>选择具体产品（选填，默认使用业务介绍）</summary>${scopeFields()}</details>${referenceFields()}<button class="btn" type="submit" ${c.job?'disabled':''}>${c.job?'正在生成，请稍候…':'生成获客内容'}</button>`,c.id)}</div></details>${referenceHistory(c)}${[...(c.drops||[]),...(c.packs||[])].filter(p=>p.productReview?.required).map(p=>`<div class="cm-notice"><strong>${esc(p.title||'历史内容')}：资料已更新</strong><p>核对价格、参数和承诺后确认。</p>${p.productReview.currentHash?form('content-review',`${area('note','已核对的修改与依据','',true)}<label class="cm-check"><input type="checkbox" name="confirmed" required>已核对当前文案与最新产品资料</label>${submit('保存核对记录')}`,p.id,`data-business="${c.id}"`):'<p>原产品已停止推广，请使用有效产品重新创作。</p>'}</div>`).join('')}</div>`;if(!c.drops?.length)openDetails.add(`${c.id}:create-content`);businessId=saved;return html;
+  const html=`<div class="cm-panel cm-content-scope creation-brief">${c.painClusters?.staleReason?`<p class="cm-notice">${esc(c.painClusters.staleReason)} 旧归集已暂停进入选题池；请在创作方向中检查此前已采用的内容。</p>`:''}${(c.benchmarkTeardowns||[]).some(t=>t.staleReason)?'<p class="cm-notice">部分对标拆解依据已变化，旧拆解已暂停进入选题池；请在创作方向中检查此前已采用的内容。</p>':''}<div class="acts">${button('go-content-home','返回内容获客')}${c.keywordLibraries?.length?button('compare-from-keywords','用词库做选型对照'):''}</div><details data-cm-detail="${c.id}:create-content"><summary>${c.drops?.length?'创作新一批内容':'开始创作第一篇内容'}</summary><div class="creation-brief-grid"><header class="creation-brief-intro"><h2>${esc(c.name)}</h2></header>${form('generate',`${creationQuestion(c)}${select('goal','这篇内容希望带来什么？',Object.entries(SIMPLE_GOALS),growthGoal(c))}<details class="cm-optional" data-cm-detail="${c.id}:creation-settings"><summary>平台、形式与传播用途</summary>${select('creationEntry','创作入口',Object.entries(CREATION_ENTRIES),last.creationEntry||'platform')}${select('distributionIntent','传播用途',Object.entries(DISTRIBUTION_INTENTS),last.distributionIntent||'natural')}${select('creationPlatform','发布平台',[['','自动选择'],['小红书','小红书'],['抖音','抖音'],['视频号','视频号'],['朋友圈','朋友圈']],last.requestedPlatform||'')}${select('creationFormat','内容形式',[['','自动选择'],['image','图文'],['video','短视频']],last.requestedFormat||'')}</details><details class="cm-optional" data-cm-detail="${c.id}:content-method"><summary>查看 Harta 内容方法</summary><p class="meta">处境 → 切口 → 兑现 → 承接 → 验证：先弄清读者的问题，用可信依据提供具体价值，再按传播、获客或成交目标设计合适的下一步。发布后用同口径数据检验假设，不保证流量或转化。</p></details><details class="cm-optional" data-cm-detail="${c.id}:content-products"><summary>选择具体产品（选填，默认使用业务介绍）</summary>${scopeFields()}</details>${referenceFields()}<button class="btn" type="submit" ${c.job?'disabled':''}>${c.job?'正在生成，请稍候…':'生成获客内容'}</button>`,c.id)}</div></details>${referenceHistory(c)}${[...(c.drops||[]),...(c.packs||[])].filter(p=>p.productReview?.required).map(p=>`<div class="cm-notice"><strong>${esc(p.title||'历史内容')}：资料已更新</strong><p>核对价格、参数和承诺后确认。</p>${p.productReview.currentHash?form('content-review',`${area('note','已核对的修改与依据','',true)}<label class="cm-check"><input type="checkbox" name="confirmed" required>已核对当前文案与最新产品资料</label>${submit('保存核对记录')}`,p.id,`data-business="${c.id}"`):'<p>原产品已停止推广，请使用有效产品重新创作。</p>'}</div>`).join('')}</div>`;if(!c.drops?.length)openDetails.add(`${c.id}:create-content`);businessId=saved;return html;
 }
 export function renderCommerceUI(background=false){
   if(!ctx||busy)return;
@@ -771,6 +771,27 @@ export function installCommerceUI(context){
     else if(act==='sales-record'){openAcquisitionPage('followup',{lead:id});}
     else if(act==='open-source'){const w=rows('works').find(w=>w.id===id);if(w){workId=id;targetId=w.targetId;ctx.nav('prospecting-archive');const signalId=b.dataset.signal;if(signalId){const comment=[...document.querySelectorAll('#cm-prospecting [data-signal-id]')].find(el=>el.dataset.signalId===signalId);if(comment){comment.scrollIntoView({block:'center'});comment.focus({preventScroll:true});}else ctx.toast('已打开来源作品；原评论当前不可用');}}return;}
     else if(act==='back-videos')workId='';
+    else if(act==='comparison-source'){
+      const customer=b.closest('[data-growth-customer]')?.dataset.growthCustomer;
+      if(!customer||customer!==businessId){ctx.toast('请回到原业务查看资料');return;}
+      const option=b.dataset.option,kind=option.slice(0,option.indexOf(':')),optionId=option.slice(option.indexOf(':')+1),recordId=b.dataset.record,field=b.dataset.field;
+      const doc=field==='body'?rows('salesDocuments').find(r=>r.id===recordId):null;
+      const sku=kind==='sku'?rows('skus').find(r=>r.id===optionId):null;
+      const product=rows('products').find(r=>r.id===(sku?.productId||optionId));
+      if(!product||(field==='body'&&!doc)){ctx.toast('原记录已移除，制作页保留了引用时的原文');return;}
+      editProduct=product.id;editSku=sku?.id||'';
+      if(doc){openDetails.add(businessId+':sales-library');openDetails.add(businessId+':document-'+doc.id);}
+      ctx.nav('products');restore();
+      const formName=doc?'sales-document':sku?'sku':'product';
+      const form=[...document.querySelectorAll('#cm-products [data-cm-form]')].find(el=>el.dataset.cmForm===formName&&el.dataset.id===recordId);
+      const control=form?.elements.namedItem(field);
+      if(control){
+        control.focus({preventScroll:true});control.scrollIntoView({block:'center'});
+        const lines=control.value.split('\n'),line=Number(b.dataset.line)-1;
+        if(lines[line]!==undefined){const offset=lines.slice(0,line).reduce((n,t)=>n+t.length+1,0);control.setSelectionRange(offset,offset+lines[line].length);}
+      }
+      return;
+    }
     else if(act==='select-product'){editProduct=id;editSku='';}
     else if(act==='select-sku'){const s=rows('skus').find(s=>s.id===id);editProduct=s.productId;editSku=id;}
     else if(act==='add-sku'){editProduct=id;editSku='new';}
@@ -796,6 +817,12 @@ export function installCommerceUI(context){
       }catch(error){ctx.toast(error.message);}finally{b.disabled=false;}return;
     }
     else if(act==='benchmark-groups'){ctx.openLegacy(businessId,'benchmark');return;}
+    else if(act==='compare-from-keywords'){
+      if(!await ctx.openContent(businessId))return;
+      document.querySelector('[data-workspace-view=research]')?.click();
+      const filter=document.getElementById('keyword-filter');filter.closest('.workspace-context').open=true;
+      filter.focus();filter.scrollIntoView({block:'center'});return;
+    }
     else if(act==='keyword-scope'){
       const [type,name]=JSON.parse(id);if(!await ctx.openContent(businessId))return;
       document.querySelector('[data-workspace-view=research]')?.click();

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { makeImagePages, parseImagePages, validateImagePageSet, imagePageSetWarning, wrapCanvasText } from './image-pages.js';
 
+it('keeps a decimal measurement and closing punctuation together on product cards',()=>{
+  const ctx={measureText:text=>({width:Array.from(text).length})};
+  const lines=wrapCanvasText(ctx,'标注值1.0 升款，另看高度。',8);
+  expect(lines.join('')).toBe('标注值1.0 升款，另看高度。');
+  expect(lines.some(s=>s.includes('1.0 升款，'))).toBe(true);expect(lines.some(s=>/^[，。]/.test(s))).toBe(false);
+});
 describe('图文逐页模板',()=>{
   it('accepts 1–10 pages and refuses to truncate long content',()=>{
     expect(parseImagePages('一页')).toEqual(['一页']);

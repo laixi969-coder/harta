@@ -36,10 +36,15 @@ export function imagePageSetWarning(raw, names) {
 }
 
 export function wrapCanvasText(ctx, text, maxWidth) {
+  // Keep a measurement readable and attach closing punctuation to the previous glyph.
+  const tokens=text.match(/(?:\d+(?:\.\d+)*(?:[ \t]*(?:厘米|毫米|千克|毫升|公分|小时|分钟|cm|mm|kg|ml|升|克|米|元|%))?(?:款)?|[\s\S])[，。！？、：；）】”’]*/giu)||[];
   const lines=[];let line='';
-  for(const ch of Array.from(text)) {
-    const next=line+ch;
-    if(line && ctx.measureText(next).width>maxWidth){lines.push(line);line=ch;}else line=next;
+  for(const token of tokens){
+    const pieces=ctx.measureText(token).width>maxWidth?Array.from(token):[token];
+    for(const piece of pieces){
+      if(line && ctx.measureText(line+piece).width>maxWidth){lines.push(line);line='';}
+      line+=piece;
+    }
   }
   if(line)lines.push(line);
   return lines;

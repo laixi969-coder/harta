@@ -1,3 +1,4 @@
+import { comparisonNotes } from './comparison-copy.js';
 import { standardHits, standardRuleChecks } from './creation-standards.js';
 import { publicationChecks } from './publication-check.js';
 import { deliveryIssues } from './platform-content.js';
@@ -34,7 +35,7 @@ export function shootingGuide(fields={},assets=[],references=[]) {
     '拍摄清单',...(needs.length?needs.map(n=>match(n)?n+' · 已有文件 '+match(n):n+' · 待准备或补拍'):['待列出镜头需要的物件或场地']),
     ...(inventory.length?['业务已有素材',...inventory]:[]),...(notes?[notes]:[])].join('\n');
 }
-export function productionDocument(fields={}, format='video', platform='', assets=[],references=[]) {
+export function productionDocument(fields={}, format='video', platform='', assets=[],references=[],comparison) {
   const live=format==='live';
   const keys=live?['title','liveOpen','liveSegments','liveInteraction','liveOffer','liveClose','liveSchedule','liveAttendance','liveRetained','liveInquiries','liveQualifiedLeads','liveReview']:(PRODUCTION_COPY_FIELDS[format] || PRODUCTION_COPY_FIELDS.video).filter(key=>key!=='shootMaterials');
   const label=live?'直播':format==='article'?'公众号长文':format==='image'?'图文':'短视频';
@@ -42,7 +43,7 @@ export function productionDocument(fields={}, format='video', platform='', asset
   references=Array.isArray(references)?references:[];
   const labels=productionFieldLabels(format,references);
   const entry=key=>`${labels[key]}\n${typeof fields[key]==='string' && fields[key].trim()?fields[key]:'（未填写）'}`;
-  return [`制作类型：${label}`, ...(platform?[`平台：${platform}`]:[]), ...(format==='video'?[shootingGuide(fields,assets,references)]:[]), ...keys.map(entry), ...(format==='image'&&fields.pagePhotos?[photoNotes(fields.pagePhotos)]:[]), ...(extras.length?['其他已填写制作字段',...extras.map(entry)]:[])].join('\n\n');
+  return [`制作类型：${label}`, ...(platform?[`平台：${platform}`]:[]), ...(format==='video'?[shootingGuide(fields,assets,references)]:[]), ...keys.map(entry), ...(comparison?[comparisonNotes(comparison)]:[]), ...(format==='image'&&fields.pagePhotos?[photoNotes(fields.pagePhotos)]:[]), ...(extras.length?['其他已填写制作字段',...extras.map(entry)]:[])].join('\n\n');
 }
 // These are production inputs, not claims that the content or facts are valid.
 export function missingProductionFields(fields={},live=false,format='') {

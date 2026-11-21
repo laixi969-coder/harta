@@ -1,3 +1,4 @@
+import { openProductionEditor } from './growth-ui.js';
 import { creationIntentLabel } from './creation-intent.js';
 import { openCostSettings } from './cost-settings.js';
 import { initPlatformDataSettings, openPlatformDataSettings } from './platform-data-settings.js';
@@ -12,6 +13,7 @@ import { GROWTH_GOALS, growthGoal } from './growth.js';
 import { arrangeWorkspace, arrangeContentReader } from './customer-workspace.js';
 import { CUSTOMER_STAGES, customerStage } from './customer-stage.js';
 import { deliveryFields, platformKind, titleCount } from './platform-content.js';
+import { installKeywordComparison } from './keyword-comparison-ui.js';
 import { keywordLibraryView } from './keyword-library-view.js';
 import { attributionEntries, customerAttributions, platformOutcomes, shellFeedbackKey } from "./acquisition.js";
 import { bindEyes } from "./eyes.js";
@@ -3761,6 +3763,15 @@ document.getElementById('keyword-scope-type')?.addEventListener('change', () => 
 document.getElementById('keyword-scope-name')?.addEventListener('change', event => {
   document.getElementById('keyword-scope-new-wrap').hidden = event.target.value !== '__new__';
 });
+installKeywordComparison({getWorkspace:()=>state.workspace, currentCustomer:()=>keywordCustomer()?.id, toast,
+  open:async(customerId,result)=>{
+    state.workspace=result.workspace;
+    openProductionEditor(customerId,result.packId,result.platform,0,'script');
+    if(await useCustomer(customerId,result.packId,true)){
+      document.querySelector('[data-workspace-view=content]')?.click();
+      document.querySelector('[data-production-editor][open]')?.scrollIntoView({block:'start'});
+    }
+  }});
 function keywordCustomer() { return state.workspace?.customers?.find(c => c.id === document.getElementById('keyword-card')?.dataset.customer); }
 function renderKeywordLibrary(customer) {
   const importPanel = document.getElementById("keyword-import-panel");
@@ -3851,7 +3862,7 @@ function renderKeywordOpportunities(customer) {
   if (!board?.total) { target.innerHTML = ''; return; }
   target.innerHTML = `<h3>产品与平台的内容依据</h3><p class="meta">${esc(board.note)}</p>
     ${(board.platformBriefs || []).map(p => `<details><summary>${esc(p.platform)} · ${p.items.length}项内容依据</summary><p class="meta">${esc(p.basis)}</p>${p.items.map(i => `<p><b>${esc(i.product)} · ${esc(i.keyword)}</b><br>${esc(i.angle)} · ${esc(i.priority)}（${i.score}分）<br><span class="meta">${esc(i.metrics.map(m => `${m.name} ${m.raw}（${m.date || '日期未知'}）`).join('；') || '没有该平台的指标，仅作需求素材')}</span><br>${esc(i.consultation)}<br><span class="meta">${esc(i.reasons.join("；"))} ${esc(i.gaps.join("；"))}</span></p>`).join('')}</details>`).join('')}
-    <details><summary>优先选题与待补依据 · 展示${board.items.length}/${board.total}项</summary><p class="meta">导入词与指数仅作选题参考，发布需结合本业务可核验资料。先回答具体问题，再邀请用户补充条件。</p>${board.items.map(item => `<div class="keyword-opportunity-row"><b>${esc(item.keyword)}</b> · ${esc(item.priority)} · ${item.score}分<p>${esc(item.scope.name)} / ${esc(item.platform)} · ${esc(item.types.join('、'))}</p><p>${esc(item.angle)}</p><p class="meta">${esc(item.reasons.join('；'))}</p><p class="meta">${esc(item.gaps.join('；'))}</p>${item.trends.map(t => `<p class="meta">${esc(t.platform)} ${esc(t.metric)}：${t.previous} → ${t.current}（${esc(t.from)} 至 ${esc(t.to)}${t.change === null ? '，零基数不算涨幅' : `，变化${Math.round(t.change*100)}%`}）</p>`).join('')}</div>`).join('')}</details>`;
+    <details><summary>优先选题与待补依据 · 展示${board.items.length}/${board.total}项</summary><p class="meta">导入词与指数仅作选题参考，发布需结合本业务可核验资料。先回答具体问题，再邀请用户补充条件。</p>${board.items.map(item => `<div class="keyword-opportunity-row"><b>${esc(item.keyword)}</b> · ${esc(item.priority)} · ${item.score}分<p>${esc(item.scope.name)} / ${esc(item.platform)} · ${esc(item.types.join('、'))}</p><p>${esc(item.angle)}</p><p class="meta">${esc(item.reasons.join('；'))}</p><p class="meta">${esc(item.gaps.join('；'))}</p><button type="button" class="btn ghost" data-compare-keyword="${esc(item.keywordId)}" data-batch="${esc(item.batchId)}" data-customer="${esc(customer.id)}">做选型对照</button>${item.trends.map(t => `<p class="meta">${esc(t.platform)} ${esc(t.metric)}：${t.previous} → ${t.current}（${esc(t.from)} 至 ${esc(t.to)}${t.change === null ? '，零基数不算涨幅' : `，变化${Math.round(t.change*100)}%`}）</p>`).join('')}</div>`).join('')}</details>`;
 }
 
 for (const [id, enabled] of [['pack-share-create',true],['pack-share-revoke',false]]) {

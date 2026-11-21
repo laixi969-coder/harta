@@ -33,11 +33,12 @@ import { parseCookies, createRateLimiter, createConcurrencyGuard, clientIp, vali
 import { acquisitionWorkspace, acquisitionCapabilities, importSignals, startSearch, stopSearch, reviewSignal, attributeSignalPublication, saveAccount, preparePublication, confirmPublication, recordPublicationReview, recordInquiry, createManualContact, correctInquiryPublicationSource, correctInquiryLiveSource, saveDemandTopic, reviseDemandTopic, leadAction, generateContactSuggestion } from './lib/acquisition-workspace.mjs';
 import { agentWorkspace, createAgent, saveAgent, agentAction, startAgentTrial } from './lib/business-agents.mjs';
 import { businessSearchTerms } from './lib/problem-observation-data.mjs';
-import { verifyProductionDownload, recordProductionReview, confirmProductionClaim, proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, generateProductionReviewed, reviewProductionFacts, reviewProductionCraft, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
+import { verifyProductionDownload, recordProductionReview, confirmProductionClaim, proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, generateProductionReviewed, reviewProductionFacts, reviewProductionCraft, editProductionCraft, createKeywordComparison, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
 import { expandKeywordsForCustomer, aggregatePains, teardownForCustomer, teardownAccountForCustomer, rebuildPlaybook, topicPoolFor, decideTopic, decideRadarWork, importRadarSamples, refreshPlaybookAfterFeedback, calibrateHuntFor } from './lib/research-tools.mjs';
 import { rewriteOrganicPost } from './lib/generate.mjs';
 import {searchShortReferences,saveShortReference} from './lib/short-references.mjs';
 import {recommendedKeywordIds} from './lib/keyword-extraction.mjs';
+import { previewKeywordComparison } from './lib/keyword-comparison.mjs';
 import { receiveKeywordBatch, prepareKeywordBatch, selectedKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
 import { saveKeywordLibrary, removeKeywordLibrary } from './lib/workspace.mjs';
 import { crawlerInstalled, readPublicSource, queryRsshub } from "./lib/native-sources.mjs";
@@ -823,16 +824,17 @@ async function handleApi(req, res, url) {
     } catch (err) { return json(res, err.statusCode || 400, { error: err.message }); }
   }
 
-  if (req.method === "POST" && ['/api/growth-facts/extract', '/api/growth-goal', '/api/production-draft', '/api/production-claim', '/api/live-schedule', '/api/studio-return', '/api/studio-return-action', '/api/production-apply', '/api/creation-standards', '/api/creator-profile', '/api/creator-memory', '/api/creator-packs', '/api/growth-outcomes', '/api/growth-facts', '/api/post-rewrite', '/api/post-version'].includes(url.pathname)) {
+  if (req.method === "POST" && ['/api/growth-facts/extract', '/api/growth-goal', '/api/production-draft', '/api/production-craft-edit', '/api/production-claim', '/api/live-schedule', '/api/studio-return', '/api/studio-return-action', '/api/production-apply', '/api/creation-standards', '/api/creator-profile', '/api/creator-memory', '/api/creator-packs', '/api/growth-outcomes', '/api/growth-facts', '/api/post-rewrite', '/api/post-version'].includes(url.pathname)) {
     const user = requireUser(req, res);
     if (!user) return;
     try {
-      const body = await readBody(req, url.pathname === '/api/production-draft' ? 512 * 1024 : url.pathname === '/api/growth-facts' ? 256 * 1024 : MAX_BODY);
+      const body = await readBody(req, ['/api/production-draft','/api/production-craft-edit'].includes(url.pathname) ? 512 * 1024 : url.pathname === '/api/growth-facts' ? 256 * 1024 : MAX_BODY);
       const actions = {
         '/api/growth-facts/extract': () => proposeFactCards(user.email, body),
         '/api/growth-goal': () => saveGrowthSettings(user.email, body),
         '/api/production-claim': () => confirmProductionClaim(user.email, body),
         '/api/production-draft': () => saveProductionDraft(user.email, body),
+        '/api/production-craft-edit': () => editProductionCraft(user.email, body),
         '/api/live-schedule': () => rescheduleLive(user.email, body),
         '/api/studio-return': () => stageStudioReturn(user.email, body),
         '/api/studio-return-action': () => applyStudioReturn(user.email, body),
@@ -899,9 +901,19 @@ async function handleApi(req, res, url) {
     } catch(error){return json(res,error.statusCode||400,{error:error.message||'素材操作失败'});}
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/keywords/comparison') {
+    const user = requireUser(req,res); if (!user) return;
+    try {
+      const body=await readBody(req);
+      if(body.action==='preview')return json(res,200,previewKeywordComparison(readWorkspace(user.email),body));
+      if(body.action!=='create')throw new Error('请选择预览或创建对照');
+      const result=createKeywordComparison(user.email,body);
+      return json(res,200,{...result,workspace:publicWorkspace(result.workspace)});
+    }catch(error){return json(res,400,{error:error.message});}
+  }
   if (req.method === 'POST' && url.pathname === '/api/production-craft-review') {
     const user=requireUser(req,res);if(!user)return;
-    try { return json(res,200,await reviewProductionCraft(user.email,await readBody(req,512 * 1024))); }
+    try { return json(res,200,await reviewProductionCraft(user.email,await readBody(req,512 * 1024),{record:true})); }
     catch(error) { return json(res,error.statusCode || 400,{error:error.message || '内容诊断失败'}); }
   }
 

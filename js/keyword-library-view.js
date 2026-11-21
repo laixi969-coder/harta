@@ -27,7 +27,7 @@ export function keywordLibraryView(target, status, batches, customerId) {
       const nodes=shown.map(row=>{
         if(!entry.nodes.has(row.id)) {
           const tr=document.createElement('tr');
-          tr.innerHTML=`<th scope="row" data-label="关键词">${esc(row.keyword)}</th><td data-label="品类 / 品牌">${esc([row.category,row.brand].filter(Boolean).join(' / ')||batch.scope.name)}</td><td data-label="意图 / 阶段">${esc(row.intent)} / ${esc(row.stage)}</td><td data-label="拆解">${esc(row.modifiers.join('、')||'基础需求词')}</td><td data-label="来源"><details><summary>查看原始数据</summary>${row.evidence.map(e=>`<p>${esc(e.file)} ${esc(e.sheet)} · 行${e.row}<br><span class="meta">${esc(e.fields.filter(f=>f.value).map(f=>`${f.name}：${f.value}`).join('；'))}</span></p>`).join('')}</details></td>`;
+          tr.innerHTML=`<th scope="row" data-label="关键词">${esc(row.keyword)}</th><td data-label="品类 / 品牌">${esc([row.category,row.brand].filter(Boolean).join(' / ')||batch.scope.name)}</td><td data-label="意图 / 阶段">${esc(row.intent)} / ${esc(row.stage)}</td><td data-label="拆解">${esc(row.modifiers.join('、')||'基础需求词')}</td><td data-label="来源"><details><summary>查看原始数据</summary>${row.evidence.map(e=>`<p>${esc(e.file)} ${esc(e.sheet)} · 行${e.row}<br><span class="meta">${esc(e.fields.filter(f=>f.value).map(f=>`${f.name}：${f.value}`).join('；'))}</span></p>`).join('')}</details><button type="button" class="btn ghost" data-compare-keyword="${esc(row.id)}" data-batch="${esc(batch.id)}" data-customer="${esc(customerId)}">做选型对照</button></td>`;
           entry.nodes.set(row.id,tr);
         }
         return entry.nodes.get(row.id);
