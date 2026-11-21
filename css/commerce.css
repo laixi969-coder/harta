@@ -258,6 +258,7 @@ section[data-view="openfind"]:not(.hidden){display:flex;flex:1;min-height:0;widt
 .cm-qualification { border-block-start:1px solid var(--border); margin-block:16px; padding-block-start:12px; overflow-wrap:anywhere }
 .cm-qualification .cm-tag { margin-inline-start:4px }
 .cm-qualification [data-grade-code="A"] { background:var(--feature-bg); color:var(--feature-ink) }
+.cm-qualification blockquote { margin:10px 0; padding-inline-start:12px; border-inline-start:2px solid var(--border) }
 .cm-qualification [hidden] { display:none }
 @media (max-width:860px) { .cm-grade-filters { grid-template-columns:repeat(2,minmax(0,1fr)) } }
 .cm-grade-outcomes { border-collapse:collapse; width:100%; margin-block:10px }

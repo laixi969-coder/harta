@@ -21,7 +21,7 @@ export function qualificationHistory(lead, scopeId, {esc,panel,stamp}) {
     const a=e.assessment || {};
     return '<article><p><strong>'+esc(LEVEL[e.before])+' → '+esc(LEVEL[e.after])+'</strong> · '+stamp(e.at)+'</p><p>'+esc(e.note)+'</p>'+
       (a.cleared?'<p class="meta">已撤销评定</p>':'<p class="meta">'+esc([FIT[a.fit],NEED[a.need],COMMITMENT[a.commitment]].join(' · '))+' · '+esc(a.sourceLabel)+' · '+stamp(a.observedAt)+'</p>')+
-      (a.quote?'<blockquote class="cm-evidence">'+esc(a.quote)+'</blockquote>':'')+
+      (a.quote?'<blockquote class="cm-quote">'+esc(a.quote)+'</blockquote>':'')+
       (e.fitCriteria?'<p class="meta">当时标准 v'+esc(a.policyRevision || 0)+' · '+esc(e.fitCriteria)+' · '+esc((e.qualifiedActions || []).map(k=>COMMITMENT[k]).join('、'))+'</p>':'')+'</article>';
   }).join(''));
 }
@@ -38,13 +38,13 @@ export function qualificationView(lead, scope, policy, ui) {
     select('fit','业务适配',Object.entries(FIT),facts?.fit || 'unknown')+'<p class="meta">'+esc(policy.fitCriteria)+'</p>'+
     select('need','客户需求',Object.entries(NEED),facts?.need || 'unknown')+
     select('commitment','客户已同意的下一步',Object.entries(COMMITMENT),facts?.commitment || 'none')+
-    '<label>评定来源<select name="sourceKey" data-qualification-source>'+options+'</select></label><blockquote data-grade-quote class="cm-evidence"></blockquote>'+
+    '<label>评定来源<select name="sourceKey" data-qualification-source>'+options+'</select></label><blockquote data-grade-quote class="cm-quote"></blockquote>'+
     field('observedAt','实际沟通时间',followupLocalTime(facts?.sourceKey==='note' ? facts.observedAt : ''),true,'datetime-local')+
     area('note','本次判断依据','',true,2000)+'<output data-grade-preview data-actions="'+esc(JSON.stringify(policy.actions))+'" aria-live="polite"></output>'+submit(facts?'保存重新评定':'保存评定');
   const editor=['A','B','C','pending','unfit'].includes(scope.code) ? panel('grade-edit-'+lead.id+'-'+scope.scopeId,facts?'重新评定':'评定线索',form('qualify-lead',fields,lead.id,'',key)) : '';
   const source=scope.sources.find(s=>s.key===facts?.sourceKey);
   const plan= ['A','B'].includes(scope.code) && !scope.review ? button('schedule-qualified','安排下一步',scope.scopeId || lead.id) : '';
-  const evidence=facts ? '<details class="cm-support"><summary>查看评定依据</summary><p>'+esc([FIT[facts.fit],NEED[facts.need],COMMITMENT[facts.commitment]].join(' · '))+'</p><p>'+esc(facts.note)+'</p><p class="meta">'+esc(facts.sourceLabel)+' · '+stamp(facts.observedAt)+'</p>'+(facts.quote?'<blockquote class="cm-evidence">'+esc(facts.quote)+'</blockquote>':'')+(source?.url?anchor(source.url,'回查原评论'):'')+'</details>' : '';
+  const evidence=facts ? '<details class="cm-support"><summary>查看评定依据</summary><p>'+esc([FIT[facts.fit],NEED[facts.need],COMMITMENT[facts.commitment]].join(' · '))+'</p><p>'+esc(facts.note)+'</p><p class="meta">'+esc(facts.sourceLabel)+' · '+stamp(facts.observedAt)+'</p>'+(facts.quote?'<blockquote class="cm-quote">'+esc(facts.quote)+'</blockquote>':'')+(source?.url?anchor(source.url,'回查原评论'):'')+'</details>' : '';
   const clear=facts ? panel('grade-clear-'+lead.id+'-'+scope.scopeId,'撤销评定',form('clear-qualification',context+area('note','撤销原因','',true,2000)+'<p class="meta">撤销后清除本次分级，历史依据会保留。</p>'+submit('确认撤销评定'),lead.id,'',key)) : '';
   return '<section class="cm-qualification" aria-label="线索分级"><h3>线索分级 <span class="cm-tag" data-grade-code="'+esc(scope.code)+'">'+esc(gradeLabel(scope))+'</span></h3><p>'+esc(scope.next)+'</p>'+plan+evidence+editor+qualificationHistory(lead,scope.scopeId,ui)+clear+'</section>';
 }
