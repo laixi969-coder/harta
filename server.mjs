@@ -36,6 +36,7 @@ import { businessSearchTerms } from './lib/problem-observation-data.mjs';
 import { verifyProductionDownload, recordProductionReview, confirmProductionClaim, proposeFactCards, saveGrowthSettings, saveProductionDraft, rescheduleLive, validateStudioSource, stageStudioReturn, applyStudioReturn, createProductionContent, duplicateLiveSession, applyProductionDraft, generateProductionOutline, generateProductionReviewed, reviewProductionFacts, reviewProductionCraft, saveCreationStandards, saveCreatorProfile, creatorMemoryAction, saveCreatorPackSettings, saveOutcomes, saveFactCards, preparePostRewrite, applyPostVersion } from './lib/growth-workspace.mjs';
 import { expandKeywordsForCustomer, aggregatePains, teardownForCustomer, teardownAccountForCustomer, rebuildPlaybook, topicPoolFor, decideTopic, decideRadarWork, importRadarSamples, refreshPlaybookAfterFeedback, calibrateHuntFor } from './lib/research-tools.mjs';
 import { rewriteOrganicPost } from './lib/generate.mjs';
+import {searchShortReferences,saveShortReference} from './lib/short-references.mjs';
 import {recommendedKeywordIds} from './lib/keyword-extraction.mjs';
 import { receiveKeywordBatch, prepareKeywordBatch, selectedKeywordBatch, keywordCsv } from './lib/keyword-library.mjs';
 import { saveKeywordLibrary, removeKeywordLibrary } from './lib/workspace.mjs';
@@ -129,7 +130,7 @@ function rateLimit(req, key, max, windowMs, identity) {
   req.rateRetryAfter = result.retryAfter;
   return result.allowed;
 }
-const EXPENSIVE_ROUTES = new Set(['/api/production-generate', '/api/production-fact-review', '/api/production-craft-review', '/api/materials/analyze', '/api/keywords/import', '/api/keywords/expand', '/api/pain-clusters', '/api/benchmark/teardown', '/api/writing-playbook', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
+const EXPENSIVE_ROUTES = new Set(['/api/short-references/search','/api/production-generate', '/api/production-fact-review', '/api/production-craft-review', '/api/materials/analyze', '/api/keywords/import', '/api/keywords/expand', '/api/pain-clusters', '/api/benchmark/teardown', '/api/writing-playbook', '/api/pack/fix', '/api/full', '/api/post-rewrite', '/api/growth-facts/extract', '/api/research-test', '/api/llm/sync', '/api/llm/test', '/api/llm/test-vision', '/api/content/export', '/api/content/export-history']);
 EXPENSIVE_ROUTES.add('/api/production-cover');
 EXPENSIVE_ROUTES.add('/api/radar-hook-generate');
 EXPENSIVE_ROUTES.add('/api/topic-board/generate');
@@ -579,6 +580,16 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const result = removeKeywordLibrary(user.email, body.customerId, body.batchId);
     return result.error ? json(res, 400, result) : json(res, 200, publicWorkspace(result.workspace));
+  }
+
+  if(req.method==='POST' && ['/api/short-references/search','/api/short-references/save'].includes(url.pathname)){
+    const user=requireUser(req,res);if(!user)return;
+    try{
+      const input=await readBody(req);
+      if(!readWorkspace(user.email).customers.some(c=>c.id===input.customerId))return json(res,404,{error:'找不到当前业务'});
+      if(url.pathname.endsWith('/search'))return json(res,200,await searchShortReferences(input.technique));
+      const {workspace,workId}=saveShortReference(user.email,input);return json(res,200,{workspace:publicWorkspace(workspace),workId});
+    }catch(e){return json(res,400,{error:e.message||'短片操作未完成'});}
   }
 
   if (req.method === "POST" && ["/api/keywords/expand", "/api/pain-clusters", "/api/benchmark/teardown", "/api/benchmark/account", "/api/benchmark/group", "/api/account-audience", "/api/writing-playbook", "/api/topic-pool", "/api/topic-decide", "/api/radar-decision", "/api/radar-import", "/api/hunt-calibration"].includes(url.pathname)) {

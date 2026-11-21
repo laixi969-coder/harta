@@ -21,7 +21,7 @@ try{
     acquisition:{products:[{id:'vp',customerId:'music',name:'儿童小提琴',status:'active',revision:1}]}});
   process.chdir(root);
   const listener=net.createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(r=>listener.close(r));const origin='http://127.0.0.1:'+port;
-  server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_PUBLIC_ORIGIN:'',HARTA_SETUP_PASSWORD:password},stdio:['ignore','pipe','pipe']});
+  server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_PUBLIC_ORIGIN:'',HARTA_BRAVE_API_KEY:'',HARTA_SEARXNG_URL:'',HARTA_SETUP_PASSWORD:password},stdio:['ignore','pipe','pipe']});
   await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw Error('Server exited');})]);
   const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   browser=await chromium.launch({headless:true,...fs.existsSync(chrome)?{executablePath:chrome}:{}});
@@ -54,6 +54,17 @@ try{
   assert.equal(saved.length,1);assert.deepEqual(saved[0].scope,{type:'品牌',name:'小提琴工作室'});assert.deepEqual(saved[0].items.map(r=>r.keyword),['小提琴怎么选']);
   await page.locator('[data-nav=workbench]').click();const info=overview.locator('summary').filter({hasText:'补充业务资料'});if(!await info.evaluate(e=>e.parentElement.open))await info.click();
   await overview.getByRole('button',{name:'维护产品与服务'}).click();await page.getByRole('button',{name:'导入品类关键词'}).click();await page.waitForFunction(()=>document.getElementById('keyword-scope-name').value==='儿童小提琴');
+  await page.locator('[data-nav=content-home]').click();await page.locator('[data-content-tab=ideas]').click();
+  const finder=page.locator('[data-short-finder=music]');await finder.locator(':scope > summary').click();
+  await finder.locator('[data-short-field=technique]').selectOption('paper');
+  await finder.getByRole('button',{name:'找同类原片'}).click();await finder.getByRole('status').filter({hasText:'到平台'}).waitFor();
+  await finder.getByText('登记看过的原片',{exact:true}).click();
+  await finder.locator('[data-short-field=url]').fill('https://www.instagram.com/reel/Example01/');await finder.locator('[data-short-field=title]').fill('纸卡分两次揭晓');
+  await finder.locator('[data-short-field=observedAction]').fill('翻开第二张卡才看到答案');await finder.locator('[data-short-field=shortSetup]').fill('琴房桌面放两张纸卡，用手机固定拍摄');
+  await finder.locator('[data-short-field=watched]').check();await finder.getByRole('button',{name:'保存到本业务参考作品'}).click();
+  const savedFilm=page.locator('#content-radar article').filter({hasText:'纸卡分两次揭晓'});await savedFilm.getByRole('button',{name:'参考此作品'}).click();
+  await page.locator('#cm-content-scope [data-cm-form=generate]').waitFor();await page.waitForFunction(()=>document.querySelectorAll('#cm-content-scope [name=referenceWorkIds]:checked').length===1);
+  assert.equal(await page.locator('#cm-content-scope [name=creationFormat]').inputValue(),'video');assert.equal(await page.locator('#cm-content-scope [name=referenceWorkIds]:checked').count(),1);
   await page.locator('[data-nav=settings]').first().click();const admin=page.locator('#whitelist-card');if(!await admin.evaluate(e=>e.open))await admin.locator(':scope > summary').click();
   await page.locator('[data-opening]').click();await page.locator('#activation-result input').waitFor();const after=await users();assert.ok(after.whitelist.includes(fixture));assert.equal(after.openingRequests.length,0);
   const code=await page.locator('#activation-result input').inputValue();
@@ -64,5 +75,5 @@ try{
   await registration.getByRole('button',{name:'完成注册'}).click();assert.equal((await registered).status(),200);
   const session=await(await visitor.request.get(origin+'/api/me')).json();assert.equal(session.email,fixture);assert.equal(session.isAdmin,false);
   await visitor.close();
-  assert.deepEqual(errors,[]);console.log('PASS public plan -> administrator -> manual activation -> registered member, scoped keyword preview/selection/discard, cold start. Mobile button bottoms',heights);
+  assert.deepEqual(errors,[]);console.log('PASS public plan -> administrator -> manual activation -> registered member, scoped keyword preview/selection/discard, overseas short to video brief, cold start. Mobile button bottoms',heights);
 }finally{await browser?.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}process.chdir(root);fs.rmSync(dir,{recursive:true,force:true});}

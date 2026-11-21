@@ -1,3 +1,5 @@
+import {shortFinder,installShortFinder} from './short-finder.js';
+import {shortTechnique} from './practical-shorts.js';
 import {problemObservationView} from './problem-observation-ui.js';
 import {topicBoardView} from './topic-board-ui.js';
 import {suggestedLeadIntents,leadIntentEventLabel} from './lead-intent.js';
@@ -96,7 +98,7 @@ function contentHome(){
   const c=customer(),packs=c.drops||[],packPage=actionPage(packs,contentPackPages.get(businessId)||0,8);
   const livePlans=liveSources(c).map(item=>{const p=[...(c.drops||[]),...(c.packs||[])].find(pack=>pack.id===item.packId),draft=productionDraft(p,item.platform,item.index,true),attribution=liveAttributionCounts(item.id,businessId,rows('leads'));return {...item,version:draft?.version,review:draft?.fields?.liveReview||'',metrics:liveReviewSummary(draft?.fields),messageCount:attribution.messages,contacts:attribution.contacts,linkedContacts:attribution.linkedContacts};}).sort((a,b)=>(a.time||'9999').localeCompare(b.time||'9999'));
   const radarPlatform=radarFilters.get(c.id)||'all',radar=creatorRadar(c,rows('works'),{platform:radarPlatform}),weeklyTopics=Array.isArray(c.topicBoard)?c.topicBoard.filter(p=>p.bucket==='now').length:radar.nowCount;
-  const radarRow=({work,hits,action})=>`<article class="cm-row"><div><strong>${esc(work.title||'未命名作品')}</strong><p>${esc(work.platform)}${work.authorName?` · ${esc(work.authorName)}`:''}${work.source==='manual_paste'?' · 粘贴样本，未独立核实':work.source==='douyin_official'?` · 官方列表 · ${work.officialVisibility==='public'?'公开视频':'公开状态待核对'}（仅标题）`:work.source==='wechat_api'?(work.wechat?.source==='published'?' · 已发表文章':' · 素材库，未证明发表'):''} · ${hits.length?`匹配词：${hits.slice(0,3).map(esc).join('、')}`:'当前资料未匹配到词语，请自行判断'}</p>${anchor(work.url,'回查原作品')}<label>安排<select data-radar-work="${esc(work.id)}" data-radar-customer="${esc(c.id)}" data-previous="${esc(action)}">${opts([['reset','候选'],['now','本周'],['next','下一批'],['parked','待定'],['discard','舍弃']],action)}</select></label></div>${button('reference-work','参考此作品创作',work.id)}${panel(`radar-hook-${work.id}`,'设计自己的开头',`<p class="meta">可直接写，也可让 AI 参考当前业务资料与该样本提出建议；事实和参考来源需自行核对。保存后仅在业务及参考资料未变化时带入后续创作。</p>${c.radarHooks?.[work.id]?.text?`<p class="meta">${c.radarHookStatuses?.[work.id]==='current'?'已保存 · 当前会随参考作品用于创作':'资料已变化 · 此开头暂不带入创作，请核对后重新保存'}</p>`:''}${button('radar-hook-generate','AI 换开头',work.id)}${radarHookNotices.get(`${c.id}:${work.id}`)?`<p class="meta">${esc(radarHookNotices.get(`${c.id}:${work.id}`))}</p>`:''}${form('radar-hook',`${area('text','自己的开头',c.radarHooks?.[work.id]?.text||'',false,200)}<input type="hidden" name="basis" value=""><input type="hidden" name="version" value="${esc(c.radarHooks?.[work.id]?.version||0)}">${submit('保存开头')}`,work.id)}`)}</article>`;
+  const radarRow=({work,hits,action})=>`<article class="cm-row"><div><strong>${esc(work.title||'未命名作品')}</strong><p>${esc(work.platform)}${work.authorName?` · ${esc(work.authorName)}`:''}${shortTechnique(work.shortTechnique)?' · '+esc(shortTechnique(work.shortTechnique).name)+'（已观看）':work.source==='manual_paste'?' · 粘贴样本，未独立核实':work.source==='douyin_official'?` · 官方列表 · ${work.officialVisibility==='public'?'公开视频':'公开状态待核对'}（仅标题）`:work.source==='wechat_api'?(work.wechat?.source==='published'?' · 已发表文章':' · 素材库，未证明发表'):''} · ${hits.length?`匹配词：${hits.slice(0,3).map(esc).join('、')}`:'当前资料未匹配到词语，请自行判断'}</p>${anchor(work.url,'回查原作品')}<label>安排<select data-radar-work="${esc(work.id)}" data-radar-customer="${esc(c.id)}" data-previous="${esc(action)}">${opts([['reset','候选'],['now','本周'],['next','下一批'],['parked','待定'],['discard','舍弃']],action)}</select></label></div>${button('reference-work','参考此作品创作',work.id)}${panel(`radar-hook-${work.id}`,'设计自己的开头',`<p class="meta">可直接写，也可让 AI 参考当前业务资料与该样本提出建议；事实和参考来源需自行核对。保存后仅在业务及参考资料未变化时带入后续创作。</p>${c.radarHooks?.[work.id]?.text?`<p class="meta">${c.radarHookStatuses?.[work.id]==='current'?'已保存 · 当前会随参考作品用于创作':'资料已变化 · 此开头暂不带入创作，请核对后重新保存'}</p>`:''}${button('radar-hook-generate','AI 换开头',work.id)}${radarHookNotices.get(`${c.id}:${work.id}`)?`<p class="meta">${esc(radarHookNotices.get(`${c.id}:${work.id}`))}</p>`:''}${form('radar-hook',`${area('text','自己的开头',c.radarHooks?.[work.id]?.text||'',false,200)}<input type="hidden" name="basis" value=""><input type="hidden" name="version" value="${esc(c.radarHooks?.[work.id]?.version||0)}">${submit('保存开头')}`,work.id)}`)}</article>`;
   const activeTab=contentTabs.get(businessId)||'library';
   const tabs=[['library','内容库'],['schedule','排期与直播'],['review','账号复盘'],['ideas','选题与雷达']];
   const tabPanel=(id,html)=>`<div id="content-panel-${id}" class="cm-content-tab-panel" role="tabpanel" aria-labelledby="content-tab-${id}" ${activeTab===id?'':'hidden'}>${html}</div>`;
@@ -114,7 +116,7 @@ ${wechatArticlesView(businessId,rows('works'))}
     ${tabPanel('review',`${ownAccountReview(c)}
 ${publicationReviewPanel()}`)}
     ${tabPanel('ideas',`${problemObservationView(c)}${topicBoardView(c,topicBoardStates.get(c.id)||{})}${demandTopics()}
-<section class="cm-panel" id="content-radar" tabindex="-1"><h2>内容雷达</h2><div class="acts">${button('benchmark-groups','管理对标账号与作品')}</div><p class="meta">从本业务已保存的小红书、抖音、公众号和 TikTok 作品中，按业务介绍和创作者资料的词语匹配；不是热度排名，也不代表能带来线索。已检查 ${radar.sampleSize} 条${radar.truncated?'（最多最近 500 条）':''}；本周选题共安排 ${weeklyTopics}/5（含其他来源）。TikTok 作品可作为参考，安排后默认制作小红书内容，请在选题库调整目标平台。</p><label>查看平台<select data-radar-filter aria-label="筛选雷达平台">${opts([['all','全部平台'],['小红书','小红书'],['抖音','抖音'],['公众号','公众号'],['TikTok','TikTok']],radarPlatform)}</select></label>${workImportPanel(c,'reference')}${panel('radar-import','粘贴参考样本',form('radar-import',`${select('platform','样本平台',['小红书','抖音','公众号','TikTok'])}${area('text','每条首行为标题，其余为正文；小红书和抖音样本以空行分隔，公众号文章以单独一行 --- 分隔','',true,40000)}<p class="meta">一次最多10条，每条标题最多300字、正文最多3000字；粘贴的样本及来源需自行核对，不会自动视为客户线索。</p>${submit('导入样本')}`))}${radar.items.length?radar.items.map(radarRow).join(''):`<p>${radar.hasProfile?'暂无匹配作品。可以先从主动获客读取或导入作品，再回来查看。':'先在业务资料或创作者资料中补充行业、受众和内容方向。'}</p>`}${radar.moreCandidates.length?`<details data-cm-detail="${esc(`${businessId}:radar-more`)}"><summary>更多候选（${radar.moreCandidates.length}）</summary>${radar.moreCandidates.map(radarRow).join('')}</details>`:''}${radar.discarded.length?`<details data-cm-detail="${esc(`${businessId}:radar-discarded`)}"><summary>已舍弃的作品（${radar.discarded.length}）</summary>${radar.discarded.map(w=>`<p>${esc(w.title||'未命名作品')} <label>恢复<select data-radar-work="${esc(w.id)}" data-radar-customer="${esc(c.id)}" data-previous="discard">${opts([['discard','已舍弃'],['reset','恢复候选'],['parked','移到待定']], 'discard')}</select></label></p>`).join('')}</details>`:''}</section>`)}
+<section class="cm-panel" id="content-radar" tabindex="-1"><h2>内容雷达</h2>${shortFinder(c.id)}<div class="acts">${button('benchmark-groups','管理对标账号与作品')}</div><p class="meta">从本业务已保存的国内平台、TikTok、Instagram 和 YouTube 作品中，按业务介绍和创作者资料的词语匹配；不是热度排名，也不代表能带来线索。已检查 ${radar.sampleSize} 条${radar.truncated?'（最多最近 500 条）':''}；本周选题共安排 ${weeklyTopics}/5（含其他来源）。海外作品可作为参考，安排后默认制作小红书内容，请在选题库调整目标平台。</p><label>查看平台<select data-radar-filter aria-label="筛选雷达平台">${opts([['all','全部平台'],['小红书','小红书'],['抖音','抖音'],['公众号','公众号'],['TikTok','TikTok'],['Instagram','Instagram'],['YouTube','YouTube']],radarPlatform)}</select></label>${workImportPanel(c,'reference')}${panel('radar-import','粘贴参考样本',form('radar-import',`${select('platform','样本平台',['小红书','抖音','公众号','TikTok'])}${area('text','每条首行为标题，其余为正文；小红书和抖音样本以空行分隔，公众号文章以单独一行 --- 分隔','',true,40000)}<p class="meta">一次最多10条，每条标题最多300字、正文最多3000字；粘贴的样本及来源需自行核对，不会自动视为客户线索。</p>${submit('导入样本')}`))}${radar.items.length?radar.items.map(radarRow).join(''):`<p>${radar.hasProfile?'暂无匹配作品。可以先从主动获客读取或导入作品，再回来查看。':'先在业务资料或创作者资料中补充行业、受众和内容方向。'}</p>`}${radar.moreCandidates.length?`<details data-cm-detail="${esc(`${businessId}:radar-more`)}"><summary>更多候选（${radar.moreCandidates.length}）</summary>${radar.moreCandidates.map(radarRow).join('')}</details>`:''}${radar.discarded.length?`<details data-cm-detail="${esc(`${businessId}:radar-discarded`)}"><summary>已舍弃的作品（${radar.discarded.length}）</summary>${radar.discarded.map(w=>`<p>${esc(w.title||'未命名作品')} <label>恢复<select data-radar-work="${esc(w.id)}" data-radar-customer="${esc(c.id)}" data-previous="discard">${opts([['discard','已舍弃'],['reset','恢复候选'],['parked','移到待定']], 'discard')}</select></label></p>`).join('')}</details>`:''}</section>`)}
   `;
 }
 
@@ -348,10 +350,26 @@ function duplicateContacts(lead){
  if(!similar.length)return '';
  return `<details class="cm-support"><summary>同名联系人 ${similar.length} 条（身份未确认）</summary><p>昵称相同不能证明同一人；跨平台记录保留独立，不自动合并。</p>${similar.map(other=>button('open-contact',`${other.platform} · ${other.authorName}`,other.id)).join('')}</details>`;
 }
+const contactsPerPage=10;
+function matchingContacts(leads,query){
+  const term=query.toLocaleLowerCase();
+  return leads.filter(item=>`${item.authorName||''} ${item.platform||''} ${item.authorId||''}`.toLocaleLowerCase().includes(term));
+}
+function selectContact(id){
+  const leads=rows('leads'),query=contactSearches.get(businessId)||'';
+  let index=matchingContacts(leads,query).findIndex(item=>item.id===id);
+  if(index<0){
+    index=leads.findIndex(item=>item.id===id);
+    if(index<0)return;
+    contactSearches.delete(businessId);contactSearchDrafts.delete(businessId);
+  }
+  contactId=id;
+  contactPages.set(businessId,Math.floor(index/contactsPerPage));
+}
 function conversations(){
   const leads=rows('leads');if(!leads.some(l=>l.id===contactId))contactId=leads[0]?.id||'';
   const l=leads.find(l=>l.id===contactId),ops=rows('opportunities').filter(o=>o.leadId===contactId);
-  const contactSearch=contactSearches.get(businessId)||'',contactMatches=leads.filter(item=>`${item.authorName||''} ${item.platform||''} ${item.authorId||''}`.toLocaleLowerCase().includes(contactSearch.toLocaleLowerCase())),contactPage=actionPage(contactMatches,contactPages.get(businessId)||0,10);
+  const contactSearch=contactSearches.get(businessId)||'',contactMatches=matchingContacts(leads,contactSearch),contactPage=actionPage(contactMatches,contactPages.get(businessId)||0,contactsPerPage);
   if(!ops.some(o=>o.id===opId))opId=ops[0]?.id||'';
   const op=ops.find(o=>o.id===opId);
   const accounts=rows('accounts').filter(a=>a.platform===l?.platform),agents=rows('agents').filter(a=>a.status==='enabled'&&a.versions.at(-1).config.duties.includes('接待'));
@@ -427,6 +445,7 @@ async function openLiveProduction(target) {
 export function installCommerceUI(context){
   ctx=context;
   installAcquisitionShell(context);
+  installShortFinder(context);
   document.body.addEventListener('input',event=>{if(event.target.matches('[data-target-search]'))targetSearchDrafts.set(businessId,event.target.value.slice(0,200));if(event.target.matches('[data-contact-search]'))contactSearchDrafts.set(businessId,event.target.value.slice(0,200));});
   document.body.addEventListener('keydown',event=>{
     if(event.key==='Enter' && event.target.matches('[data-target-search]')){event.preventDefault();document.querySelector('#cm-prospecting [data-cm="filter-targets"]')?.click();return;}
@@ -466,7 +485,7 @@ export function installCommerceUI(context){
         openDetails.add(`${businessId}:demand-topic-comment-${signal.id}`);restore();
         const editor=[...document.querySelectorAll('[data-cm-detail]')].find(el=>el.dataset.cmDetail===`${businessId}:demand-topic-comment-${signal.id}`);
         if(editor)editor.scrollIntoView({block:'center'});else ctx.toast('这条评论当前不能新建选题');
-      } else if (signal?.leadId) { contactId = signal.leadId; opId = ''; ctx.nav('conversations'); renderCommerceUI(); }
+      } else if (signal?.leadId) { selectContact(signal.leadId); opId = ''; ctx.nav('conversations'); renderCommerceUI(); }
       else if (!signal && work.openfindIds?.[0]) { openAcquisitionPage('comments',{note:work.openfindIds[0]}); }
       else { reviewSignalId=signal?.id||''; ctx.nav(signal?'review':'prospecting-archive'); renderCommerceUI(); if(signal){openDetails.add(`${businessId}:review-${signal.id}`);restore();} }
     } catch (error) { ctx.toast(error.message); }
@@ -522,7 +541,7 @@ export function installCommerceUI(context){
       else if(action==='manual-contact'){
         const prior=new Set((ws().acquisition?.leads||[]).map(item=>item.id)),fields=[...f.querySelectorAll('input,select,textarea')];fields.forEach(field=>field.disabled=true);
         try{await api('manual-contact',payload);}finally{fields.forEach(field=>field.disabled=false);}
-        const added=(ws().acquisition?.leads||[]).findLast(item=>item.customerId===cId&&!prior.has(item.id)&&item.platform===value.platform&&item.authorName===value.authorName.trim()&&item.authorId===(value.authorId||'').trim());if(added&&businessId===cId){contactId=added.id;opId='';}notification='联系人已保存，来源与需求待核实';
+        const added=(ws().acquisition?.leads||[]).findLast(item=>item.customerId===cId&&!prior.has(item.id)&&item.platform===value.platform&&item.authorName===value.authorName.trim()&&item.authorId===(value.authorId||'').trim());if(added&&businessId===cId){selectContact(added.id);opId='';}notification='联系人已保存，来源与需求待核实';
       }
       else if(action==='browser-collect'){await browserApi('collect',payload);browserState=await browserApi();browserPoll=setTimeout(browserRefresh,3000);}
       else if(['product','sku','business','target','work','opportunity','handoff','resume','sales-document'].includes(action)){
@@ -740,7 +759,7 @@ export function installCommerceUI(context){
       openDetails.add(`${businessId}:create-content`);openDetails.add(`${businessId}:content-references`);
       restore();
       const f=document.querySelector('#cm-content-scope [data-cm-form=generate]');
-      if(f){for(const el of f.querySelectorAll('[name=referenceWorkIds]'))el.checked=el.value===id;stash();f.scrollIntoView({block:'center'});}
+      if(f){for(const el of f.querySelectorAll('[name=referenceWorkIds]'))el.checked=el.value===id;if(shortTechnique(work.shortTechnique)){if(f.elements.creationPlatform.value==='朋友圈')f.elements.creationPlatform.value='抖音';f.elements.creationFormat.value='video';}stash();f.scrollIntoView({block:'center'});}
       return;
     }
     if(act==='comment-insights'){if(canLeaveAcquisition())ctx.openLegacy(businessId,'insights');return;}
@@ -757,10 +776,10 @@ export function installCommerceUI(context){
     else if(act==='add-sku'){editProduct=id;editSku='new';}
     else if(act==='new-product')editProduct=editSku='';
     else if(act==='open-publication-review'){contentTabs.set(businessId,'review');openDetails.add(`${businessId}:publication-review-${id}`);ctx.nav('content-home');renderCommerceUI();const item=[...document.querySelectorAll('#cm-content-home [data-cm-detail]')].find(el=>el.dataset.cmDetail===`${businessId}:publication-review-${id}`);if(item){item.open=true;item.scrollIntoView({block:'center'});}return;}
-    else if(act==='open-contact'){contactId=id;opId='';ctx.nav('conversations');}
+    else if(act==='open-contact'){selectContact(id);opId='';ctx.nav('conversations');}
     else if(act==='open-contact-history'){contactId=id;ctx.openLegacyLead(businessId,id);}
     else if(act==='select-op')opId=id;
-    else if(act==='open-need'){const o=rows('opportunities').find(o=>o.id===id);if(o){opId=o.id;contactId=o.leadId;ctx.nav('conversations');}}
+    else if(act==='open-need'){const o=rows('opportunities').find(o=>o.id===id);if(o){opId=o.id;selectContact(o.leadId);ctx.nav('conversations');}}
     else if(act==='open-live'){
       const target=liveSources(customer()).find(item=>item.id===id);
       if(!target){ctx.toast('直播场次已变化，请刷新后重试');return;}

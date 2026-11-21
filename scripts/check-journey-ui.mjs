@@ -38,10 +38,9 @@ try {
   await start.locator('[name=name]').fill('杭州厨房翻新');
   await start.locator('[name=pitch]').fill('帮助杭州家庭改造老旧厨房，先核对需求，再安排报价。');
   await start.locator('[type=submit]').click();
-  await page.locator('#cm-workbench .cm-next').waitFor();
-  assert.equal(await page.locator('#cm-workbench .cm-next .btn').innerText(),'开始内容获客');
-  await page.locator('#cm-workbench .cm-next .btn').click();
-  await page.locator('#cm-content-home [data-cm=content]').click();
+  const overview=page.locator('#cm-workbench');
+  await overview.getByRole('button',{name:'找第一条需求',exact:true}).waitFor();
+  await overview.getByRole('button',{name:'做第一篇内容',exact:true}).click();
   await page.locator('#cm-content-scope [data-cm-form=generate]').waitFor();
   assert.equal(await page.locator('#customer-journey').isVisible(),false);
   assert.equal(await page.locator('#cm-content-scope [name=goal]').inputValue(),'leads');
@@ -65,7 +64,7 @@ try {
   await page.locator('[data-cm=new-business]').click();
   const second=page.locator('#cm-workbench [data-cm-form=business]');await second.waitFor();
   await second.locator('[name=name]').fill('苏州室内设计');await second.locator('[name=pitch]').fill('为苏州业主提供室内设计服务');await second.locator('[type=submit]').click();
-  await page.locator('#cm-workbench .cm-next').waitFor();
+  await overview.getByRole('button',{name:'做第一篇内容',exact:true}).waitFor();
   await page.waitForFunction(()=>document.querySelector('#cm-workbench [data-cm-business] option:checked')?.textContent.includes('苏州'));
   assert.ok((await page.locator('#cm-workbench [data-cm-business] option:checked').innerText()).includes('苏州'));
   await page.locator('[data-nav=content-home]').click();

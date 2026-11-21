@@ -2,7 +2,7 @@ name: Harta regression
 on: [push, pull_request]
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,5 +17,6 @@ jobs:
       - run: node scripts/check-commerce-ui.mjs
       - run: node scripts/check-security-ui.mjs
       - run: node scripts/check-journey-ui.mjs
+      - run: node scripts/check-output-review-ui.mjs
       - run: node scripts/check-platform-controls.mjs
       - run: npm run test:problem-observation-ui

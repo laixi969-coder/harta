@@ -32,12 +32,17 @@ try {
   const login=await context.request.post(`${origin}/api/login`,{data:{email:'66445039@qq.com',password:'browser-only-fixture-password'}});assert.equal(login.status(),200);
   await page.goto(origin);await page.locator('#cm-workbench h1').waitFor();
   assert.equal(await page.locator('[data-view=workbench]').isVisible(),true);
+  async function openProducts(){
+    const link=page.locator('[data-nav=products]');
+    if(!await link.isVisible())await page.locator('.rail-more > summary').click();
+    await link.click();
+  }
   await page.screenshot({path:path.join(output,'workbench-desktop.png'),fullPage:true});
-  await page.locator('[data-nav=content-home]').click();await page.locator('[data-content-tab=ideas]').click();await page.getByRole('heading',{name:'内容获客',exact:true}).waitFor();
+  await page.locator('[data-nav=content-home]').click();await page.locator('[data-content-tab=ideas]').click();await page.getByRole('heading',{name:'内容创作',exact:true}).waitFor();
   await page.getByRole('button',{name:'查看 / 更新需求选题',exact:true}).click();
   await page.getByRole('heading',{name:'从真实需求选题',exact:true}).waitFor();
   await page.screenshot({path:path.join(output,'content-home-desktop.png'),fullPage:true});
-  await page.locator('[data-nav=products]').click();
+  await openProducts();
   await page.screenshot({path:path.join(output,'products-empty-desktop.png'),fullPage:true});
   const product=page.locator('#cm-products [data-cm-form=product]');
   await product.locator('[name=name]').fill('阅读灯');await product.locator('[name=facts]').fill('适合书桌，使用插座');await product.locator('[name=source]').fill('产品说明书');await product.locator('[type=submit]').click();
@@ -142,7 +147,7 @@ try {
     assert.equal(await legacyDraft.locator('[name=text]').inputValue(),fieldName==='text'?'等待期间手写的答复':'','Legacy changed '+fieldName+' preserves current input');
     await page.unroute('**/api/acquisition/suggestion',handler);
   }
-  await page.locator('[data-nav=products]').click();await page.locator(`[data-cm=write-product][data-id="${p.id}"]`).click();await page.locator('#cm-content-scope [name=productIds]').first().waitFor();assert.equal(await page.locator(`#cm-content-scope [name=productIds][value="${p.id}"]`).isChecked(),true);
+  await openProducts();await page.locator(`[data-cm=write-product][data-id="${p.id}"]`).click();await page.locator('#cm-content-scope [name=productIds]').first().waitFor();assert.equal(await page.locator(`#cm-content-scope [name=productIds][value="${p.id}"]`).isChecked(),true);
   async function contrastCheck(label) {
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const failures=await page.evaluate(()=>{
@@ -166,7 +171,7 @@ try {
   for(const theme of ['light','dark']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     for(const view of ['workbench','content-home','products','prospecting','conversations']){
-      await page.locator(`[data-nav=${view}]`).click();await contrastCheck(view+' '+theme);for(const width of [320,375,414,768]){
+      if(view==='products')await openProducts();else await page.locator(`[data-nav=${view}]`).click();await contrastCheck(view+' '+theme);for(const width of [320,375,414,768]){
         await page.setViewportSize({width,height:844});
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${view} ${theme} ${width}px overflow`);
       }
@@ -176,4 +181,4 @@ try {
     }
   }
   assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',flows:['sales knowledge approval and retrieval','strategy evidence','followup queue targets actual need','products and SKU','business draft isolation','other account videos','nested comments and XSS','independent purchasing needs','agent bound context','limited draft','manual suggestion without agent','discard suggestion after account/channel changes','direct inquiry draft account/channel scope and concurrent edits','manual send evidence','content scope','responsive light/dark'],previews:output},null,2));
-} catch(error) { if(currentPage){console.log('Visible errors',await currentPage.locator('.cm-error,.acq-error').allTextContents());await currentPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error; } finally { if(browser)await browser.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }
+} catch(error) { console.error(error.message);if(currentPage){console.log('Visible errors',await currentPage.locator('.cm-error,.acq-error').allTextContents());await currentPage.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error; } finally { if(browser)await browser.close();if(server&&server.exitCode===null){server.kill();await once(server,'exit');}fs.rmSync(dir,{recursive:true,force:true}); }
