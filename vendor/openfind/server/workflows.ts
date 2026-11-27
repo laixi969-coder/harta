@@ -1,3 +1,4 @@
+import { makeRankingSample } from '../../../lib/acquisition-ranking-sample.mjs';
 import { businessFit } from '../shared/business-fit.ts';
 import { saveCollectedNote } from './collected-note.ts';
 import { withRequestScope } from './request-budget.ts';
@@ -51,6 +52,7 @@ export function createWorkflow(input: AcquisitionInput): AcquisitionWorkflow {
   if (intentScore('', '', input.keyword).stage === 'restricted')
     throw new Error('此关键词涉及敏感主题，请使用发现作品进行内容研究，不执行个人营销线索流程');
   const w: AcquisitionWorkflow = {
+    tracksFlowRequests: true,
     id: randomUUID(),
     input,
     status: 'running',
@@ -106,26 +108,36 @@ function rankedNotes(w: AcquisitionWorkflow) {
     );
 }
 export function qualify(w: AcquisitionWorkflow) {
-  const candidates = w.commentIds
-    .map((id) => get<Comment>('comments', id))
-    .filter(
-      (c): c is Comment => !!c && c.source === w.input.mode && w.selectedNoteIds.includes(c.noteId),
-    )
-    .map((c) => ({ c, note: get<Note>('notes', c.noteId) }))
-    .filter(({ note }) => note?.platform === w.input.platform)
-    .map(({ c, note }) => ({
-      c,
-      note,
-      assessment: assessComment(c, note, Date.now(), all<Comment>('comments')),
-    }))
-    .filter((x) => x.assessment.recommended && x.assessment.withinSevenDays === true && businessFit(x.c.body,w.input).eligible)
+  const allComments=all<Comment>('comments');
+  const byId=new Map(allComments.map(c=>[c.id,c]));
+  const selected=new Set(w.selectedNoteIds);
+  const notes=new Map(all<Note>('notes').filter(n=>selected.has(n.id) && n.platform===w.input.platform && n.source===w.input.mode).map(n=>[n.id,n]));
+  const threads=new Map<string,Comment[]>();
+  for(const c of allComments) {
+    if(!notes.has(c.noteId) || c.source!==w.input.mode)continue;
+    if(!threads.has(c.noteId))threads.set(c.noteId,[]);
+    threads.get(c.noteId)!.push(c);
+  }
+  const observed=Date.now();
+  const scored=unique(w.commentIds).flatMap(id=>{
+    const c=byId.get(id),note=c && notes.get(c.noteId);
+    if(!c || !note || c.source!==w.input.mode || (c.platform && c.platform!==note.platform)) return [];
+    const a=assessComment(c,note,observed,threads.get(c.noteId)),fit=businessFit(c.body,w.input);
+    return [{c,note,a,fit,eligible:a.recommended && a.withinSevenDays===true && fit.eligible}];
+  });
+  // Partial qualification runs after each note. Freeze only after the final semantic review.
+  if(w.input.mode==='live' && w.status==='running' && w.stage==='assess' &&
+    !get<{completeBatch?:boolean}>('hartaRankingSample',w.id)?.completeBatch) {
+    put('hartaRankingSample',{...makeRankingSample(w,scored,qualificationVersion),basis:'批次快照',completeBatch:true});
+  }
+  const candidates=scored.filter(row=>row.eligible)
     .sort(
       (a, b) =>
-        b.assessment.score - a.assessment.score || b.c.createdAt.localeCompare(a.c.createdAt),
+        b.a.score - a.a.score || b.c.createdAt.localeCompare(a.c.createdAt),
     );
   const ids = new Set<string>();
   for (const { c, note } of candidates) {
-    const lead = toLead(c, note, all<Comment>('comments'));
+    const lead = toLead(c, note, threads.get(c.noteId) || []);
     lead.businessFit = {workflowId:w.id, reason:businessFit(c.body,w.input).reason};
     lead.reason += '；' + lead.businessFit.reason;
     if (ids.has(lead.id)) continue;
@@ -199,6 +211,7 @@ export async function reviewWorkflowQualification(
 
   signal?.throwIfAborted();
   qualify(w);
+  const threadContext=all<Comment>('comments');
   const current = w.leadIds.map((id) => get<Lead>('leads', id)!.commentId);
   w.qualificationReview = {
     version: qualificationVersion,
@@ -214,11 +227,11 @@ export async function reviewWorkflowQualification(
         semantic: semanticFor(
           c,
           notes.find((n) => n.id === c.noteId),
-          all<Comment>('comments'),
+          threadContext,
         ),
       })),
       notes,
-      all<Comment>('comments'),
+      threadContext,
     ),
   };
   saveWorkflow(w);

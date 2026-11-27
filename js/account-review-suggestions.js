@@ -33,6 +33,17 @@ export function accountReviewSuggestions(group) {
     if(reach.publicationId===lead.publicationId || !valid(reach,'qualifiedLeads') || reach.criteria?.trim()!==definition || !valid(lead,'views'))continue;
     suggestions.push({id:`dual:${definition}`,label:'流量与客资分开看',observation:`${title(reach)}的阅读 / 播放较高（${reach.views}），${title(lead)}的有效客资较高（${lead.qualifiedLeads}，${criterion}）；两项目标的领先作品不同。`,hypothesis:`下一篇同时记录流量和有效客资，先对照${title(reach)}与${title(lead)}的受众及咨询入口，只验证一个改动；保留「${criterion}」口径，不用总播放量代替获客效果。`,evidenceIds:[reach.outcomeId,lead.outcomeId].filter(Boolean),publicationIds:[reach.publicationId,lead.publicationId]});
   }
+  compare('shares',sample,'分享次数','shares',(high,low)=>`下一篇对照${title(high)}和${title(low)}的读者收获，试着只调整一处值得转给别人的内容，再看同窗口的分享次数。`);
+  const salesDefinitions = new Set(sample.filter(row=>
+    ['orders','revenue','refunds'].some(key=>valid(row,key)) && row.criteria?.trim()).map(row=>row.criteria.trim()));
+  for(const definition of salesDefinitions) {
+    const matched=sample.filter(row=>row.criteria?.trim()===definition);
+    for(const [key,label] of [['orders','归因订单数'],['revenue','销售额（元）'],['refunds','退款金额（元）']]) {
+      compare(key,matched,label,key+':'+definition,(high,low)=>`核对${title(high)}和${title(low)}的产品、价格与售后条件，下一篇只修改一项购买说明，按同一归因口径核对订单与退款。`);
+    }
+  }
   compare('completionRate',sample,'平台完播率','completion',(high,low)=>`下一条视频仅调整开头的信息顺序，正文与时长尽量保持可比；发布后核对平台完播率定义，在同账号同窗口记录完播率与阅读 / 播放，验证是否改善。现有数据不能判断观众在哪一秒离开。`);
-  return suggestions;
+  const byGoal={reach:['views','completion'],spread:['shares'],leads:['leads'],reach_leads:['views','leads','dual','completion'],sales:['orders','revenue','refunds']};
+  const allowed=byGoal[group.filterGoal];
+  return allowed?suggestions.filter(s=>allowed.includes(s.id.split(':')[0])):suggestions;
 }

@@ -18,13 +18,14 @@ try{
   const previous=process.cwd();process.chdir(dir);writeWorkspace('66445039@qq.com',{seedVersion:999,customers:[{id:'c1',name:'复盘建议验收',pitch:'厨房设计',hunt:'家装',drops:[],packs:[]}],usingId:'c1'});process.chdir(previous);
   const listener=net.createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(resolve=>listener.close(resolve));const origin=`http://127.0.0.1:${port}`;
   server=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:dir,env:{...process.env,PORT:String(port),HARTA_SETUP_PASSWORD:'isolated-review-password',HARTA_PUBLIC_ORIGIN:'',HARTA_TRUST_PROXY:''},stdio:['ignore','pipe','pipe']});await Promise.race([once(server.stdout,'data'),once(server,'exit').then(()=>{throw Error('Test server exited');})]);
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});const context=await browser.newContext({extraHTTPHeaders:{origin},viewport:{width:1440,height:1000},reducedMotion:'reduce'});page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const chrome=process.env.HARTA_E2E_CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  browser=await chromium.launch({headless:true,...(fs.existsSync(chrome)?{executablePath:chrome}:{})});const context=await browser.newContext({extraHTTPHeaders:{origin},viewport:{width:1440,height:1000},reducedMotion:'reduce'});page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const post=async(url,data)=>{const r=await context.request.post(origin+url,{data});assert.ok(r.ok(),await r.text());return r.json();};
   const workspace=async()=>{const r=await context.request.get(origin+'/api/acquisition');return (await r.json()).workspace;};
   await post('/api/login',{email:'66445039@qq.com',password:'isolated-review-password'});
   await post('/api/acquisition/account',{customerId:'c1',name:'厨房账号',platform:'抖音'});const accountId=(await workspace()).acquisition.accounts[0].id;
   for(const [index,title,views,leads] of [[1,'高流量作品',1000,1],[2,'高客资作品',200,5]]){
-    await post('/api/owned-publication',{customerId:'c1',accountId,title,body:'仅提供厨房设计建议',url:`https://www.douyin.com/video/1234500${index}`,publishedAt:'2026-01-01T12:00:00Z',confirmed:true});
+    await post('/api/owned-publication',{customerId:'c1',accountId,title,goal:'sales',body:'仅提供厨房设计建议',url:`https://www.douyin.com/video/1234500${index}`,publishedAt:'2026-01-01T12:00:00Z',confirmed:true});
     const publication=(await workspace()).acquisition.publications.find(p=>p.content.title===title);
     await post('/api/owned-publication-outcome',{customerId:'c1',publicationId:publication.id,start:'2026-01-01',end:'2026-01-07',source:'隔离后台样本',criteria:'按联系人去重',metrics:{views,qualifiedLeads:leads}});
   }
@@ -75,6 +76,39 @@ try{
   const channelsAccount=page.locator('[data-cm-detail="c1:owned-account"]');if(!await channelsAccount.evaluate(el=>el.open))await channelsAccount.locator('summary').click();const channelsForm=channelsAccount.locator('[data-cm-form=review-account]');await channelsForm.locator('[name=platform]').selectOption('视频号');await channelsForm.locator('[name=name]').fill('验收视频号');const channelsSaved=page.waitForResponse(r=>r.url().endsWith('/api/acquisition/account'));await channelsForm.getByRole('button',{name:'登记账号'}).click();assert.ok((await channelsSaved).ok());
   const channelsImport=page.locator('[data-cm-detail="c1:owned-import"]');if(!await channelsImport.evaluate(el=>el.open))await channelsImport.locator('summary').click();const channelsPost=channelsImport.locator('[data-cm-form=owned-publication]');await channelsPost.locator('[name=accountId]').selectOption({label:'视频号 · 验收视频号'});await channelsPost.locator('[name=title]').fill('验收视频号作品');await channelsPost.locator('[name=url]').fill('https://example.com/channels/post');await channelsPost.locator('[name=publishedAt]').fill('2026-01-01T12:00');await channelsPost.locator('[name=confirmed]').check();const channelsPublished=page.waitForResponse(r=>r.url().endsWith('/api/owned-publication'));await channelsPost.getByRole('button',{name:'登记作品'}).click();assert.ok((await channelsPublished).ok());const channelsPub=(await workspace()).acquisition.publications.find(p=>p.content?.title==='验收视频号作品');assert.equal(channelsPub.platform,'视频号');
   const channelsCard=page.locator(`[data-cm-detail="c1:owned-${channelsPub.id}"]`);if(!await channelsCard.evaluate(el=>el.open))await channelsCard.locator('summary').first().click();await channelsCard.getByText('记录 / 更新效果',{exact:true}).click();const channelsOutcome=channelsCard.locator('[data-cm-form=owned-outcome]');await channelsOutcome.locator('[name=start]').fill('2026-01-01');await channelsOutcome.locator('[name=end]').fill('2026-01-07');await channelsOutcome.locator('[name=source]').fill('隔离后台样本');await channelsOutcome.locator('[name=metric-views]').fill('23');const channelsMeasured=page.waitForResponse(r=>r.url().endsWith('/api/owned-publication-outcome'));await channelsOutcome.getByRole('button',{name:'保存效果记录'}).click();assert.ok((await channelsMeasured).ok());await channelsCard.getByText(/阅读 \/ 播放 23/).waitFor();
-  assert.deepEqual(errors,[]);console.log('PASS: audience snapshots and concurrent edits, review-window filtering, distinct reach/lead suggestions, explicit adoption, stale evidence and memory invalidation');
+  // Import a real file into the isolated server and review the distinct ledger series on mobile.
+  await page.setViewportSize({width:390,height:844});
+  const ledgerPanel=review.locator('[data-cm-detail="c1:orders-review"]');
+  await ledgerPanel.locator('summary').first().click();
+  const orderForm=ledgerPanel.locator('[data-cm-form="orders-preview"]');
+  await orderForm.locator('[name="shop"]').fill('隔离店');
+  const originals=(await workspace()).acquisition.publications.filter(p=>p.platform==='抖音').slice(0,2);
+  const csv=['订单号,退款号,日期,金额,作品链接','o1,,2026-01-01,82.50,'+originals[0].url,'o2,,2026-01-02,35,'+originals[1].url,'o1,r1,2026-01-03,2.50,','o3,,2026-01-02,8,'].join('\n');
+  await orderForm.locator('[name=file]').setInputFiles({name:'隔离样表.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+  await orderForm.getByRole('button',{name:'预览订单'}).click();
+  await ledgerPanel.getByText(/新增 3 笔订单、1 笔退款/).waitFor();
+  await orderForm.locator('[name=source]').fill('修订后的流水.csv');
+  assert.equal(await ledgerPanel.getByRole('button',{name:'确认保存流水'}).count(),0,'修改导入来源后须重新显示相应预览');
+  await orderForm.locator('[name=file]').setInputFiles({name:'修订后的流水.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+  await orderForm.getByRole('button',{name:'预览订单'}).click();
+  await ledgerPanel.locator('[data-cm-form=orders-import]').getByText(/修订后的流水/).waitFor();
+  await ledgerPanel.getByRole('button',{name:'确认保存流水'}).click();
+  await ledgerPanel.getByText('按统计窗口对账',{exact:true}).click();
+  const periodForm=ledgerPanel.locator('[data-cm-form="orders-window"]');
+  await periodForm.locator('[name=start]').fill('2026-01-01');await periodForm.locator('[name=end]').fill('2026-01-07');
+  await periodForm.locator('[name=confirmed]').check();await periodForm.getByRole('button',{name:'保存对账窗口'}).click();
+  await ledgerPanel.getByText(/2 篇作品，1 行来源待确认/).waitFor();
+  await review.locator('[data-review-goal]').selectOption('sales');
+  const ledgerGroup=review.locator('article.review-period').filter({hasText:'订单对账'});
+  await ledgerGroup.getByText(/同期还有 1 行待确认作品来源/).waitFor();
+  await ledgerGroup.getByText('归因订单数 1',{exact:true}).first().waitFor();
+  await ledgerGroup.getByText('全部指标与来源',{exact:true}).click();
+  await ledgerGroup.getByText(/退款金额（元） 2.5/).waitFor();
+  assert.equal(await review.evaluate(el=>el.scrollWidth<=el.clientWidth+2),true,'mobile review panel fits its viewport');
+  await review.locator('[data-review-goal]').selectOption('spread');
+  assert.equal(await review.locator('article.review-period').count(),0);
+  await review.getByRole('button',{name:'导入作品效果',exact:true}).click();
+  assert.equal(await review.locator('[data-cm-detail="c1:owned-csv"]').getAttribute('open'),'');
+  assert.deepEqual(errors,[]);console.log('PASS: audience snapshots and concurrent edits, review-window filtering, distinct reach/lead suggestions, explicit adoption, stale evidence and memory invalidation, order CSV preview, refund reconciliation and mobile goal comparisons');
 }catch(error){console.error(error.message);if(page)await page.screenshot({path:path.join(output,'review-failure.png'),fullPage:true}).catch(()=>{});throw error;}
 finally{server?.kill('SIGTERM');await browser?.close();fs.rmSync(dir,{recursive:true,force:true});}

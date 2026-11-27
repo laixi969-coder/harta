@@ -318,6 +318,17 @@ function packLabel(tier) {
   })[tier] || tier || "报告";
 }
 
+function batchUsageDetails(usage) {
+  if(!usage?.attempts)return '';
+  const elapsed=usage.modelElapsedMs==null?'未知':Math.round(usage.modelElapsedMs / 1000)+' 秒';
+  const stages=(usage.stages || []).map(s=>`<li>${esc(s.stage)} · ${esc(s.attempts)} 次 · ${s.elapsedMs==null?'等待时间未知':Math.round(s.elapsedMs/1000)+' 秒已记录'}${s.unknown?' · '+esc(s.unknown)+' 次结果待核实':''}${s.rejected?' · '+esc(s.rejected)+' 次供应商报错':''}</li>`).join('');
+  const estimate=usage.pricedCalls ? `<p>${esc(usage.pricedCalls)} 次有费率可查，估算 $${Number(usage.estimatedUsd).toFixed(6)}</p>` : '';
+  const posts=usage.posts ? `${esc(usage.posts)} 篇内容 · ` : '';
+  return `<details><summary>本批生成用量</summary><p>${posts}${esc(usage.attempts)} 次模型请求 · ${esc(usage.timedCalls ?? 0)} 次有耗时记录，合计 ${elapsed}</p>
+    <p>供应商返回的输入 / 输出 Token：${esc(usage.inputTokens ?? '未返回')} / ${esc(usage.outputTokens ?? '未返回')}（${esc(usage.outputReports)} 次返回输出用量）</p>
+    ${estimate}${stages?`<ul>${stages}</ul>`:''}</details>`;
+}
+
 /** 所有页面都看得见的任务条。进度来自后端真实阶段，不靠前端计时猜百分比。 */
 function renderJobCenter() {
   const box = document.getElementById("job-center");
@@ -326,7 +337,7 @@ function renderJobCenter() {
   const customers = state.workspace.customers || [];
   const active = customers.filter((c) => c.job);
   const recent = customers.filter(
-    (c) => !c.job && c.lastRun?.finishedAt && now - Number(c.lastRun.finishedAt) < RECENT_JOB_MS,
+    (c) => !c.job && c.lastRun?.finishedAt && (now - Number(c.lastRun.finishedAt) < RECENT_JOB_MS || c.lastRun.recovery?.expiresAt>now),
   );
   const rows = [
     ...active.map((customer) => {
@@ -344,12 +355,14 @@ function renderJobCenter() {
     ...recent.map((customer) => {
       const run = customer.lastRun;
       const failed = run.status === "failed";
+      const recovery=failed && run.recovery?.expiresAt>now ? run.recovery : null;
       return `<div class="job-row ${failed ? "is-failed" : "is-done"}">
         <div class="job-row-main">
           <div class="job-title"><button type="button" class="job-customer" data-using="${esc(customer.id)}">${esc(customer.name)}</button><span>${failed ? "未完成" : "已完成"}</span></div>
           <p>${esc(run.message || (failed ? `${jobLabel(run.kind)}未完成` : `${jobLabel(run.kind)}已完成`))} · 用时 ${elapsedLabel(run.startedAt, run.finishedAt)}</p>
+          ${batchUsageDetails(run.usage)}
         </div>
-        <button type="button" class="go" data-using="${esc(customer.id)}">${failed ? "查看并重试" : "打开内容"}</button>
+        ${recovery ? `<button type="button" class="go" data-resume-content="${esc(recovery.id)}" data-customer="${esc(customer.id)}">${recovery.uncertain ? '核对后继续' : '继续'+esc(recovery.stage)}</button>` : `<button type="button" class="go" data-using="${esc(customer.id)}">${failed ? "查看并重试" : "打开内容"}</button>`}
       </div>`;
     }),
   ];
@@ -2611,7 +2624,7 @@ function watchJob(customerId) {
       } else {
         for (const c of state.workspace.customers) {
           const next = data.customers.find(x=>x.id===c.id);
-          if (next) { c.job = next.job; c.lastFail = next.lastFail; }
+          if (next) { c.job = next.job; c.lastFail = next.lastFail; c.lastRun = next.lastRun; }
         }
       }
       renderJobCenter(); renderPackJob(); renderDesk(); renderCustomers();
@@ -3219,6 +3232,28 @@ document.body.addEventListener("click", async (e) => {
     toast(track === "存量" ? '已转为合作客户，可完善资料并生成内容' : '已进入诊断，可补充资料并生成报告');
     return;
   }
+  const resume=e.target.closest('[data-resume-content]');
+  if(resume){
+    const customerId=resume.dataset.customer;
+    const recovery=state.workspace.customers.find(c=>c.id===customerId)?.lastRun?.recovery;
+    if(!recovery || recovery.id!==resume.dataset.resumeContent)return;
+    if(recovery.uncertain && !window.confirm('供应商可能已收到上一次请求并计费。重新请求本步骤可能产生额外费用，是否继续？'))return;
+    resume.disabled=true;
+    try{
+      const response=await fetch('/api/today',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({customerId,resumeJobId:recovery.id,confirmUnknown:recovery.uncertain})});
+      const data=await response.json();
+      if(!response.ok){
+        if(response.status===409){
+          const latest=await fetch('/api/workspace');
+          if(latest.ok){state.workspace=await latest.json();renderJobCenter();}
+        }
+        return toast(data.error || '无法继续任务');
+      }
+      state.workspace=data;renderJobCenter();watchJob(customerId);
+    }catch{toast('网络不通，请再试');}
+    finally{resume.disabled=false;}
+    return;
+  }
   const using = e.target.closest("[data-using]");
   if (using) {
     e.preventDefault();
@@ -3652,6 +3687,7 @@ function renderGrowthResearch(customer, pack) {
     ${(strategy.opportunities || []).length ? `<details><summary>需求与选题机会</summary>${strategy.opportunities.map((o) => `<p><b>${esc(o.need)}</b> · ${esc(o.intent)}<br>${esc(o.angle)}<br><span class="meta">${esc(o.reason)} ${esc((o.sourceIds || []).join("、"))}</span></p>`).join("")}</details>` : ""}
     ${(strategy.assumptions || []).length ? `<details><summary>待核实假设</summary>${strategy.assumptions.map((a) => `<p>${esc(a)}</p>`).join("")}</details>` : ""}
     ${renderCreationPlan(pack)}
+    ${batchUsageDetails(pack.modelUsage)}
     ${(pack.execution || []).length ? `<details open><summary>${pack.execution.length}篇内容的发布顺序与制作建议</summary>${pack.execution.map((item) => `<p><b>${item.order}. ${esc(item.purpose)}</b><br>${esc(item.visual)}<br><span class="meta">${esc(item.reason)}</span></p>`).join("")}<p class="meta">完整文案与平台版本在下方内容库，可编辑、复制、排期和导出。</p></details>` : ""}
     <details><summary>研究来源与需求词</summary>${(research.sources || []).map((source) => `<p>${esc(source.id)} · <a href="${esc(safeLink(source.url))}" target="_blank" rel="noopener noreferrer">${esc(source.title)}</a><br><span class="meta">${esc(source.kind)} · ${esc(source.publishedAt || "页面日期未知")}</span></p>`).join("")}<p>${esc((research.keywords || []).map((k) => k.keyword).join("、"))}</p></details>`;
 }

@@ -9,6 +9,7 @@ export function qualificationSettings(policy, {panel,form,esc,area,submit}) {
     area('fitCriteria','本业务的适配条件',policy.fitCriteria,true,500) +
     '<fieldset><legend>可计入 A 级的客户约定</legend>'+ actions.map(([key,label]) =>
       '<label class="cm-check"><input type="checkbox" name="actions" value="'+key+'"'+(policy.actions.includes(key)?' checked':'')+'>'+esc(label)+'</label>').join('') + '</fieldset>' +
+    '<label>计入有效客资的条件<select name="effectiveCondition"><option value="commitment">业务适配、需求具体且有认可的推进约定</option><option value="fit-need"'+(policy.effectiveCondition==='fit-need'?' selected':'')+'>已核实业务适配且需求具体</option></select></label>' +
     '<label>事实复核周期（天）<input type="number" name="reviewDays" required min="1" max="365" value="'+policy.reviewDays+'"></label>' +
     '<p class="meta">保存后会按新标准重算本业务线索，已有评定会提示复核。</p>'+submit('保存本业务标准');
   return panel('qualification-policy','本业务分级标准',rules+'<p>'+esc(policy.fitCriteria)+'</p>'+panel('edit-qualification-policy','调整标准',form('qualification-policy',fields,'','',String(policy.revision))));

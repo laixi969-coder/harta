@@ -8,6 +8,7 @@ const columns = {
   completionRate:['完播率','completionRate','completion_rate','finish_rate','finish_ratio'],
   likes:['点赞','点赞数','likes','like_count'], comments:['评论','评论数','comments','comment_count'],
   collects:['收藏','收藏数','collects','collect_count'], shares:['分享','分享数','shares','share_count'],
+  orders:['订单数','归因订单数','orders'], revenue:['销售额','归因销售额','revenue'], refunds:['退款金额','refunds'],
   inquiries:['咨询次数','咨询数','inquiries'], qualifiedLeads:['有效客资','有效线索','有效线索数','qualifiedLeads','qualified_leads'],
 };
 export function previewAccountCsv(text,publications,customerId) {
@@ -24,7 +25,7 @@ export function previewAccountCsv(text,publications,customerId) {
     const identity=platform?publicationIdentity(platform,url):'',matches=publications.filter(p=>isRealEvidence(p)&&p.customerId===customerId&&p.status==='published'&&p.platform===platform&&publicationIdentity(platform,p.url)===identity);
     if(matches.length!==1)errors.push(matches.length?'链接匹配多条作品':'没有匹配的已登记发布作品');
     if(matches.length===1){if(seen.has(matches[0].id))errors.push('同一作品在文件中重复');seen.add(matches[0].id);}
-    const metrics={};for(const key of Object.keys(columns).filter(k=>!['platform','url'].includes(k))){if(index[key]==null)continue;const raw=get(key);if(!raw)continue;const normalized=key==='completionRate'?raw.replace(/%$/,'').trim():raw;const valid=/^\d+(?:\.\d+)?$/.test(normalized),v=Number(normalized);if(!valid || !Number.isFinite(v) || (key==='completionRate'?v>100:!Number.isSafeInteger(v)||v>1e12)){errors.push(`${columns[key][0]}格式无效`);continue;}metrics[key]=v;}
+    const metrics={};for(const key of Object.keys(columns).filter(k=>!['platform','url'].includes(k))){if(index[key]==null)continue;const raw=get(key);if(!raw)continue;const normalized=key==='completionRate'?raw.replace(/%$/,'').trim():raw;const valid=/^\d+(?:\.\d+)?$/.test(normalized),v=Number(normalized);if(!valid || !Number.isFinite(v) || (key==='completionRate'?v>100:['revenue','refunds'].includes(key)?v>1e12 || !/^\d+(?:\.\d{1,2})?$/.test(normalized):!Number.isSafeInteger(v)||v>1e12)){errors.push(`${columns[key][0]}格式无效`);continue;}metrics[key]=v;}
     if(!Object.keys(metrics).length)errors.push('没有有效指标');
     const pub=matches[0];return {line:i+2,platform:platform||get('platform'),url,title:pub?.content?.title||'',accountName:pub?.accountName||'',publicationId:pub?.id||'',version:pub?.metadataVersion||1,revision:pub?.revision||'',accountId:pub?.accountId||'',metrics,errors};
   });

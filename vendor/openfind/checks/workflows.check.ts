@@ -355,3 +355,25 @@ test('sample preview pauses before comments and explicit continuation reuses its
   await runWorkflow(w,execute);assert.equal(w.status,'paused');assert.deepEqual(calls,['search']);
   await runWorkflow(w,execute);assert.equal(w.status,'completed');assert.deepEqual(calls,['search','comments']);
 });
+
+test('Completed sampling freezes both shortlists and the rejected pool before later edits', async () => {
+  const {qualify}=await import('../server/workflows.ts');
+  const w=createWorkflow({...input,mode:'live',keyword:'沙发'});
+  const n={...note('freeze-work'),source:'live' as const};
+  const good={...comment(n,'freeze-good','这个沙发哪里买求链接'),source:'live' as const};
+  const other={...comment(n,'freeze-excluded','普通看法'),source:'live' as const};
+  put('notes',n);put('comments',good);put('comments',other);
+  w.stage='comments';w.selectedNoteIds=[n.id];w.commentIds=[good.id];
+  qualify(w);
+  assert.equal(get('hartaRankingSample',w.id),undefined);
+  w.commentIds.push(other.id);
+  w.stage='assess';
+  qualify(w);
+  type Sample={basis:string;entries:{commentId:string;quote:string;current:number;trial:number;excluded:boolean}[]};
+  const original=get<Sample>('hartaRankingSample',w.id)!;
+  assert.equal(original.basis,'批次快照');
+  assert.equal(original.entries.find(r=>r.commentId===good.id)?.current,1);
+  assert.equal(original.entries.find(r=>r.commentId===other.id)?.excluded,true);
+  put('comments',{...good,body:'后来的编辑'});qualify(w);
+  assert.deepEqual(get('hartaRankingSample',w.id),original);
+});

@@ -1,4 +1,4 @@
-import { gradeDistribution, qualificationDirectory } from './lead-qualification.js';
+import { gradeDistribution, qualificationDirectory, effectiveContactDirectory, contactIdentity } from './lead-qualification.js';
 import { LEAD_INTENTS } from './lead-intent.js';
 import { unansweredMessages, leadNeedsReply } from './conversation-state.js';
 import { pendingPublicationReviews } from './publication-review.js';
@@ -19,12 +19,14 @@ export function actionPage(items=[], requested=0, size=12) {
 export function businessResults(acquisition = {}, customerId) {
  const rows = key => (acquisition[key] || []).filter(r=>r.customerId===customerId&&real(r));
  const leads=rows('leads'), opportunities=rows('opportunities').filter(o=>leads.some(l=>l.id===o.leadId));
- const {contacts}=qualificationDirectory(acquisition,customerId);
- const identity=l=>JSON.stringify(l.authorId&&l.platform?['platform',l.platform,l.authorId]:['record',l.id]);
+ const {contacts,effective}=effectiveContactDirectory(acquisition,customerId);
+ const identity=contactIdentity;
+ const qualified=l=>effective.has(identity(l));
+ const contacted=l=>(l.messages||[]).some(m=>real(m)&&sent(m));
  const unique = list => new Set(list.map(identity)).size;
  const pathsFor=l=>{const paths=(Array.isArray(l.sourcePaths)?l.sourcePaths:[]).filter(p=>['active','content','unknown'].includes(p));return paths.length?paths:['unknown'];};
  const pathRows=path=>leads.filter(l=>pathsFor(l).includes(path));
- const pathMetrics=list=>({contacts:unique(list),qualified:unique(list.filter(l=>['值得跟进','已联系','沟通中','已成交'].includes(l.stage))),pendingReply:unique(list.filter(l=>!contacts.get(l.id)?.blocked&&leadNeedsReply(l)))});
+ const pathMetrics=list=>({contacts:unique(list),qualified:unique(list.filter(qualified)),contacted:unique(list.filter(contacted)),pendingReply:unique(list.filter(l=>!contacts.get(l.id)?.blocked&&leadNeedsReply(l)))});
  const activeIds=new Set(pathRows('active').map(identity)),contentIds=new Set(pathRows('content').map(identity));
  const paths=Object.fromEntries(['active','content','unknown'].map(path=>[path,pathMetrics(pathRows(path))]));
  const overlapContacts=[...activeIds].filter(id=>contentIds.has(id)).length;
@@ -37,8 +39,8 @@ export function businessResults(acquisition = {}, customerId) {
  }
  const intents=Object.fromEntries(Object.keys(LEAD_INTENTS).map(kind=>[kind,{contacts:unique(leads.filter(l=>(l.intentTracks||[]).some(t=>t.kind===kind))),completed:unique(leads.filter(l=>(l.intentTracks||[]).some(t=>t.kind===kind&&t.status==='won')))}]));
  return { paths, overlapContacts, closedGrades, grades:gradeDistribution(contacts), works:rows('works').filter(w=>!w.owned).length, pending:pendingSignals(acquisition,customerId).length,
-  contacts:unique(leads), qualified:unique(leads.filter(l=>['值得跟进','已联系','沟通中','已成交'].includes(l.stage))),
-  contacted:unique(leads.filter(l=>(l.messages||[]).some(sent))), replied:unique(leads.filter(l=>(l.messages||[]).some(m=>m.direction==='inbound'))),
+  contacts:unique(leads), qualified:unique(leads.filter(qualified)),
+  contacted:unique(leads.filter(contacted)), replied:unique(leads.filter(l=>(l.messages||[]).some(m=>m.direction==='inbound'))),
   wonNeeds:opportunities.filter(o=>o.stage==='已成交').length, wonContacts:unique(leads.filter(l=>l.stage==='已成交'||opportunities.some(o=>o.leadId===l.id&&o.stage==='已成交'))),
   published:rows('publications').filter(p=>p.status==='published').length,intents,
   revenue:null, exposures:null };

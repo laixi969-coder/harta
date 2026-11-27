@@ -11,6 +11,7 @@ import { hasOutreachJobs } from './lib/commerce-workspace.mjs';
 import { withModelAccount } from './lib/model-spend.mjs';
 import { publicImageConfig, saveImageConfig, generateCover } from './lib/image-generation.mjs';
 import { generateRadarHook, saveRadarHook } from './lib/radar-hook.mjs';
+import {orderReviewAction} from './lib/order-review.mjs';
 import { registerOwnedPublication, correctOwnedPublication, recordOwnedPublicationOutcome, importOwnedPublicationOutcomes, adoptAccountReviewMemory } from './lib/account-review.mjs';
 import {previewWorkImport,importWorks} from './lib/work-bulk-import.mjs';
 import {fetchWorkSource} from './lib/work-source-fetch.mjs';
@@ -18,6 +19,7 @@ import { saveProductionAssets, readProductionAsset, exportProductionAssets } fro
 import { withBusinessModelBudget } from './lib/model-budget.mjs';
 import { acquireDataLock } from './lib/data-lock.mjs';
 import { recordAudit, auditMonths, readAudit } from './lib/audit.mjs';
+import { batchReviewAction } from './lib/acquisition-efficiency.mjs';
 import { openFindContacts } from './lib/openfind-contacts.mjs';
 import { openFindRoute, proxyOpenFind } from './lib/openfind-proxy.mjs';
 import { openFind } from './lib/openfind-live.mjs';
@@ -86,7 +88,8 @@ import { fieldsFor } from "./lib/platform.mjs";
 import { checkPack, hasHardBlock } from "./lib/check.mjs";
 import { receiveAndAnalyzeMaterials, updateMaterialAnalysis } from "./lib/materials.mjs";
 import { createPublicSite } from './lib/public-site.mjs';
-import { readModelSpend } from './lib/model-spend.mjs';
+import { purgeExpiredContentRuns } from './lib/content-checkpoints.mjs';
+import { readModelSpend, recordProviderStatement } from './lib/model-spend.mjs';
 
 const keywordImports = new Set();
 const keywordPreviews=new Map();
@@ -391,6 +394,7 @@ async function handleApi(req, res, url) {
         return json(res,200,{customerId,name:customer.name,profile:{identity:String(customer.name||'').slice(0,2000),offering:String(customer.pitch||'').slice(0,2000),regions:String(customer.city||'').slice(0,2000),priceRange:'',value:'',proof:''},upstream:'8532f51ec89fefedb5a9eee53703097629f931ae',suggestedKeywords:businessSearchTerms(customer,space.acquisition),pitch:customer.pitch||''});
       }
       if (match[2] === '/harta/standards-review') return json(res,200,reviewStudioText(user.email,customerId,await readBody(req)));
+      if (match[2] === '/harta/batch-review') return json(res,200,batchReviewAction(user.email,customerId,await readBody(req,8192)));
       if (match[2] === '/harta/contacts') return json(res, 200, openFindContacts(readWorkspace(user.email), customerId));
       if (match[2] === '/harta/handoff') return json(res, 200, await openFind.handoff(user.email, customerId, await readBody(req)));
       if (req.method === 'POST' && (/^\/workflows\/[^/]+\/pause$/.test(match[2]) || /^\/jobs\/[^/]+\/stop$/.test(match[2]))) openFind.suspendSchedule(user.email, customerId);
@@ -456,6 +460,13 @@ async function handleApi(req, res, url) {
     const user = currentUser(req);
     if (!user) return json(res, 401, { error: "请先登录" });
     return json(res, 200, { ...user, isAdmin: isAdmin(user) });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/costs/statement') {
+    const user=requireUser(req,res);
+    if(!user)return;
+    const input=await readBody(req);
+    try {recordProviderStatement(user.email,input);return json(res,200,{saved:true});}
+    catch(error){return json(res,400,{error:error.message});}
   }
   if (req.method === 'GET' && url.pathname === '/api/costs') {
     const user = requireUser(req, res);
@@ -694,7 +705,7 @@ async function handleApi(req, res, url) {
     const user = requireUser(req, res);
     if (!user) return;
     const space = sweepStaleJobs(user.email);
-    return json(res, 200, { customers: space.customers.map(({id,name,job,lastFail}) => ({id,name,job:job || null,lastFail:lastFail || null})) });
+    return json(res, 200, { customers: space.customers.map(({id,name,job,lastFail,lastRun}) => ({id,name,job:job || null,lastFail:lastFail || null,lastRun:lastRun || null})) });
   }
 
   if (req.method === "GET" && url.pathname === "/api/workspace") {
@@ -870,6 +881,14 @@ async function handleApi(req, res, url) {
     const user=requireUser(req,res);if(!user)return;
     try{const body=await readBody(req),workspace=url.pathname==='/api/owned-publication'?registerOwnedPublication(user.email,body):url.pathname==='/api/owned-publication-correct'?correctOwnedPublication(user.email,body):recordOwnedPublicationOutcome(user.email,body);return json(res,200,publicWorkspace(workspace));}catch(error){return json(res,400,{error:error.message||'记录失败'});}
   }
+  if(req.method==='POST' && url.pathname==='/api/order-review') {
+    const user=requireUser(req,res);if(!user)return;
+    try {
+      const result=orderReviewAction(user.email,await readBody(req,3*1024*1024));
+      if(result.workspace) result.workspace=publicWorkspace(result.workspace);
+      return json(res,200,result);
+    } catch(error) {return json(res,400,{error:error.message});}
+  }
   if(req.method==='POST' && url.pathname==='/api/owned-outcomes-import') {
     const user=requireUser(req,res);if(!user)return;
     try{return json(res,200,publicWorkspace(importOwnedPublicationOutcomes(user.email,await readBody(req))));}catch(error){return json(res,400,{error:error.message||'导入失败'});}
@@ -921,7 +940,7 @@ async function handleApi(req, res, url) {
     const user=requireUser(req,res);if(!user)return;
     try {
       const input=await readBody(req,512 * 1024), result=await reviewProductionFacts(user.email,input);
-      return json(res,200,{...result,...recordProductionReview(user.email,input,input.fields,result.issues)});
+      return json(res,200,{...result,...recordProductionReview(user.email,input,input.fields,result.issues,result.excerpts || [])});
     }
     catch(error) { return json(res,error.statusCode || 400,{error:error.message || '事实核对失败'}); }
   }
@@ -943,7 +962,7 @@ async function handleApi(req, res, url) {
       const input=await readBody(req,512 * 1024), result=await generateProductionReviewed(user.email,input);
       if(result.fields){
         const fields={...result.fields,...Object.fromEntries(Object.entries(input.workingFields||{}).filter(([,v])=>v?.trim()))};
-        Object.assign(result,recordProductionReview(user.email,input,fields,[...(result.factReview?.issues||[]),...(result.warnings||[])]));
+        Object.assign(result,recordProductionReview(user.email,input,fields,[...(result.factReview?.issues||[]),...(result.warnings||[])],result.factReview?.status==='completed'?result.factReview.excerpts||[]:undefined));
       }
       return json(res,200,result);
     }
@@ -1454,6 +1473,12 @@ server.listen(PORT, "127.0.0.1", () => {
 });
 
 // Only durable user-created connections are resumed; boot creates no platform session.
+function purgeOldContent() {
+  if (maintenance) return;
+  try { purgeExpiredContentRuns(); } catch {console.error('内容检查点清理未完成');}
+}
+setImmediate(purgeOldContent);
+setInterval(purgeOldContent,60*60*1000).unref();
 hostedBrowser.startWorker();
 
 openFind.startWorker();

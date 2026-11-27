@@ -263,6 +263,7 @@ export interface LlmSettings {
   maxComments: number;
 }
 export interface AcquisitionWorkflow {
+  tracksFlowRequests?: boolean;
   previewAccepted?: boolean;
   qualificationReview?: QualificationReview;
   reviewProgress?: {

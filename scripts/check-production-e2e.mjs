@@ -1028,7 +1028,15 @@ try {
     await ownStats.locator('[name=metric-qualifiedLeads]').fill('0');
     await ownStats.locator('[name=criteria]').fill('同一联系人去重');
     await ownStats.getByRole('button', { name: '保存效果记录' }).click();
-    await reviewPanel.getByText(/历史作品验收：100 阅读.*36\.75% 平台完播率/).waitFor();
+    const comparison=reviewPanel.locator('.review-period').filter({hasText:'历史作品验收'}).first();
+    const revealMetrics=async card=>{
+        const detail=card.locator('details').filter({has:page.getByText('全部指标与来源',{exact:true})});
+        if(!await detail.evaluate(el=>el.open)) await detail.locator('summary').click();
+        return detail;
+    };
+    await comparison.getByText('历史作品验收',{exact:true}).first().waitFor();
+    let comparisonMetrics=await revealMetrics(comparison);
+    await comparisonMetrics.locator('p').filter({hasText:'历史作品验收'}).filter({hasText:/100 阅读.*36\.75% 平台完播率/}).waitFor();
     if (readWorkspace('66445039@qq.com').customers.find(c => c.id === 'c1').accountReviewOutcomes.find(r => r.publicationId === reviewPubId)?.metrics.completionRate !== 36.75)
         throw Error('owned publication completion rate was not saved');
     if (!(await ownCard.locator('details[data-cm-detail*=owned-metrics]').evaluate(el => el.open)))
@@ -1045,10 +1053,10 @@ try {
     const copiedMetrics = readWorkspace('66445039@qq.com').customers.find(c => c.id === 'c1').accountReviewOutcomes.find(r => r.publicationId === reviewPubId).metrics;
     if (copiedMetrics.views !== 100 || copiedMetrics.completionRate !== 36.75 || copiedMetrics.likes !== 8)
         throw Error('carried owned metrics lost existing values');
-    await reviewPanel.getByText(/最终视频标题：42 阅读/).waitFor();
-    const comparison = reviewPanel.locator('article').filter({ hasText: '历史作品验收：100' }).first();
-    await comparison.getByText('0 有效客资（口径：同一联系人去重）', { exact: false }).waitFor();
-    await comparison.getByText('2 有效客资（口径：同一联系人去重）', { exact: false }).waitFor();
+    comparisonMetrics=await revealMetrics(comparison);
+    await comparisonMetrics.locator('p').filter({hasText:'最终视频标题'}).filter({hasText:'42 阅读'}).waitFor();
+    await comparisonMetrics.getByText('0 有效客资（口径：同一联系人去重）', { exact: false }).waitFor();
+    await comparisonMetrics.getByText('2 有效客资（口径：同一联系人去重）', { exact: false }).waitFor();
     await comparison.getByText('打法：验收问答打法 v2', { exact: false }).waitFor();
     await comparison.getByText('打法：未记录打法', { exact: false }).waitFor();
     await comparison.locator('summary').filter({ hasText: '写下复盘假设' }).click();
@@ -1088,7 +1096,9 @@ try {
     await ownStats.locator('[name=source]').fill('更新后的后台截图');
     await ownStats.locator('[name=metric-views]').fill('75');
     await ownStats.getByRole('button', { name: '保存效果记录' }).click();
-    await reviewPanel.getByText(/更正后的历史作品：75 阅读/).waitFor();
+    const updatedComparison=reviewPanel.locator('.review-period').filter({hasText:'更正后的历史作品'}).first();
+    await updatedComparison.getByText('更正后的历史作品',{exact:true}).first().waitFor();
+    await (await revealMetrics(updatedComparison)).locator('p').filter({hasText:'更正后的历史作品'}).filter({hasText:'75 阅读'}).waitFor();
     await reviewPanel.getByText(/对照已变化，暂停用于创作/).waitFor();
     if (profileBrief(readWorkspace('66445039@qq.com').customers[0]).includes('下次对照厨房开头'))
         throw Error('stale account memory still used');

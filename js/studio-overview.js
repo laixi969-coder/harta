@@ -26,7 +26,7 @@ export function studioAcquisitionOverview(customer,acquisition={},contentStates=
   <section class="studio-paths" aria-label="两条获客主线">
     <article class="studio-lane studio-lane-active">
       <header><h2>主动截流</h2><span class="studio-path-symbol" aria-hidden="true">↗</span></header>
-      <div class="studio-path-result"><strong>${r.paths.active.qualified}</strong><span>位已核实联系人</span></div>
+      <div class="studio-path-result"><strong>${r.paths.active.qualified}</strong><span>位当前有效联系人 · ${r.paths.active.contacted} 位有实际联系记录</span></div>
       <dl class="studio-path-stats"><div><dt>待核实需求</dt><dd>${r.pending}</dd></div><div><dt>已保存目标作品</dt><dd>${works.length}</dd></div><div><dt>待回复联系人</dt><dd>${r.paths.active.pendingReply}</dd></div></dl>
       <div class="studio-demand-list"><h3>待核实的需求</h3>${signals.slice(0,2).map(s=>`<div class="studio-demand"><span>${esc(s.platform||'平台待核实')}</span><blockquote>${esc(String(s.text||'原文待补充').slice(0,140))}</blockquote><small>待核实${s.sourceType==='search_summary'?' · 搜索摘要，请先回源':''}</small></div>`).join('')||'<p class="studio-lane-empty">暂无待核实需求。</p>'}</div>
       <footer>${action('go-prospecting','搜索作品与需求 <span aria-hidden="true">↗</span>','',true)}${action('import-needs','导入已有需求')}</footer>

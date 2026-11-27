@@ -264,3 +264,26 @@ section[data-view="openfind"]:not(.hidden){display:flex;flex:1;min-height:0;widt
 .cm-grade-outcomes { border-collapse:collapse; width:100%; margin-block:10px }
 .cm-grade-outcomes :is(th,td) { text-align:start; padding:6px 8px; border-bottom:1px solid var(--border) }
 .cm-grade-outcomes caption { text-align:start; color:var(--ink-2) }
+
+#content-review .review-heading,
+#content-review .review-period > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+}
+#content-review .review-period { padding-block: 1rem; }
+#content-review .review-work-result {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: baseline;
+  gap: .25rem 1rem;
+  padding-block: .625rem;
+  overflow-wrap: anywhere;
+}
+#content-review .review-work-result small { grid-column: 1 / -1; }
+#content-review .review-period > details { margin-block: .5rem; }
+@media (max-width: 600px) {
+  #content-review .review-work-result { grid-template-columns: minmax(0, 1fr); }
+}

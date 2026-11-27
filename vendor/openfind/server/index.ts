@@ -524,7 +524,7 @@ app.post('/api/workflows/:id/review', async (req, res) => {
   }
   qualificationRuns.add(w.id);
   try {
-    await reviewWorkflowQualification(w, undefined, useModel);
+    await withRequestScope(w.id, () => reviewWorkflowQualification(w, undefined, useModel));
     w.message = `复核完成：${w.commentIds.length}条原始评论，${w.leadIds.length}条候选；原候选降级${w.qualificationReview!.removedCommentIds.length}条，补入${w.qualificationReview!.addedCommentIds.length}条`;
     put('workflows', w);
     res.json(w);

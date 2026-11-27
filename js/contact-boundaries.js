@@ -7,7 +7,7 @@ export function refusedContact(lead, signals = [], messages = lead.messages || [
   const restored = Math.max(0, ...(lead.events || []).filter(e => e.type === 'unblock').map(e => Date.parse(e.at) || 0));
   const afterRestore = date => !restored || Date.parse(date) > restored;
   return messages.some(m => isRealEvidence(m) && m.direction === 'inbound' && refusal(m.text) && afterRestore(m.receivedAt || m.createdAt))
-    || signals.some(s => isRealEvidence(s) && !s.isAuthorReply && refusal(s.text) && afterRestore(s.publishedAt));
+    || signals.some(s => isRealEvidence(s) && !s.isAuthorReply && refusal(s.text) && afterRestore(s.publishedAt || s.review?.at || s.collectedAt));
 }
 
 export function conversationHold(text = '') {
@@ -21,12 +21,25 @@ export function verifiedLeadSignal(signal, workIds) {
     (!signal.workId || workIds.has(signal.workId)) && (signal.sourceType !== 'search_summary' || Boolean(signal.searchVerification));
 }
 
+export const contactIdentity = lead => JSON.stringify(lead.authorId && lead.platform
+  ? ['platform',lead.platform,lead.authorId] : ['record',lead.id]);
+
+export function blockedContactIdentities(acquisition,customerId,leads,signals) {
+  const scoped = key => (acquisition[key] || []).filter(row=>row.customerId===customerId && isRealEvidence(row));
+  if(!signals) {
+    const works=new Set(scoped('works').map(w=>w.id));
+    signals=new Map(scoped('signals').filter(s=>verifiedLeadSignal(s,works)).map(s=>[s.id,s]));
+  }
+  const blocked=new Set();
+  for(const lead of leads || scoped('leads')) {
+    const linked=(lead.signalIds || []).map(id=>signals.get(id)).filter(s=>s && (!s.leadId || s.leadId===lead.id));
+    if(lead.doNotContact || refusedContact(lead,linked)) blocked.add(contactIdentity(lead));
+  }
+  return blocked;
+}
+
 export function leadMarketingBlocked(acquisition, lead) {
-  if (lead.doNotContact || refusedContact(lead)) return true;
-  if (!lead.signalIds?.length) return false;
-  const ids = new Set(lead.signalIds);
-  const works = new Set((acquisition.works || []).filter(w => w.customerId === lead.customerId && isRealEvidence(w)).map(w => w.id));
-  const signals = (acquisition.signals || []).filter(s => ids.has(s.id) && s.customerId === lead.customerId &&
-    (!s.leadId || s.leadId === lead.id) && verifiedLeadSignal(s,works));
-  return refusedContact(lead,signals,[]);
+  const key=contactIdentity(lead);
+  const peers=(acquisition.leads || []).filter(l=>l.customerId===lead.customerId && isRealEvidence(l) && contactIdentity(l)===key);
+  return blockedContactIdentities(acquisition,lead.customerId,peers.length ? peers : [lead]).has(key);
 }

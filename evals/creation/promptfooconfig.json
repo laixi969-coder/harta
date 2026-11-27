@@ -1,0 +1,73 @@
+{
+  "description": "创作原文检索与成稿复核",
+  "prompts": [
+    "{{industry}} {{position}}"
+  ],
+  "providers": [
+    "file://provider.mjs"
+  ],
+  "defaultTest": {
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "const r=JSON.parse(output); return r.retrieved && r.scopeClean && r.exceptionRetained && r.newClaimRetrieved && r.exactRanges && (r.mode === \"offline\" || (r.issues.length > 0 && r.generatedIssues.length === 0));"
+      }
+    ]
+  },
+  "tests": [
+    {
+      "vars": {
+        "industry": "training",
+        "position": "开头"
+      }
+    },
+    {
+      "vars": {
+        "industry": "training",
+        "position": "中间"
+      }
+    },
+    {
+      "vars": {
+        "industry": "training",
+        "position": "末尾"
+      }
+    },
+    {
+      "vars": {
+        "industry": "renovation",
+        "position": "开头"
+      }
+    },
+    {
+      "vars": {
+        "industry": "renovation",
+        "position": "中间"
+      }
+    },
+    {
+      "vars": {
+        "industry": "renovation",
+        "position": "末尾"
+      }
+    },
+    {
+      "vars": {
+        "industry": "shop",
+        "position": "开头"
+      }
+    },
+    {
+      "vars": {
+        "industry": "shop",
+        "position": "中间"
+      }
+    },
+    {
+      "vars": {
+        "industry": "shop",
+        "position": "末尾"
+      }
+    }
+  ]
+}

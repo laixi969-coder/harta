@@ -23,9 +23,16 @@ try {
   const imported=await prepareKeywordBatch([{name:'选型.csv',path:'选型.csv'}],{type:'产品品类',name:'厨房'},{modelReady:false});
   const library=realBatch?[realBatch,imported]:[imported];
   const products=['矮盒','高盒'].map((name,i)=>({id:'box'+i,name,customerId:'kitchen',source:name+'参数.pdf',facts:'容量：'+(i?'1.8':'1.0')+'升\n高度：'+(i?12:7)+'厘米',status:'active',revision:1}));
-  writeWorkspace(ADMIN_EMAIL,{seedVersion:999,usingId:'kitchen',customers:[{id:'kitchen',name:'厨房验收',hunt:'厨房收纳',track:'存量',keywordLibraries:library,drops:[{id:'old',tier:'今日',origin:{mode:'manual'},copies:{},shells:{小红书:[{title:'旧稿',body:'先想想。再看看。'}]}}]}],acquisition:{products,skus:[]}});
+  writeWorkspace(ADMIN_EMAIL,{seedVersion:999,usingId:'kitchen',customers:[{id:'kitchen',name:'厨房验收',hunt:'厨房收纳',track:'存量',keywordLibraries:library,drops:[{id:'old',tier:'今日',origin:{mode:'manual'},copies:{},shells:{小红书:[{title:'柜门安装范围',body:'先想想。再看看。'}]}}]}],acquisition:{products,skus:[],salesDocuments:[
+    {id:'installation',customerId:'kitchen',title:'安装条件',source:'技术手册',body:'材料记录。'.repeat(2200)+'柜门安装限木质板材，金属柜门另行核实。'+'材料记录。'.repeat(2200),status:'approved',revision:4},
+    {id:'obsolete',customerId:'kitchen',title:'早期价格',source:'旧文件',body:'柜门安装一律适用，已失效样本。',expiresAt:'2000-01-01',status:'approved',revision:2},
+  ]}});
   model=http.createServer(async(req,res)=>{
     let raw='';for await(const chunk of req)raw+=chunk;const prompt=JSON.parse(raw).messages.at(-1).content;
+    if(prompt.includes('逐篇核对输入内容')){
+      assert.ok(prompt.includes('柜门安装限木质板材')&&!prompt.includes('已失效样本'));
+      res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:JSON.stringify({approved:true,issues:[]})}}]}));return;
+    }
     assert.ok(prompt.includes('replacement')&&prompt.includes('先想想'));
     const issues=[['先想想','打开柜门'],['再看看','找到层板']].map(([quote,replacement])=>({field:'script',quote,replacement,reason:'需要一个可见动作',suggestion:'交代手部动作'}));
     res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:JSON.stringify({issues})}}]}));
@@ -44,7 +51,14 @@ try {
   const openLibrary=async()=>{await page.locator('[data-nav=content-home]').click();await page.getByRole('button',{name:'查看与制作',exact:true}).first().click();};
   await page.goto(origin,{waitUntil:'domcontentloaded'});await page.locator('#cm-workbench h1').waitFor();await openLibrary();
   const editor=page.locator('[data-production-mode]').first(),delivery=()=>editor.locator('[data-production-tab=delivery]').click();
-  await delivery();await editor.getByRole('button',{name:'AI 内容诊断'}).click();
+  await delivery();
+  await editor.getByRole('button',{name:'AI 核对事实依据'}).click();
+  const source=editor.getByText('查看本次核对使用的原文',{exact:true});
+  await source.waitFor();
+  assert.equal(await source.evaluate(n=>n.parentElement.open),false);
+  await source.focus();await page.keyboard.press('Enter');
+  assert.match(await editor.locator('[data-production-fact-review] blockquote').first().innerText(),/柜门安装限木质板材[\s\S]*版本 4/);
+  await editor.getByRole('button',{name:'AI 内容诊断'}).click();
   const take=editor.getByRole('button',{name:'采用到草稿'}),undo=editor.getByRole('button',{name:'撤回此处'});
   await take.first().waitFor();assert.equal(await take.count(),2);
   let notifySaved,release;const savedOnServer=new Promise(r=>{notifySaved=r;}),allowReply=new Promise(r=>{release=r;});
@@ -57,7 +71,7 @@ try {
   await page.waitForFunction(()=>document.querySelector('[name=production-script]')?.value==='先想想。找到层板。同步旁注');
   await script.fill('先想想。找到层板。');await delivery();await undo.waitFor();await take.click();
   await page.waitForFunction(()=>document.querySelector('[name=production-script]')?.value==='打开柜门。找到层板。');
-  await page.reload({waitUntil:'domcontentloaded'});await page.locator('#cm-workbench h1').waitFor();await openLibrary();await delivery();assert.equal(await undo.count(),2);
+  await page.reload({waitUntil:'domcontentloaded'});await page.locator('#cm-workbench h1').waitFor();await openLibrary();await delivery();assert.equal(await undo.count(),2);await editor.getByText('查看上次核对使用的原文',{exact:true}).waitFor();
   await undo.first().click();await page.waitForFunction(()=>document.querySelector('[name=production-script]')?.value==='先想想。找到层板。');
   await editor.locator('[data-production-tab=script]').click();await editor.locator('[name=production-script]').fill('旁注。先想想。找到层板。');await delivery();await undo.click();
   await page.waitForFunction(()=>document.querySelector('[name=production-script]')?.value==='旁注。先想想。再看看。');

@@ -19,8 +19,8 @@ export function carriedCsvMetrics(previous, incoming) {
 // metrics may only share a snapshot when the user supplies the same definition.
 export function csvCriteria(previous, incoming, carried, supplied) {
   const next=typeof supplied==='string'?supplied.trim():'',prior=previous?.criteria||'';
-  if(Object.hasOwn(incoming,'qualifiedLeads')) {
-    if(!next)throw new Error('填写有效线索的筛选与去重口径');
+  if(['qualifiedLeads','orders','revenue','refunds'].some(key=>Object.hasOwn(incoming,key))) {
+    if(!next)throw new Error(Object.hasOwn(incoming,'qualifiedLeads')?'填写有效线索的筛选与去重口径':'填写订单归因与退款口径');
     if(['qualifiedLeads','orders','revenue','refunds'].some(key=>Object.hasOwn(carried,key)) && prior!==next)throw new Error('沿用的客资或成交口径与新线索口径不同，请分别导入或使用相同口径');
     return next;
   }

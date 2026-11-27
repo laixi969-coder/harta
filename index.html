@@ -535,10 +535,22 @@
         </div>
         <details class="card form settings-section" id="account-costs">
           <summary>套餐与费用</summary>
-          <div class="acts"><a class="btn ghost" href="/pricing/" target="_blank" rel="noopener">查看价格与费用 ↗</a><button class="btn ghost" type="button" id="refresh-account-costs">刷新预留记录</button></div>
+          <div class="acts"><a class="btn ghost" href="/pricing/" target="_blank" rel="noopener">查看价格与费用 ↗</a><button class="btn ghost" type="button" id="refresh-account-costs">刷新用量与费用</button></div>
           <p>托管订阅与开通记录请向 Harta 管理员确认；资源费用按约定方式单独结算。</p>
           <div id="account-costs-body" role="status"></div>
-          <details class="ui-info"><summary aria-label="模型费用预留说明" title="模型费用预留说明"><span aria-hidden="true">ⓘ</span></summary><div>以下为模型调用前按保护上限预留的美元预算，不是已扣款账单或人民币消费。失败、重试也可能占用预留；数据源及其他工具费用未汇入此处。</div></details>
+          <details id="provider-statements"><summary>供应商账单</summary>
+            <div id="provider-statement-list"></div>
+            <form id="provider-statement-form">
+              <label>供应商<input name="provider" required maxlength="100"></label>
+              <label>账单编号<input name="reference" required maxlength="150"></label>
+              <label>账期结束日<input name="periodEnd" type="date" required></label>
+              <label>账单金额<input name="amount" type="number" step="0.01" min="0" required></label>
+              <label>币种<select name="currency"><option value="CNY">人民币</option><option value="USD">美元</option></select></label>
+              <div class="acts"><button type="submit" class="btn ghost">保存账单记录</button><button type="reset" class="btn ghost" hidden>取消更正</button></div>
+              <div role="status" data-statement-status></div>
+            </form>
+          </details>
+          <details class="ui-info"><summary aria-label="模型费用预留说明" title="模型费用预留说明"><span aria-hidden="true">ⓘ</span></summary><div>模型请求按保护上限预留预算，失败和重试也会占用。Token 取自供应商响应，估算需配置该模型的费率。实际扣款以供应商账单为准。</div></details>
         </details>
         <section class="card form settings-section" id="platform-data-settings" aria-label="平台数据源设置">
           <h2>平台数据源</h2>

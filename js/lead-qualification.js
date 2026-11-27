@@ -1,5 +1,6 @@
 import { isRealEvidence } from './evidence-kind.js';
-import { conversationHold, refusedContact, verifiedLeadSignal } from './contact-boundaries.js';
+import { blockedContactIdentities, contactIdentity, conversationHold, verifiedLeadSignal } from './contact-boundaries.js';
+export {contactIdentity} from './contact-boundaries.js';
 
 export const FIT = {unknown:'尚未核实', yes:'符合本业务条件', no:'已确认不适配'};
 export const NEED = {unknown:'尚未核实', exploring:'泛了解或长期储备', specific:'有具体需求'};
@@ -7,7 +8,7 @@ export const COMMITMENT = {none:'尚无约定', appointment:'确认预约或试�
 export const LEVEL = {A:'A 级', B:'B 级', C:'C 级', pending:'待核实', unfit:'不适配', service:'售后 / 人工服务', paused:'暂缓跟进', won:'已成交', closed:'已结束', blocked:'停止联系'};
 export const DEFAULT_POLICY = {
   fitCriteria:'客户的需求在本业务的产品、服务范围和交付条件内',
-  actions:['appointment','quote','order','brief'], reviewDays:30, revision:0
+  actions:['appointment','quote','order','brief'], effectiveCondition:'commitment', reviewDays:30, revision:0
 };
 const DAY = 86400000;
 const order = ['A','B','C','pending','service','paused','unfit','won','closed','blocked'];
@@ -65,10 +66,11 @@ export function qualificationDirectory(acquisition = {}, customerId, now = Date.
   }
   const policy = qualificationPolicy(acquisition, customerId);
   const contacts = new Map();
-  for (const lead of scoped('leads')) {
+  const leads=scoped('leads'), blockedIdentities=blockedContactIdentities(acquisition,customerId,leads,signals);
+  for (const lead of leads) {
     const linkedSignals = [...new Set(lead.signalIds || [])].map(id => signals.get(id)).filter(s => s && (!s.leadId || s.leadId === lead.id));
     const incoming = (lead.messages || []).filter(m => m.direction === 'inbound' && isRealEvidence(m));
-    const blocked = lead.doNotContact || refusedContact(lead, linkedSignals, incoming);
+    const blocked = blockedIdentities.has(contactIdentity(lead));
     const ops = opportunities.get(lead.id) || [];
     const scopes = (ops.length ? ops : [null]).map(op => {
       const refs = linkedSignals.filter(s => s.id && typeof s.text === 'string' && s.text.trim() && (!op || (op.signalIds || []).includes(s.id))).map(s => ({
@@ -121,6 +123,29 @@ export function qualificationDirectory(acquisition = {}, customerId, now = Date.
     contacts.set(lead.id,{lead,scopes,summary,blocked});
   }
   return {policy,contacts};
+}
+
+export function meetsEffectiveCondition(facts,policy) {
+  return Boolean(facts && !facts.cleared && facts.note?.trim() && facts.policyRevision === policy.revision
+    && facts.fit === 'yes' && facts.need === 'specific' && time(facts.observedAt)
+    && (policy.effectiveCondition === 'fit-need' || policy.actions.includes(facts.commitment)));
+}
+
+// The commercial stage records sales activity. Qualification requires current facts.
+export function effectiveContactDirectory(acquisition, customerId, now = Date.now()) {
+  const {policy, contacts} = qualificationDirectory(acquisition, customerId, now);
+  const effective = new Map();
+  for (const {lead,scopes} of contacts.values()) {
+    const key = contactIdentity(lead);
+    for (const scope of scopes) {
+      const facts = scope.assessment;
+      if (scope.review || !['A','B'].includes(scope.code) || !meetsEffectiveCondition(facts,policy)
+        || time(facts.observedAt) > now + 60000) continue;
+      if (!effective.has(key)) effective.set(key, []);
+      effective.get(key).push({lead,scope});
+    }
+  }
+  return {policy, contacts, effective};
 }
 
 export function gradeDistribution(contacts) {

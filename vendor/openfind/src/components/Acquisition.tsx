@@ -1,6 +1,7 @@
 import {useBusinessSearch} from '../business-search';
 import { acquisitionLimits } from '../../shared/collection-limits';
 import { parseWorkLinks } from '../../shared/work-links';
+import { BatchReview } from './BatchReview';
 import { QualificationComparison } from './QualificationComparison';
 import { AssessmentDetails } from './AssessmentDetails';
 import { CollectionBudget } from './CollectionBudget';
@@ -336,6 +337,7 @@ export function Acquisition() {
                 </div>
               ))}
             </div>
+            {flow.status==='completed' && flow.input.mode==='live' && <BatchReview key={flow.id} flowId={flow.id}/>}
             {flow.qualificationReview && <details className="workflow-details"><summary>复核明细</summary>
             {flow.qualificationReview?.comparison && (
               <QualificationComparison
