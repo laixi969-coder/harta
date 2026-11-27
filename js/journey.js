@@ -19,6 +19,6 @@ export function nextAction(customer, acquisition = {}, states = {}, now = new Da
   }).sort((a,b)=>(a.time||a.date).localeCompare(b.time||b.date))[0];
   if(planned?.kind==='post') return {title:`计划待发布：${planned.title}`,note:`计划日期 ${planned.date}；${planned.partial?'部分内容已安排，请核对整篇状态。':'确认内容后手动发布并登记实际链接。'}`,action:'open-pack',id:planned.packId,label:'查看作品'};
   if(planned?.kind==='live') return {title:`直播计划已到：${planned.title}`,note:'请核对是否已开播；如已开播，记录本场复盘。',action:'open-live',id:JSON.stringify([planned.packId,planned.platform,planned.index]),label:'查看直播'};
-  if (customer?.drops?.length) return {title:'继续你的内容获客',note:'查看成品并发布。',action:'go-content-home',label:'查看已有内容'};
-  return {title:'开始获客',note:'选择内容创作或查找需求。',action:'go-content-home',label:'开始内容获客'};
+  if (customer?.drops?.length) return {title:'继续你的内容获客',note:'查看成品并发布',action:'go-content-home',label:'查看已有内容'};
+  return {title:'开始获客',note:'选择内容创作或查找需求',action:'go-content-home',label:'开始内容获客'};
 }

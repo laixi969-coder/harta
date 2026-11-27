@@ -25,25 +25,25 @@ export function studioAcquisitionOverview(customer,acquisition={},contentStates=
   return `<p class="studio-evidence-scope">当前业务的已保存记录 <span>两路重叠 ${r.overlapContacts} 位 · 来源未明 ${r.paths.unknown.contacts} 位</span></p>
   <section class="studio-paths" aria-label="两条获客主线">
     <article class="studio-lane studio-lane-active">
-      <header><h2>主动截流</h2><span class="studio-path-symbol" aria-hidden="true">↗</span></header>
+      <header><h2>主动截流</h2><span class="studio-path-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span></header>
       <div class="studio-path-result"><strong>${r.paths.active.qualified}</strong><span>位当前有效联系人 · ${r.paths.active.contacted} 位有实际联系记录</span></div>
       <dl class="studio-path-stats"><div><dt>待核实需求</dt><dd>${r.pending}</dd></div><div><dt>已保存目标作品</dt><dd>${works.length}</dd></div><div><dt>待回复联系人</dt><dd>${r.paths.active.pendingReply}</dd></div></dl>
-      <div class="studio-demand-list"><h3>待核实的需求</h3>${signals.slice(0,2).map(s=>`<div class="studio-demand"><span>${esc(s.platform||'平台待核实')}</span><blockquote>${esc(String(s.text||'原文待补充').slice(0,140))}</blockquote><small>待核实${s.sourceType==='search_summary'?' · 搜索摘要，请先回源':''}</small></div>`).join('')||'<p class="studio-lane-empty">暂无待核实需求。</p>'}</div>
+      <div class="studio-demand-list"><h3>待核实的需求</h3>${signals.slice(0,2).map(s=>`<div class="studio-demand"><span>${esc(s.platform||'平台待核实')}</span><blockquote>${esc(String(s.text||'原文待补充').slice(0,140))}</blockquote><small>待核实${s.sourceType==='search_summary'?' · 搜索摘要，请先回源':''}</small></div>`).join('')||'<p class="studio-lane-empty">暂无待核实需求</p>'}</div>
       <footer>${action('go-prospecting','搜索作品与需求 <span aria-hidden="true">↗</span>','',true)}${action('import-needs','导入已有需求')}</footer>
     </article>
     <article class="studio-lane studio-lane-content">
-      <header><h2>内容创作</h2><span class="studio-path-symbol" aria-hidden="true">✳</span></header>
+      <header><h2>内容创作</h2><span class="studio-path-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span></header>
       ${outcome}
       <dl class="studio-path-stats"><div><dt>内容批次</dt><dd>${packs.length}</dd></div><div><dt>已登记发布</dt><dd>${r.published}</dd></div><div><dt>待回复联系人</dt><dd>${r.paths.content.pendingReply}</dd></div></dl>
-      <div class="studio-recent-works"><h3>继续制作</h3>${recent.map(p=>{const preview=studioPackPreview(id,p);return `<button type="button" class="studio-work" data-cm="open-pack" data-id="${esc(p.id)}">${preview.url?`<img src="${esc(preview.url)}" width="60" height="80" alt="${esc(preview.title)}的已保存素材">`:'<span class="studio-no-cover" aria-hidden="true">文稿</span>'}<span><strong>${esc(preview.title)}</strong><small>${esc(preview.platform||'平台待选择')}</small></span><span aria-hidden="true">↗</span></button>`;}).join('')||'<p class="studio-lane-empty">暂无作品。</p>'}</div>
-      <div class="studio-week-plan"><h3>本周内容安排</h3><p>${esc(scheduled?weeklyJobSuggestion(coverage):'本周暂无内容排期。')}</p>${action('calendar-home','查看排期')}</div>
+      <div class="studio-recent-works"><h3>继续制作</h3>${recent.map(p=>{const preview=studioPackPreview(id,p);return `<button type="button" class="studio-work" data-cm="open-pack" data-id="${esc(p.id)}">${preview.url?`<img src="${esc(preview.url)}" width="60" height="80" alt="${esc(preview.title)}的已保存素材">`:'<span class="studio-no-cover" aria-hidden="true">文稿</span>'}<span><strong>${esc(preview.title)}</strong><small>${esc(preview.platform||'平台待选择')}</small></span><span aria-hidden="true">↗</span></button>`;}).join('')||'<p class="studio-lane-empty">暂无作品</p>'}</div>
+      <div class="studio-week-plan"><h3>本周内容安排</h3><p>${esc(scheduled?weeklyJobSuggestion(coverage):'本周暂无内容排期')}</p>${action('calendar-home','查看排期')}</div>
       <footer>${action('go-content-home','创建内容 <span aria-hidden="true">↗</span>','',true)}${action('review-home',result?'查看账号复盘':'补录本期效果')}</footer>
     </article>
   </section>`;
 }
 export function studioCreationEntrances(){
   return `<section class="studio-creation-entries" aria-label="选择创作入口">
-    <button type="button" class="studio-entry" data-cm="content-feed"><span class="studio-entry-icon" aria-hidden="true">↗</span><span><strong>信息流内容创作</strong><small>付费投放 · 自然推荐 · 兼用</small></span><span aria-hidden="true">→</span></button>
-    <button type="button" class="studio-entry" data-cm="content-platform"><span class="studio-entry-icon" aria-hidden="true">▤</span><span><strong>小红书 / 抖音内容创作</strong></span><span aria-hidden="true">→</span></button>
+    <button type="button" class="studio-entry" data-cm="content-feed"><span class="studio-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span><span><strong>信息流内容创作</strong><small>付费投放 · 自然推荐 · 兼用</small></span><span aria-hidden="true">→</span></button>
+    <button type="button" class="studio-entry" data-cm="content-platform"><span class="studio-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span><span><strong>小红书 / 抖音内容创作</strong></span><span aria-hidden="true">→</span></button>
   </section>`;
 }
